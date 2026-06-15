@@ -36,7 +36,16 @@ pub struct AppState {
     pub sudo_password: Arc<Mutex<Option<String>>>,
     pub ssh_creds: Arc<Mutex<Option<SshCreds>>>,
     pub terminal_tx: Arc<Mutex<Option<mpsc::Sender<String>>>>,
+    pub terminal_cancel: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
     pub docker_log_cancel: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
+    pub docker_compose_cancel: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
+}
+
+fn stop_terminal_sessions(state: &AppState) {
+    if state.terminal_tx.lock().take().is_some() {}
+    if let Some(cancel) = state.terminal_cancel.lock().take() {
+        cancel.send(()).ok();
+    }
 }
 
 // Pomocnicza funkcja do pobierania ścieżki pliku profili
@@ -196,10 +205,7 @@ async fn disconnect_ssh(state: State<'_, AppState>) -> Result<(), String> {
     *state.sudo_password.lock() = None;
     
     // Zamknij terminal
-    let mut tx_guard = state.terminal_tx.lock();
-    if tx_guard.is_some() {
-        *tx_guard = None;
-    }
+    stop_terminal_sessions(&state);
 
     Ok(())
 }
@@ -333,28 +339,62 @@ async fn sftp_rename(state: State<'_, AppState>, src: String, dest: String) -> R
     conn.sftp_rename(&src, &dest).await
 }
 
+fn validate_shell(shell: &str) -> Result<(), String> {
+    if shell.is_empty() || shell.len() > 64 {
+        return Err("Nieprawidłowa powłoka".to_string());
+    }
+    if !shell.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '/')) {
+        return Err("Nieprawidłowa powłoka".to_string());
+    }
+    Ok(())
+}
+
+fn validate_container_id(id: &str) -> Result<(), String> {
+    if id.is_empty() || id.len() > 128 {
+        return Err("Nieprawidłowy identyfikator kontenera".to_string());
+    }
+    if !id.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '/')) {
+        return Err("Nieprawidłowy identyfikator kontenera".to_string());
+    }
+    Ok(())
+}
+
 // Terminal Commands
 #[tauri::command]
 async fn start_terminal(
     state: State<'_, AppState>,
     app_handle: AppHandle,
+    container_id: Option<String>,
+    use_sudo: Option<bool>,
+    shell: Option<String>,
 ) -> Result<(), String> {
-    // Zamknij poprzedni terminal jeśli istnieje
-    let mut tx_guard = state.terminal_tx.lock();
-    if tx_guard.is_some() {
-        *tx_guard = None;
+    let use_sudo = use_sudo.unwrap_or(false);
+    let shell = shell.unwrap_or_else(|| "/bin/sh".to_string());
+    let sudo_pass = if container_id.is_some() && use_sudo {
+        let sudo_pass_guard = state.sudo_password.lock();
+        Some(sudo_pass_guard.as_ref().ok_or("SUDO_PASSWORD_REQUIRED")?.clone())
+    } else {
+        None
+    };
+
+    if let Some(ref id) = container_id {
+        validate_container_id(id)?;
+        validate_shell(&shell)?;
     }
+
+    stop_terminal_sessions(&state);
 
     let creds_guard = state.ssh_creds.lock();
     let creds = creds_guard.as_ref().ok_or("Brak aktywnego połączenia SSH")?.clone();
 
-    // Utwórz nowy kanał komunikacyjny dla wejścia terminala
+    let (cancel_tx, mut cancel_rx) = tokio::sync::oneshot::channel::<()>();
+    *state.terminal_cancel.lock() = Some(cancel_tx);
+
     let (tx, mut rx) = mpsc::channel::<String>(100);
-    *tx_guard = Some(tx);
+    *state.terminal_tx.lock() = Some(tx);
 
     let app_handle_clone = app_handle.clone();
     
-    // Spawnowanie dedykowanego asynchronicznego zadania tokio
     tokio::spawn(async move {
         let run_terminal = async {
             let private_key_path = creds.private_key.as_ref().map(std::path::Path::new);
@@ -364,23 +404,53 @@ async fn start_terminal(
                 &creds.username,
                 creds.password.as_deref(),
                 private_key_path,
-                creds.passphrase.as_deref()
-            ).await?;
-            
-            let session = conn.session.lock().await;
-            let mut channel = session.channel_open_session().await
-                .map_err(|e| format!("Błąd kanału: {}", e))?;
-            
-            channel.request_pty(true, "xterm-256color", 80, 24, 0, 0, &[])
-                .await
-                .map_err(|e| format!("Błąd PTY: {}", e))?;
-            
-            channel.request_shell(true)
-                .await
-                .map_err(|e| format!("Błąd Shell: {}", e))?;
+                creds.passphrase.as_deref(),
+            )
+            .await?;
+
+            let mut channel = {
+                let session = conn.session.lock().await;
+                let channel = session
+                    .channel_open_session()
+                    .await
+                    .map_err(|e| format!("Błąd kanału: {}", e))?;
+
+                channel
+                    .request_pty(true, "xterm-256color", 80, 24, 0, 0, &[])
+                    .await
+                    .map_err(|e| format!("Błąd PTY: {}", e))?;
+
+                if let Some(ref id) = container_id {
+                    let docker_cmd = format!(
+                        "docker exec -it {} env TERM=xterm-256color {} -i",
+                        id, shell
+                    );
+                    let cmd = if use_sudo {
+                        if let Some(ref pass) = sudo_pass {
+                            format!("echo '{}' | sudo -S -- {}", pass, docker_cmd)
+                        } else {
+                            docker_cmd
+                        }
+                    } else {
+                        docker_cmd
+                    };
+
+                    channel
+                        .exec(true, cmd.as_bytes())
+                        .await
+                        .map_err(|e| format!("Błąd uruchomienia shella kontenera: {}", e))?;
+                } else {
+                    channel
+                        .request_shell(true)
+                        .await
+                        .map_err(|e| format!("Błąd Shell: {}", e))?;
+                }
+
+                channel
+            };
 
             let app_handle_read = app_handle_clone.clone();
-            
+
             loop {
                 tokio::select! {
                     msg = channel.wait() => {
@@ -396,16 +466,20 @@ async fn start_terminal(
                                 }
                             }
                             Some(russh::ChannelMsg::ExitStatus { exit_status }) => {
-                                app_handle_read.emit("terminal-stdout", format!("\r\n[Połączenie terminala zamknięte, kod: {}]\r\n", exit_status)).ok();
+                                app_handle_read.emit(
+                                    "terminal-stdout",
+                                    format!("\r\n[Połączenie terminala zamknięte, kod: {}]\r\n", exit_status),
+                                ).ok();
                                 break;
                             }
                             Some(russh::ChannelMsg::Eof) => {
-                                app_handle_read.emit("terminal-stdout", "\r\n[Połączenie terminala zamknięte]\r\n".to_string()).ok();
+                                app_handle_read.emit(
+                                    "terminal-stdout",
+                                    "\r\n[Połączenie terminala zamknięte]\r\n".to_string(),
+                                ).ok();
                                 break;
                             }
-                            None => {
-                                break;
-                            }
+                            None => break,
                             _ => {}
                         }
                     }
@@ -413,18 +487,22 @@ async fn start_terminal(
                         match input_opt {
                             Some(input_data) => {
                                 if let Err(e) = channel.data(input_data.as_bytes()).await {
-                                    app_handle_read.emit("terminal-stdout", format!("\r\n[Błąd zapisu do terminala: {}]\r\n", e)).ok();
+                                    app_handle_read.emit(
+                                        "terminal-stdout",
+                                        format!("\r\n[Błąd zapisu do terminala: {}]\r\n", e),
+                                    ).ok();
                                     break;
                                 }
                             }
-                            None => {
-                                break;
-                            }
+                            None => break,
                         }
+                    }
+                    _ = &mut cancel_rx => {
+                        break;
                     }
                 }
             }
-            
+
             Ok::<(), String>(())
         };
 
@@ -437,13 +515,17 @@ async fn start_terminal(
 }
 
 #[tauri::command]
+async fn stop_terminal(state: State<'_, AppState>) -> Result<(), String> {
+    stop_terminal_sessions(&state);
+    Ok(())
+}
+
+#[tauri::command]
 fn send_terminal_input(state: State<'_, AppState>, input: String) -> Result<(), String> {
     let tx_guard = state.terminal_tx.lock();
     if let Some(ref tx) = *tx_guard {
-        let tx = tx.clone();
-        tokio::spawn(async move {
-            tx.send(input).await.ok();
-        });
+        tx.try_send(input)
+            .map_err(|e| format!("Nie można wysłać danych do terminala: {}", e))?;
         Ok(())
     } else {
         Err("Terminal nie jest uruchomiony".to_string())
@@ -451,17 +533,47 @@ fn send_terminal_input(state: State<'_, AppState>, input: String) -> Result<(), 
 }
 
 #[tauri::command]
-fn open_external_terminal(app_handle: AppHandle, profile_id: String) -> Result<(), String> {
+fn open_external_terminal(
+    app_handle: AppHandle,
+    state: State<'_, AppState>,
+    profile_id: String,
+    container_id: Option<String>,
+    use_sudo: Option<bool>,
+    shell: Option<String>,
+) -> Result<(), String> {
     let profiles = get_profiles(app_handle)?;
     let profile = profiles.iter().find(|p| p.id == profile_id)
         .ok_or_else(|| "Profil nie istnieje".to_string())?;
+
+    let use_sudo = use_sudo.unwrap_or(false);
+    let shell = shell.unwrap_or_else(|| "/bin/sh".to_string());
+
+    let remote_cmd = if let Some(ref id) = container_id {
+        validate_container_id(id)?;
+        validate_shell(&shell)?;
+
+        let docker_cmd = format!(
+            "docker exec -it {} env TERM=xterm-256color {} -i",
+            id, shell
+        );
+
+        if use_sudo {
+            let sudo_pass = state.sudo_password.lock();
+            let pass = sudo_pass.as_ref().ok_or("SUDO_PASSWORD_REQUIRED")?;
+            format!("echo '{}' | sudo -S -- {}", pass, docker_cmd)
+        } else {
+            docker_cmd
+        }
+    } else {
+        String::new()
+    };
 
     // Sprawdź czy system to Windows
     #[cfg(target_os = "windows")]
     {
         use std::process::Command;
-        
-        let ssh_args = if profile.auth_type == "key" {
+
+        let mut ssh_args = if profile.auth_type == "key" {
             if let Some(ref key_path) = profile.key_path {
                 format!("ssh -i \"{}\" -p {} {}@{}", key_path, profile.port, profile.username, profile.host)
             } else {
@@ -470,6 +582,10 @@ fn open_external_terminal(app_handle: AppHandle, profile_id: String) -> Result<(
         } else {
             format!("ssh -p {} {}@{}", profile.port, profile.username, profile.host)
         };
+
+        if !remote_cmd.is_empty() {
+            ssh_args = format!("{} -t \"{}\"", ssh_args, remote_cmd);
+        }
 
         // Próbujemy otworzyć w Windows Terminal, a jeśli nie ma, to w cmd.exe
         let wt_res = Command::new("wt")
@@ -490,10 +606,10 @@ fn open_external_terminal(app_handle: AppHandle, profile_id: String) -> Result<(
                 .map_err(|e| format!("Nie można otworzyć terminala CMD: {}", e))?;
         }
     }
-    
+
     #[cfg(not(target_os = "windows"))]
     {
-        // Obsługa innych OS w razie czego (np. MacOS Terminal, Linux xterm)
+        let _ = (profile, remote_cmd);
         return Err("Zewnętrzny terminal jest wspierany obecnie na systemie Windows".to_string());
     }
 
@@ -619,6 +735,112 @@ async fn stop_container_logs(state: State<'_, AppState>) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+async fn start_compose_pull(
+    state: State<'_, AppState>,
+    app_handle: AppHandle,
+    config_file: String,
+    use_sudo: bool,
+) -> Result<(), String> {
+    // Cancel any existing compose pull stream
+    {
+        let mut cancel_guard = state.docker_compose_cancel.lock();
+        if let Some(tx) = cancel_guard.take() {
+            tx.send(()).ok();
+        }
+    }
+
+    let creds_guard = state.ssh_creds.lock();
+    let creds = creds_guard.as_ref().ok_or("Brak aktywnego połączenia SSH")?.clone();
+
+    let sudo_pass = if use_sudo {
+        let sudo_pass_guard = state.sudo_password.lock();
+        sudo_pass_guard.clone()
+    } else {
+        None
+    };
+
+    let (cancel_tx, mut cancel_rx) = tokio::sync::oneshot::channel::<()>();
+    *state.docker_compose_cancel.lock() = Some(cancel_tx);
+
+    let app = app_handle.clone();
+
+    tokio::spawn(async move {
+        let run_pull = async {
+            let private_key_path = creds.private_key.as_ref().map(std::path::Path::new);
+            let conn = SshConnection::connect(
+                &creds.host,
+                creds.port,
+                &creds.username,
+                creds.password.as_deref(),
+                private_key_path,
+                creds.passphrase.as_deref()
+            ).await?;
+
+            let session = conn.session.lock().await;
+            let mut channel = session.channel_open_session().await
+                .map_err(|e| format!("Błąd kanału: {}", e))?;
+
+            // docker compose outputs logs/progress to stderr by default
+            let cmd = if use_sudo {
+                if let Some(ref pass) = sudo_pass {
+                    format!("echo '{}' | sudo -S docker compose -f {} pull", pass, config_file)
+                } else {
+                    format!("docker compose -f {} pull", config_file)
+                }
+            } else {
+                format!("docker compose -f {} pull", config_file)
+            };
+
+            channel.exec(true, cmd.as_bytes()).await
+                .map_err(|e| format!("Błąd uruchomienia compose pull: {}", e))?;
+
+            loop {
+                tokio::select! {
+                    msg = channel.wait() => {
+                        match msg {
+                            Some(russh::ChannelMsg::Data { data }) => {
+                                let text = String::from_utf8_lossy(&data).to_string();
+                                app.emit("compose-pull-data", text).ok();
+                            }
+                            Some(russh::ChannelMsg::ExtendedData { data, ext }) => {
+                                if ext == 1 {
+                                    let text = String::from_utf8_lossy(&data).to_string();
+                                    app.emit("compose-pull-data", text).ok();
+                                }
+                            }
+                            Some(russh::ChannelMsg::Eof) | None => {
+                                break;
+                            }
+                            _ => {}
+                        }
+                    }
+                    _ = &mut cancel_rx => {
+                        break;
+                    }
+                }
+            }
+
+            Ok::<(), String>(())
+        };
+
+        if let Err(e) = run_pull.await {
+            app.emit("compose-pull-data", format!("\n[Błąd pobierania: {}]\n", e)).ok();
+        }
+    });
+
+    Ok(())
+}
+
+#[tauri::command]
+async fn stop_compose_pull(state: State<'_, AppState>) -> Result<(), String> {
+    let mut cancel_guard = state.docker_compose_cancel.lock();
+    if let Some(tx) = cancel_guard.take() {
+        tx.send(()).ok();
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -628,7 +850,9 @@ pub fn run() {
             sudo_password: Arc::new(Mutex::new(None)),
             ssh_creds: Arc::new(Mutex::new(None)),
             terminal_tx: Arc::new(Mutex::new(None)),
+            terminal_cancel: Arc::new(Mutex::new(None)),
             docker_log_cancel: Arc::new(Mutex::new(None)),
+            docker_compose_cancel: Arc::new(Mutex::new(None)),
         })
         .invoke_handler(tauri::generate_handler![
             get_profiles,
@@ -647,11 +871,14 @@ pub fn run() {
             sftp_delete,
             sftp_rename,
             start_terminal,
+            stop_terminal,
             send_terminal_input,
             open_external_terminal,
             start_container_logs,
             stop_container_logs,
-            sftp_get_home_dir
+            sftp_get_home_dir,
+            start_compose_pull,
+            stop_compose_pull
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

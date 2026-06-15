@@ -36,6 +36,7 @@
   let activeTab = $state('dashboard');
   let currentHostname = $state('Serwer');
   let currentProfileId = $state('');
+  let terminalContainerSession = $state<{ containerId: string; containerName: string; useSudo: boolean; shell: string } | null>(null);
 
   // Profile serwerów
   let profiles = $state<any[]>([]);
@@ -164,7 +165,14 @@
 <main class="app-container">
   {#if isConnected}
     <!-- GŁÓWNY WORKSPACE APILKACJI -->
-    <Sidebar bind:activeTab={activeTab} hostname={currentHostname} onDisconnect={handleDisconnect} />
+    <Sidebar
+      bind:activeTab={activeTab}
+      hostname={currentHostname}
+      onDisconnect={handleDisconnect}
+      onTabSelect={(tab: string) => {
+        if (tab === 'terminal') terminalContainerSession = null;
+      }}
+    />
     
     <div class="main-content">
       {#if activeTab === 'dashboard'}
@@ -177,7 +185,8 @@
             {:else if activeTab === 'services'}
               <ServicesManager />
             {:else if activeTab === 'docker'}
-              <DockerManager onRequestTerminalExec={(containerId) => {
+              <DockerManager onRequestTerminalExec={(session: { containerId: string; containerName: string; useSudo: boolean; shell: string }) => {
+                terminalContainerSession = session;
                 activeTab = 'terminal';
               }} />
             {:else if activeTab === 'cron'}
@@ -189,7 +198,11 @@
             {:else if activeTab === 'logs'}
               <LogViewer />
             {:else if activeTab === 'terminal'}
-              <TerminalView profileId={currentProfileId} />
+              <TerminalView
+                profileId={currentProfileId}
+                containerSession={terminalContainerSession}
+                onExitContainer={() => { terminalContainerSession = null; }}
+              />
             {/if}
           </div>
         {/key}

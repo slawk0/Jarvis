@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { FileText, Users, LogOut, RefreshCw, KeyRound, Play, Pause, Search } from 'lucide-svelte';
+  import { stickToBottom } from '$lib/stickToBottom';
 
   let activeSubTab = $state('logs'); // 'logs' | 'sessions'
   let isLoading = $state(false);
@@ -251,7 +252,7 @@
     </div>
 
     <!-- Podgląd Logów -->
-    <div class="log-display-container glass">
+    <div class="log-display-container glass" use:stickToBottom>
       <pre class="log-text"><code>{getFilteredLogs() || 'Ładowanie zawartości logu...'}</code></pre>
     </div>
   {:else}

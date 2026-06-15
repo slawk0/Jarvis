@@ -13,7 +13,7 @@
   } from 'lucide-svelte';
 
   // Svelte 5 props
-  let { activeTab = $bindable(), onDisconnect, hostname = 'Serwer' } = $props();
+  let { activeTab = $bindable(), onDisconnect, hostname = 'Serwer', onTabSelect = (_tab: string) => {} } = $props();
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -44,7 +44,7 @@
     {#each menuItems as item}
       <button 
         class="nav-item {activeTab === item.id ? 'active' : ''}" 
-        onclick={() => activeTab = item.id}
+        onclick={() => { onTabSelect(item.id); activeTab = item.id; }}
       >
         <item.icon size={18} class="nav-icon" />
         <span class="nav-label">{item.label}</span>

@@ -7,7 +7,22 @@
   import { Terminal as TerminalIcon, ExternalLink, RefreshCw } from 'lucide-svelte';
   import '@xterm/xterm/css/xterm.css';
 
-  let { profileId } = $props();
+  type ContainerSession = {
+    containerId: string;
+    containerName: string;
+    useSudo: boolean;
+    shell: string;
+  };
+
+  let {
+    profileId,
+    containerSession = null,
+    onExitContainer = () => {},
+  }: {
+    profileId: string;
+    containerSession?: ContainerSession | null;
+    onExitContainer?: () => void;
+  } = $props();
 
   let terminalContainer = $state<HTMLDivElement | null>(null);
   let term: any = null;
@@ -15,18 +30,26 @@
   let unsubscribeStdout: (() => void) | null = null;
   let isLoading = $state(false);
   let errorMsg = $state('');
+  let activeContainer = $state<ContainerSession | null>(null);
+
+  $effect(() => {
+    activeContainer = containerSession ?? null;
+  });
 
   async function initTerminal() {
     isLoading = true;
     errorMsg = '';
-    
+
     try {
-      // 1. Uruchom sesję w Rust
-      await invoke('start_terminal');
-      
-      // 2. Inicjalizacja xterm.js
+      await invoke('stop_terminal').catch(() => {});
+
+      if (unsubscribeStdout) {
+        unsubscribeStdout();
+        unsubscribeStdout = null;
+      }
       if (term) {
         term.dispose();
+        term = null;
       }
 
       term = new Xterm({
@@ -53,27 +76,36 @@
       term.open(terminalContainer!);
       fitAddon.fit();
 
-      // Przekazywanie wpisywanych znaków do Rusta
       term.onData((data: string) => {
         invoke('send_terminal_input', { input: data });
       });
 
-      // 3. Słuchaj strumienia stdout z Rusta
-      if (unsubscribeStdout) unsubscribeStdout();
       unsubscribeStdout = await listen<string>('terminal-stdout', (event) => {
         if (term) {
           term.write(event.payload);
         }
       });
 
-      // Małe powitanie
-      term.writeln('\x1b[1;33m[Jarvis SSH Terminal - Inicjalizacja...]\x1b[0m');
+      await invoke('start_terminal', {
+        containerId: activeContainer?.containerId ?? null,
+        useSudo: activeContainer?.useSudo ?? false,
+        shell: activeContainer?.shell ?? null,
+      });
 
-      // Obsługa zmiany rozmiaru okna
+      if (activeContainer) {
+        term.writeln(`\x1b[1;33m[Jarvis — shell kontenera: ${activeContainer.containerName}]\x1b[0m`);
+      } else {
+        term.writeln('\x1b[1;33m[Jarvis SSH Terminal — Inicjalizacja...]\x1b[0m');
+      }
+
       window.addEventListener('resize', handleResize);
-
     } catch (err: any) {
-      errorMsg = 'Nie udało się otworzyć terminala: ' + err.toString();
+      const errText = err.toString();
+      if (errText.includes('SUDO_PASSWORD_REQUIRED')) {
+        errorMsg = 'Wymagane hasło sudo — wróć do Dockera i podaj hasło, albo włącz dostęp bez sudo.';
+      } else {
+        errorMsg = 'Nie udało się otworzyć terminala: ' + errText;
+      }
     } finally {
       isLoading = false;
     }
@@ -87,13 +119,30 @@
 
   async function openExternal() {
     try {
-      await invoke('open_external_terminal', { profileId });
+      await invoke('open_external_terminal', {
+        profileId,
+        containerId: activeContainer?.containerId ?? null,
+        useSudo: activeContainer?.useSudo ?? false,
+        shell: activeContainer?.shell ?? null,
+      });
     } catch (err: any) {
-      errorMsg = 'Nie udało się otworzyć zewnętrznego terminala: ' + err.toString();
+      const errText = err.toString();
+      if (errText.includes('SUDO_PASSWORD_REQUIRED')) {
+        errorMsg = 'Wymagane hasło sudo — wróć do Dockera i podaj hasło, albo włącz dostęp bez sudo.';
+      } else {
+        errorMsg = 'Nie udało się otworzyć zewnętrznego terminala: ' + errText;
+      }
     }
   }
 
+  function switchToServerShell() {
+    activeContainer = null;
+    onExitContainer();
+    initTerminal();
+  }
+
   onMount(() => {
+    activeContainer = containerSession ?? null;
     initTerminal();
   });
 
@@ -105,29 +154,42 @@
       term.dispose();
     }
     window.removeEventListener('resize', handleResize);
+    invoke('stop_terminal').catch(() => {});
   });
 </script>
 
 <div class="terminal-view fade-in">
   <header class="term-header">
     <div class="title-area">
-      <h1>Konsola SSH</h1>
-      <p class="subtitle">Wbudowany terminal do bezpośredniej pracy na serwerze</p>
+      {#if activeContainer}
+        <h1>Shell kontenera</h1>
+        <p class="subtitle">
+          {activeContainer.containerName}
+          <span class="mono-val container-id">({activeContainer.shell})</span>
+        </p>
+      {:else}
+        <h1>Konsola SSH</h1>
+        <p class="subtitle">Wbudowany terminal do bezpośredniej pracy na serwerze</p>
+      {/if}
     </div>
     {#if errorMsg}
       <div class="error-badge">{errorMsg}</div>
     {/if}
     <div class="actions">
+      {#if activeContainer}
+        <button class="secondary" onclick={switchToServerShell} disabled={isLoading} title="Wróć do shella serwera">
+          <TerminalIcon size={16} /> Shell serwera
+        </button>
+      {/if}
       <button class="secondary" onclick={initTerminal} disabled={isLoading} title="Zrestartuj sesję">
         <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> Zrestartuj
       </button>
-      <button class="secondary" onclick={openExternal} title="Otwórz Windows Terminal">
+      <button class="secondary" onclick={openExternal} title={activeContainer ? 'Otwórz shell kontenera w Windows Terminal' : 'Otwórz Windows Terminal'}>
         <ExternalLink size={16} /> Zewnętrzny terminal
       </button>
     </div>
   </header>
 
-  <!-- Kontener xterm.js -->
   <div class="terminal-wrapper glass">
     <div bind:this={terminalContainer} class="terminal-element"></div>
   </div>
@@ -148,6 +210,8 @@
     justify-content: space-between;
     align-items: center;
     flex-shrink: 0;
+    gap: 16px;
+    flex-wrap: wrap;
   }
 
   .title-area h1 {
@@ -159,6 +223,14 @@
     color: var(--text-secondary);
     font-size: 0.85rem;
     margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .container-id {
+    color: var(--text-muted);
+    font-size: 0.78rem;
   }
 
   .error-badge {
@@ -173,9 +245,9 @@
   .actions {
     display: flex;
     gap: 10px;
+    flex-wrap: wrap;
   }
 
-  /* Wrapper terminala */
   .terminal-wrapper {
     flex: 1;
     border-radius: var(--radius-sm);
@@ -191,7 +263,6 @@
     height: 100%;
   }
 
-  /* Dostosowanie xterm container */
   :global(.xterm) {
     padding: 4px;
     height: 100%;

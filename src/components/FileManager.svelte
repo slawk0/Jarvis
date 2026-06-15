@@ -14,7 +14,8 @@
     X,
     FileCode,
     Download,
-    Upload
+    Upload,
+    KeyRound
   } from 'lucide-svelte';
 
   let currentPath = $state('');
@@ -37,7 +38,29 @@
   let showNewDirModal = $state(false);
   let showRenameModal = $state(false);
   let newItemName = $state('');
+  let uploadInput = $state<HTMLInputElement | null>(null);
   let selectedFile = $state<any>(null);
+
+  // Menu kontekstowe
+  let showContextMenu = $state(false);
+  let contextMenuX = $state(0);
+  let contextMenuY = $state(0);
+  let contextMenuFile = $state<any>(null);
+
+  // Modal uprawnień
+  let showPermModal = $state(false);
+  let permFile = $state<any>(null);
+  let permOwnerRead = $state(false);
+  let permOwnerWrite = $state(false);
+  let permOwnerExec = $state(false);
+  let permGroupRead = $state(false);
+  let permGroupWrite = $state(false);
+  let permGroupExec = $state(false);
+  let permOthersRead = $state(false);
+  let permOthersWrite = $state(false);
+  let permOthersExec = $state(false);
+  let permOctal = $state('644');
+  let permRecursive = $state(false);
 
   function formatBytes(bytes: number) {
     if (bytes === 0) return '0 B';
@@ -314,6 +337,111 @@
       }
     };
     reader.readAsText(file);
+    input.value = '';
+  }
+
+  function handleContextMenu(event: MouseEvent, file: any) {
+    event.preventDefault();
+    contextMenuFile = file;
+    contextMenuX = event.clientX;
+    contextMenuY = event.clientY;
+    showContextMenu = true;
+  }
+
+  function closeContextMenu() {
+    showContextMenu = false;
+  }
+
+  function updateOctalFromCheckboxes() {
+    let owner = (permOwnerRead ? 4 : 0) + (permOwnerWrite ? 2 : 0) + (permOwnerExec ? 1 : 0);
+    let group = (permGroupRead ? 4 : 0) + (permGroupWrite ? 2 : 0) + (permGroupExec ? 1 : 0);
+    let others = (permOthersRead ? 4 : 0) + (permOthersWrite ? 2 : 0) + (permOthersExec ? 1 : 0);
+    permOctal = `${owner}${group}${others}`;
+  }
+
+  function updateCheckboxesFromOctal(val: string) {
+    if (!val || val.length < 3) return;
+    const clean = val.slice(-3);
+    if (!/^[0-7]{3}$/.test(clean)) return;
+    const owner = parseInt(clean[0], 10);
+    const group = parseInt(clean[1], 10);
+    const others = parseInt(clean[2], 10);
+
+    permOwnerRead = (owner & 4) !== 0;
+    permOwnerWrite = (owner & 2) !== 0;
+    permOwnerExec = (owner & 1) !== 0;
+
+    permGroupRead = (group & 4) !== 0;
+    permGroupWrite = (group & 2) !== 0;
+    permGroupExec = (group & 1) !== 0;
+
+    permOthersRead = (others & 4) !== 0;
+    permOthersWrite = (others & 2) !== 0;
+    permOthersExec = (others & 1) !== 0;
+  }
+
+  function openPermissionsModal(file: any) {
+    permFile = file;
+    const initialPerm = file.permissions;
+    if (initialPerm !== null) {
+      const octVal = (initialPerm & 0o777).toString(8);
+      permOctal = octVal.padStart(3, '0');
+    } else {
+      permOctal = '644';
+    }
+    updateCheckboxesFromOctal(permOctal);
+    permRecursive = false;
+    showPermModal = true;
+    showContextMenu = false;
+  }
+
+  async function savePermissions() {
+    if (!permFile) return;
+    isLoading = true;
+    errorMsg = '';
+    const separator = lastLoadedPath.endsWith('/') ? '' : '/';
+    const filePath = `${lastLoadedPath}${separator}${permFile.name}`;
+    const escapedPath = "'" + filePath.replace(/'/g, "'\\''") + "'";
+    const recFlag = (permRecursive && permFile.is_dir) ? '-R ' : '';
+    const cmd = `chmod ${recFlag}${permOctal} ${escapedPath}`;
+
+    try {
+      await invoke('exec_custom_command', { cmd, useSudo: false });
+      showPermModal = false;
+      await loadDirectory();
+    } catch (err: any) {
+      const errStr = err.toString();
+      if (errStr.includes('SUDO_PASSWORD_REQUIRED') || errStr.toLowerCase().includes('permission denied')) {
+        try {
+          const hasSudo: boolean = await invoke('has_sudo_password');
+          if (hasSudo) {
+            await invoke('exec_custom_command', { cmd, useSudo: true });
+            showPermModal = false;
+            await loadDirectory();
+            isLoading = false;
+            return;
+          }
+        } catch { /* ignore */ }
+
+        const sudoPass = prompt('Wymagane hasło sudo do zmiany uprawnień:');
+        if (sudoPass) {
+          try {
+            await invoke('set_sudo_password', { password: sudoPass });
+            await invoke('exec_custom_command', { cmd, useSudo: true });
+            showPermModal = false;
+            await loadDirectory();
+          } catch (sudoErr: any) {
+            errorMsg = 'Błąd hasła sudo lub wykonania: ' + sudoErr.toString();
+          }
+        } else {
+          errorMsg = 'Błąd: wymagane hasło sudo';
+        }
+      } else {
+        errorMsg = 'Błąd zmiany uprawnień: ' + err.toString();
+      }
+    } finally {
+      isLoading = false;
+    }
   }
 
   onMount(async () => {
@@ -402,10 +530,10 @@
       </button>
       
       <div class="actions-group">
-        <label class="button secondary upload-btn">
+        <input bind:this={uploadInput} type="file" hidden onchange={handleUpload} />
+        <button class="secondary" onclick={() => uploadInput?.click()}>
           <Upload size={16} /> Wyślij plik
-          <input type="file" style="display:none" onchange={handleUpload} />
-        </label>
+        </button>
         <button class="secondary" onclick={() => showNewFileModal = true}>
           <Plus size={16} /> Nowy plik
         </button>
@@ -446,7 +574,7 @@
             {/if}
 
             {#each files as file}
-              <tr class={file.is_dir ? 'folder-row' : 'file-row'}>
+              <tr class={file.is_dir ? 'folder-row' : 'file-row'} oncontextmenu={(e) => handleContextMenu(e, file)}>
                 <td 
                   class="file-name-cell" 
                   onclick={() => file.is_dir ? handleFolderClick(file.name) : handleEditFile(file)}
@@ -497,6 +625,104 @@
       {/if}
     </div>
   {/if}
+</div>
+
+<svelte:window onclick={closeContextMenu} />
+
+  <!-- Menu Kontekstowe -->
+  {#if showContextMenu}
+    <div 
+      class="context-menu glass" 
+      style="top: {contextMenuY}px; left: {contextMenuX}px;"
+      onclick={(e) => e.stopPropagation()}
+    >
+      {#if !contextMenuFile.is_dir}
+        <button class="menu-item" onclick={() => { handleEditFile(contextMenuFile); closeContextMenu(); }}>
+          <Edit size={14} /> <span>Edytuj plik</span>
+        </button>
+        <button class="menu-item" onclick={() => { downloadFile(contextMenuFile); closeContextMenu(); }}>
+          <Download size={14} /> <span>Pobierz</span>
+        </button>
+      {/if}
+      <button class="menu-item" onclick={() => openPermissionsModal(contextMenuFile)}>
+        <KeyRound size={14} class="accent-amber-text" /> <span>Uprawnienia (chmod)</span>
+      </button>
+      <button class="menu-item" onclick={() => { 
+        selectedFile = contextMenuFile; 
+        newItemName = contextMenuFile.name; 
+        showRenameModal = true; 
+        closeContextMenu(); 
+      }}>
+        <CornerDownLeft size={14} /> <span>Zmień nazwę</span>
+      </button>
+      <hr class="menu-divider" />
+      <button class="menu-item danger-text" onclick={() => { deleteItem(contextMenuFile); closeContextMenu(); }}>
+        <Trash2 size={14} /> <span>Usuń</span>
+      </button>
+    </div>
+  {/if}
+
+  <!-- Modal Uprawnienia -->
+  {#if showPermModal}
+    <div class="modal-overlay">
+      <div class="modal-content glass perm-modal">
+        <h3>Uprawnienia dla: <span class="mono-val" style="color: var(--accent-amber);">{permFile?.name}</span></h3>
+        
+        <div class="perm-grid">
+          <div class="perm-col">
+            <h4>Właściciel</h4>
+            <label><input type="checkbox" bind:checked={permOwnerRead} onchange={updateOctalFromCheckboxes} /> Odczyt (r)</label>
+            <label><input type="checkbox" bind:checked={permOwnerWrite} onchange={updateOctalFromCheckboxes} /> Zapis (w)</label>
+            <label><input type="checkbox" bind:checked={permOwnerExec} onchange={updateOctalFromCheckboxes} /> Wykonanie (x)</label>
+          </div>
+          
+          <div class="perm-col">
+            <h4>Grupa</h4>
+            <label><input type="checkbox" bind:checked={permGroupRead} onchange={updateOctalFromCheckboxes} /> Odczyt (r)</label>
+            <label><input type="checkbox" bind:checked={permGroupWrite} onchange={updateOctalFromCheckboxes} /> Zapis (w)</label>
+            <label><input type="checkbox" bind:checked={permGroupExec} onchange={updateOctalFromCheckboxes} /> Wykonanie (x)</label>
+          </div>
+          
+          <div class="perm-col">
+            <h4>Inni</h4>
+            <label><input type="checkbox" bind:checked={permOthersRead} onchange={updateOctalFromCheckboxes} /> Odczyt (r)</label>
+            <label><input type="checkbox" bind:checked={permOthersWrite} onchange={updateOctalFromCheckboxes} /> Zapis (w)</label>
+            <label><input type="checkbox" bind:checked={permOthersExec} onchange={updateOctalFromCheckboxes} /> Wykonanie (x)</label>
+          </div>
+        </div>
+
+        <div class="form-group octal-group">
+          <label for="octal-input">Wartość oktalna</label>
+          <input 
+            id="octal-input"
+            type="text" 
+            maxlength="4" 
+            bind:value={permOctal} 
+            oninput={(e: any) => updateCheckboxesFromOctal(e.target.value)}
+            class="mono-val"
+          />
+        </div>
+
+        {#if permFile?.is_dir}
+          <label class="recursive-label">
+            <input type="checkbox" bind:checked={permRecursive} />
+            <span>Zastosuj rekurencyjnie (chmod -R)</span>
+          </label>
+        {/if}
+
+        <div class="modal-actions">
+          <button class="primary" onclick={savePermissions} disabled={isLoading}>
+            {#if isLoading}
+              <RefreshCw size={14} class="spin" /> Zapisywanie...
+            {:else}
+              Zapisz
+            {/if}
+          </button>
+          <button class="secondary" onclick={() => showPermModal = false}>Anuluj</button>
+        </div>
+      </div>
+    </div>
+  {/if}
 
   <!-- Modal Nowy Plik -->
   {#if showNewFileModal}
@@ -539,7 +765,6 @@
       </div>
     </div>
   {/if}
-</div>
 
 <style>
   .file-manager {
@@ -602,13 +827,6 @@
 
   .actions-group {
     display: flex;
-    gap: 8px;
-  }
-
-  .upload-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     gap: 8px;
   }
 
@@ -853,5 +1071,123 @@
     height: 14px;
     cursor: pointer;
     margin: 0;
+  }
+
+  /* Context Menu */
+  .context-menu {
+    position: fixed;
+    z-index: 1000;
+    min-width: 180px;
+    background: rgba(20, 20, 25, 0.85);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .menu-item {
+    background: transparent;
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    text-align: left;
+    transition: var(--transition-fast);
+    width: 100%;
+  }
+
+  .menu-item:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .menu-item.danger-text:hover {
+    background: var(--accent-red-glow) !important;
+    color: var(--accent-red) !important;
+  }
+
+  .menu-divider {
+    border: none;
+    border-top: 1px solid var(--border-color);
+    margin: 4px 0;
+  }
+
+  /* Permissions Modal */
+  .perm-modal {
+    width: 480px !important;
+  }
+
+  .perm-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin: 10px 0 20px 0;
+  }
+
+  .perm-col {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+  }
+
+  .perm-col h4 {
+    font-size: 0.85rem;
+    color: white;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 6px;
+  }
+
+  .perm-col label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+
+  .perm-col input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+  }
+
+  .octal-group {
+    margin-bottom: 16px;
+  }
+
+  .octal-group input {
+    width: 100px;
+    font-size: 1.1rem;
+    text-align: center;
+    letter-spacing: 0.1em;
+  }
+
+  .recursive-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    margin-bottom: 8px;
+  }
+
+  .recursive-label input {
+    width: 14px;
+    height: 14px;
   }
 </style>
