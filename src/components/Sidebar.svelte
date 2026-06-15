@@ -6,6 +6,7 @@
     Calendar, 
     Users, 
     Shield, 
+    ShieldAlert, 
     FileText, 
     Terminal,
     Box,
@@ -23,6 +24,7 @@
     { id: 'cron', label: 'Zadania (Cron)', icon: Calendar },
     { id: 'users', label: 'Użytkownicy', icon: Users },
     { id: 'firewall', label: 'Zapora (UFW)', icon: Shield },
+    { id: 'crowdsec', label: 'CrowdSec', icon: ShieldAlert },
     { id: 'logs', label: 'Logi', icon: FileText },
     { id: 'terminal', label: 'Terminal', icon: Terminal },
   ];

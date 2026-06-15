@@ -33,6 +33,7 @@
   import LogViewer from '../components/LogViewer.svelte';
   import TerminalView from '../components/TerminalView.svelte';
   import DockerManager from '../components/DockerManager.svelte';
+  import CrowdsecManager from '../components/CrowdsecManager.svelte';
 
   // Stany logowania i połączenia
   let isConnected = $state(false);
@@ -44,6 +45,11 @@
   let currentProfileId = $state('');
   let terminalContainerSession = $state<{ containerId: string; containerName: string; useSudo: boolean; shell: string } | null>(null);
   let tabHistory = $state<string[]>([]);
+  let visitedTabs = $state<Record<string, boolean>>({ dashboard: true });
+
+  $effect(() => {
+    visitedTabs[activeTab] = true;
+  });
 
   const TAB_LABELS: Record<string, string> = {
     dashboard: 'Dashboard',
@@ -194,6 +200,7 @@
       const stats = await invoke<any>('connect_ssh', { profileId });
       serverStats = stats;
       currentHostname = stats.hostname;
+      visitedTabs = { dashboard: true };
       isConnected = true;
       tabHistory = [];
       activeTab = 'dashboard';
@@ -214,6 +221,7 @@
       serverStats = null;
       currentHostname = 'Serwer';
       tabHistory = [];
+      visitedTabs = { dashboard: true };
     }
   }
 
@@ -274,37 +282,73 @@
     />
     
     <div class="main-content">
-      {#if activeTab === 'dashboard'}
-        <Dashboard initialStats={serverStats} />
-      {:else}
-        {#key activeTab}
-          <div class="tab-wrapper">
-            {#if activeTab === 'files'}
-              <FileManager />
-            {:else if activeTab === 'services'}
-              <ServicesManager />
-            {:else if activeTab === 'docker'}
-              <DockerManager onRequestTerminalExec={(session: { containerId: string; containerName: string; useSudo: boolean; shell: string }) => {
-                terminalContainerSession = session;
-                selectTab('terminal');
-              }} />
-            {:else if activeTab === 'cron'}
-              <CronManager />
-            {:else if activeTab === 'users'}
-              <UserManager />
-            {:else if activeTab === 'firewall'}
-              <FirewallManager />
-            {:else if activeTab === 'logs'}
-              <LogViewer />
-            {:else if activeTab === 'terminal'}
-              <TerminalView
-                profileId={currentProfileId}
-                containerSession={terminalContainerSession}
-                onExitContainer={() => { terminalContainerSession = null; }}
-              />
-            {/if}
-          </div>
-        {/key}
+      {#if visitedTabs['dashboard']}
+        <div class="tab-wrapper" class:hidden={activeTab !== 'dashboard'}>
+          <Dashboard initialStats={serverStats} />
+        </div>
+      {/if}
+
+      {#if visitedTabs['files']}
+        <div class="tab-wrapper" class:hidden={activeTab !== 'files'}>
+          <FileManager />
+        </div>
+      {/if}
+
+      {#if visitedTabs['services']}
+        <div class="tab-wrapper" class:hidden={activeTab !== 'services'}>
+          <ServicesManager />
+        </div>
+      {/if}
+
+      {#if visitedTabs['docker']}
+        <div class="tab-wrapper" class:hidden={activeTab !== 'docker'}>
+          <DockerManager onRequestTerminalExec={(session: { containerId: string; containerName: string; useSudo: boolean; shell: string }) => {
+            terminalContainerSession = session;
+            selectTab('terminal');
+          }} />
+        </div>
+      {/if}
+
+      {#if visitedTabs['cron']}
+        <div class="tab-wrapper" class:hidden={activeTab !== 'cron'}>
+          <CronManager />
+        </div>
+      {/if}
+
+      {#if visitedTabs['users']}
+        <div class="tab-wrapper" class:hidden={activeTab !== 'users'}>
+          <UserManager />
+        </div>
+      {/if}
+
+      {#if visitedTabs['firewall']}
+        <div class="tab-wrapper" class:hidden={activeTab !== 'firewall'}>
+          <FirewallManager />
+        </div>
+      {/if}
+
+      {#if visitedTabs['crowdsec']}
+        <div class="tab-wrapper" class:hidden={activeTab !== 'crowdsec'}>
+          <CrowdsecManager profileId={currentProfileId} />
+        </div>
+      {/if}
+
+      {#if visitedTabs['logs']}
+        <div class="tab-wrapper" class:hidden={activeTab !== 'logs'}>
+          <LogViewer />
+        </div>
+      {/if}
+
+      {#if visitedTabs['terminal']}
+        <div class="tab-wrapper" class:hidden={activeTab !== 'terminal'}>
+          {#key terminalContainerSession}
+            <TerminalView
+              profileId={currentProfileId}
+              containerSession={terminalContainerSession}
+              onExitContainer={() => { terminalContainerSession = null; }}
+            />
+          {/key}
+        </div>
       {/if}
     </div>
   {:else}
@@ -499,6 +543,10 @@
     height: 100%;
     width: 100%;
     overflow: hidden;
+  }
+
+  .tab-wrapper.hidden {
+    display: none !important;
   }
 
   /* Login screen styles */
