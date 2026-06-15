@@ -34,6 +34,7 @@
   import TerminalView from '../components/TerminalView.svelte';
   import DockerManager from '../components/DockerManager.svelte';
   import CrowdsecManager from '../components/CrowdsecManager.svelte';
+  import PangolinManager from '../components/PangolinManager.svelte';
 
   // Stany logowania i połączenia
   let isConnected = $state(false);
@@ -59,6 +60,8 @@
     cron: 'Cron',
     users: 'Użytkownicy',
     firewall: 'Zapora',
+    crowdsec: 'CrowdSec',
+    pangolin: 'Pangolin Proxy',
     logs: 'Logi',
     terminal: 'Terminal',
   };
@@ -330,6 +333,12 @@
       {#if visitedTabs['crowdsec']}
         <div class="tab-wrapper" class:hidden={activeTab !== 'crowdsec'}>
           <CrowdsecManager profileId={currentProfileId} />
+        </div>
+      {/if}
+
+      {#if visitedTabs['pangolin']}
+        <div class="tab-wrapper" class:hidden={activeTab !== 'pangolin'}>
+          <PangolinManager />
         </div>
       {/if}
 

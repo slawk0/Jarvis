@@ -10,6 +10,7 @@
     FileText, 
     Terminal,
     Box,
+    Globe,
     LogOut 
   } from 'lucide-svelte';
 
@@ -25,6 +26,7 @@
     { id: 'users', label: 'Użytkownicy', icon: Users },
     { id: 'firewall', label: 'Zapora (UFW)', icon: Shield },
     { id: 'crowdsec', label: 'CrowdSec', icon: ShieldAlert },
+    { id: 'pangolin', label: 'Pangolin Proxy', icon: Globe },
     { id: 'logs', label: 'Logi', icon: FileText },
     { id: 'terminal', label: 'Terminal', icon: Terminal },
   ];

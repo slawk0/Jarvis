@@ -2,6 +2,8 @@ mod ssh;
 mod sftp_transfer;
 mod du_size;
 mod sftp_find;
+mod pangolin;
+
 
 use parking_lot::Mutex;
 use std::sync::Arc;
@@ -1095,7 +1097,10 @@ pub fn run() {
             sftp_pick_files,
             sftp_pick_folder,
             start_compose_pull,
-            stop_compose_pull
+            stop_compose_pull,
+            pangolin::get_pangolin_config,
+            pangolin::save_pangolin_config,
+            pangolin::pangolin_api_request
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
