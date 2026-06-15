@@ -36,6 +36,7 @@ pub struct AppState {
     pub sudo_password: Arc<Mutex<Option<String>>>,
     pub ssh_creds: Arc<Mutex<Option<SshCreds>>>,
     pub terminal_tx: Arc<Mutex<Option<mpsc::Sender<String>>>>,
+    pub docker_log_cancel: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
 }
 
 // Pomocnicza funkcja do pobierania ścieżki pliku profili
@@ -511,6 +512,113 @@ async fn sftp_get_home_dir(state: State<'_, AppState>) -> Result<String, String>
     Ok(path)
 }
 
+#[tauri::command]
+async fn start_container_logs(
+    state: State<'_, AppState>,
+    app_handle: AppHandle,
+    container_id: String,
+    tail: Option<u32>,
+    use_sudo: bool,
+) -> Result<(), String> {
+    // Cancel any existing log stream
+    {
+        let mut cancel_guard = state.docker_log_cancel.lock();
+        if let Some(tx) = cancel_guard.take() {
+            tx.send(()).ok();
+        }
+    }
+
+    let creds_guard = state.ssh_creds.lock();
+    let creds = creds_guard.as_ref().ok_or("Brak aktywnego połączenia SSH")?.clone();
+
+    let sudo_pass = if use_sudo {
+        let sudo_pass_guard = state.sudo_password.lock();
+        sudo_pass_guard.clone()
+    } else {
+        None
+    };
+
+    let (cancel_tx, mut cancel_rx) = tokio::sync::oneshot::channel::<()>();
+    *state.docker_log_cancel.lock() = Some(cancel_tx);
+
+    let tail_num = tail.unwrap_or(200);
+    let app = app_handle.clone();
+
+    tokio::spawn(async move {
+        let run_logs = async {
+            let private_key_path = creds.private_key.as_ref().map(std::path::Path::new);
+            let conn = SshConnection::connect(
+                &creds.host,
+                creds.port,
+                &creds.username,
+                creds.password.as_deref(),
+                private_key_path,
+                creds.passphrase.as_deref()
+            ).await?;
+
+            let session = conn.session.lock().await;
+            let mut channel = session.channel_open_session().await
+                .map_err(|e| format!("Błąd kanału: {}", e))?;
+
+            let cmd = if use_sudo {
+                if let Some(ref pass) = sudo_pass {
+                    format!("echo '{}' | sudo -S docker logs -f --tail {} {}", pass, tail_num, container_id)
+                } else {
+                    format!("docker logs -f --tail {} {}", tail_num, container_id)
+                }
+            } else {
+                format!("docker logs -f --tail {} {}", tail_num, container_id)
+            };
+
+            channel.exec(true, cmd.as_bytes()).await
+                .map_err(|e| format!("Błąd uruchomienia docker logs: {}", e))?;
+
+            loop {
+                tokio::select! {
+                    msg = channel.wait() => {
+                        match msg {
+                            Some(russh::ChannelMsg::Data { data }) => {
+                                let text = String::from_utf8_lossy(&data).to_string();
+                                app.emit("docker-log-data", text).ok();
+                            }
+                            Some(russh::ChannelMsg::ExtendedData { data, ext }) => {
+                                if ext == 1 {
+                                    let text = String::from_utf8_lossy(&data).to_string();
+                                    app.emit("docker-log-data", text).ok();
+                                }
+                            }
+                            Some(russh::ChannelMsg::Eof) | None => {
+                                break;
+                            }
+                            _ => {}
+                        }
+                    }
+                    _ = &mut cancel_rx => {
+                        break;
+                    }
+                }
+            }
+
+            Ok::<(), String>(())
+        };
+
+        if let Err(e) = run_logs.await {
+            app.emit("docker-log-data", format!("\n[Błąd strumienia logów: {}]\n", e)).ok();
+        }
+    });
+
+    Ok(())
+}
+
+#[tauri::command]
+async fn stop_container_logs(state: State<'_, AppState>) -> Result<(), String> {
+    let mut cancel_guard = state.docker_log_cancel.lock();
+    if let Some(tx) = cancel_guard.take() {
+        tx.send(()).ok();
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -520,6 +628,7 @@ pub fn run() {
             sudo_password: Arc::new(Mutex::new(None)),
             ssh_creds: Arc::new(Mutex::new(None)),
             terminal_tx: Arc::new(Mutex::new(None)),
+            docker_log_cancel: Arc::new(Mutex::new(None)),
         })
         .invoke_handler(tauri::generate_handler![
             get_profiles,
@@ -540,6 +649,8 @@ pub fn run() {
             start_terminal,
             send_terminal_input,
             open_external_terminal,
+            start_container_logs,
+            stop_container_logs,
             sftp_get_home_dir
         ])
         .run(tauri::generate_context!())

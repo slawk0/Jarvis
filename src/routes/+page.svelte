@@ -26,6 +26,7 @@
   import FirewallManager from '../components/FirewallManager.svelte';
   import LogViewer from '../components/LogViewer.svelte';
   import TerminalView from '../components/TerminalView.svelte';
+  import DockerManager from '../components/DockerManager.svelte';
 
   // Stany logowania i połączenia
   let isConnected = $state(false);
@@ -175,6 +176,10 @@
               <FileManager />
             {:else if activeTab === 'services'}
               <ServicesManager />
+            {:else if activeTab === 'docker'}
+              <DockerManager onRequestTerminalExec={(containerId) => {
+                activeTab = 'terminal';
+              }} />
             {:else if activeTab === 'cron'}
               <CronManager />
             {:else if activeTab === 'users'}

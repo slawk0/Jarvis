@@ -7,7 +7,8 @@
     Users, 
     Shield, 
     FileText, 
-    Terminal, 
+    Terminal,
+    Box,
     LogOut 
   } from 'lucide-svelte';
 
@@ -18,6 +19,7 @@
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'files', label: 'Pliki (SFTP)', icon: FolderClosed },
     { id: 'services', label: 'Usługi (Systemd)', icon: Settings },
+    { id: 'docker', label: 'Docker', icon: Box },
     { id: 'cron', label: 'Zadania (Cron)', icon: Calendar },
     { id: 'users', label: 'Użytkownicy', icon: Users },
     { id: 'firewall', label: 'Zapora (UFW)', icon: Shield },
