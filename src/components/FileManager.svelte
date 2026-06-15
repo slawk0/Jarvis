@@ -351,6 +351,27 @@
 </script>
 
 <div class="file-manager manager-shell fade-in">
+  <div class="browser-layer" class:hidden={!!editingFile}>
+    {#if errorMsg}
+      <div class="error-badge">{errorMsg}</div>
+    {/if}
+
+    <SftpFileBrowser
+      bind:this={browserRef}
+      onEdit={handleEdit}
+      onChmod={openPermissionsModal}
+      onRename={(file) => {
+        selectedFile = file;
+        newItemName = file.name;
+        showRenameModal = true;
+      }}
+      onNewFile={() => (showNewFileModal = true)}
+      onNewDir={() => (showNewDirModal = true)}
+      onError={(msg) => (errorMsg = msg)}
+      onPathChange={(p) => (browserPath = p)}
+    />
+  </div>
+
   {#if editingFile}
     <div class="editor-view">
       <header class="editor-header">
@@ -383,25 +404,6 @@
       </header>
       <div bind:this={editorElement} class="editor-container"></div>
     </div>
-  {:else}
-    {#if errorMsg}
-      <div class="error-badge">{errorMsg}</div>
-    {/if}
-
-    <SftpFileBrowser
-      bind:this={browserRef}
-      onEdit={handleEdit}
-      onChmod={openPermissionsModal}
-      onRename={(file) => {
-        selectedFile = file;
-        newItemName = file.name;
-        showRenameModal = true;
-      }}
-      onNewFile={() => (showNewFileModal = true)}
-      onNewDir={() => (showNewDirModal = true)}
-      onError={(msg) => (errorMsg = msg)}
-      onPathChange={(p) => (browserPath = p)}
-    />
   {/if}
 </div>
 
@@ -498,6 +500,26 @@
 {/if}
 
 <style>
+  .file-manager {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+  }
+
+  .browser-layer {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+  }
+
+  .browser-layer.hidden {
+    display: none;
+  }
+
   .error-badge {
     flex-shrink: 0;
     background: var(--accent-red-glow);
@@ -510,10 +532,14 @@
   }
 
   .editor-view {
+    position: absolute;
+    inset: 0;
     display: flex;
     flex-direction: column;
     height: 100%;
     width: 100%;
+    background: var(--bg-primary, #0f1117);
+    z-index: 1;
   }
 
   .editor-header {
