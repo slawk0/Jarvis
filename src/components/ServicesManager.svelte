@@ -218,17 +218,17 @@ WantedBy=multi-user.target
       <table class="services-table">
         <thead>
           <tr>
-            <th width="25%">Nazwa Usługi</th>
-            <th width="12%">Stan Wczytania</th>
-            <th width="12%">Status</th>
-            <th width="31%">Opis</th>
-            <th width="20%" style="text-align: right;">Sterowanie</th>
+            <th style="width: 25%;">Nazwa Usługi</th>
+            <th style="width: 12%;">Stan Wczytania</th>
+            <th style="width: 12%;">Status</th>
+            <th style="width: 31%;">Opis</th>
+            <th style="width: 20%; text-align: right;">Sterowanie</th>
           </tr>
         </thead>
         <tbody>
           {#each filteredServices as service}
             <tr>
-              <td class="service-name-cell">
+              <td class="service-name-cell mono-val">
                 <strong>{service.name}</strong>
               </td>
               <td>
@@ -274,7 +274,7 @@ WantedBy=multi-user.target
     <div class="modal-overlay">
       <div class="modal-content glass">
         <div class="modal-header-icon">
-          <KeyRound size={32} class="accent-purple-text" />
+          <KeyRound size={32} class="accent-amber-text" />
         </div>
         <h3>Wymagane uwierzytelnienie Sudo</h3>
         <p class="modal-desc">Ta operacja wymaga uprawnień roota. Wprowadź swoje hasło użytkownika (sudo):</p>
@@ -417,7 +417,7 @@ WantedBy=multi-user.target
     letter-spacing: 0.05em;
     position: sticky;
     top: 0;
-    background: #0d121f;
+    background: var(--bg-secondary);
     z-index: 1;
   }
 

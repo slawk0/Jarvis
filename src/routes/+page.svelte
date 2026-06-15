@@ -105,7 +105,7 @@
     currentProfileId = profileId;
     
     try {
-      const stats = await invoke('connect_ssh', { profileId });
+      const stats = await invoke<any>('connect_ssh', { profileId });
       serverStats = stats;
       currentHostname = stats.hostname;
       isConnected = true;
@@ -294,7 +294,7 @@
                   </div>
                   <div class="profile-card-right">
                     {#if isConnecting && currentProfileId === profile.id}
-                      <Loader2 class="spin accent-blue-text" size={18} />
+                      <Loader2 class="spin accent-amber-text" size={18} />
                     {:else}
                       <button class="icon-btn-card" onclick={(e) => editProfile(profile, e)} title="Edytuj">
                         <Settings size={14} />
@@ -340,7 +340,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: #05070c;
+    background-color: var(--bg-primary);
     overflow: hidden;
   }
 
@@ -348,7 +348,7 @@
     position: absolute;
     width: 600px;
     height: 600px;
-    background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.05) 50%, rgba(0,0,0,0) 100%);
+    background: radial-gradient(circle, rgba(245, 158, 11, 0.08) 0%, rgba(194, 65, 12, 0.02) 50%, rgba(0,0,0,0) 100%);
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
@@ -359,8 +359,9 @@
   .login-container {
     width: 460px;
     padding: 40px;
-    border-radius: var(--radius-lg);
-    background: rgba(18, 24, 38, 0.55);
+    border-radius: var(--radius-md);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
     z-index: 1;
     max-height: 90vh;
     overflow-y: auto;
@@ -377,16 +378,16 @@
   .logo-box {
     width: 48px;
     height: 48px;
-    border-radius: 12px;
-    background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
-    color: white;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, var(--accent-amber), var(--accent-rust));
+    color: #0c0d12;
     font-weight: 800;
     font-size: 1.5rem;
     font-family: var(--font-display);
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 0 20px rgba(0, 210, 255, 0.4);
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
     margin-bottom: 16px;
   }
 
@@ -405,10 +406,10 @@
 
   .login-error {
     background: var(--accent-red-glow);
-    border: 1px solid rgba(244, 63, 94, 0.3);
+    border: 1px solid rgba(239, 68, 68, 0.3);
     border-radius: var(--radius-sm);
     padding: 12px;
-    color: #ff8595;
+    color: #ff8585;
     font-size: 0.85rem;
     margin-bottom: 24px;
     display: flex;
@@ -444,10 +445,10 @@
   }
 
   .profile-card {
-    background: rgba(255, 255, 255, 0.02);
+    background: rgba(255, 255, 255, 0.01);
     border: 1px solid var(--border-color);
     padding: 16px;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-sm);
     width: 100%;
     display: flex;
     align-items: center;
@@ -458,9 +459,9 @@
   }
 
   .profile-card:hover {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.15);
-    transform: translateY(-2px);
+    background: var(--bg-hover);
+    border-color: rgba(245, 158, 11, 0.2);
+    transform: translateY(-1px);
   }
 
   .profile-card:active {
@@ -468,8 +469,8 @@
   }
 
   .profile-card.connecting {
-    background: rgba(59, 130, 246, 0.05);
-    border-color: var(--accent-blue);
+    background: var(--bg-active);
+    border-color: var(--accent-amber);
     cursor: not-allowed;
   }
 
@@ -480,7 +481,7 @@
   }
 
   .server-icon-box {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.03);
     padding: 10px;
     border-radius: var(--radius-sm);
     color: var(--text-secondary);
@@ -488,9 +489,9 @@
   }
 
   .profile-card:hover .server-icon-box {
-    color: var(--accent-blue);
-    background: rgba(0, 210, 255, 0.08);
-    border-color: rgba(0, 210, 255, 0.2);
+    color: var(--accent-amber);
+    background: rgba(245, 158, 11, 0.08);
+    border-color: rgba(245, 158, 11, 0.2);
   }
 
   .profile-card-info {

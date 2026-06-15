@@ -31,19 +31,19 @@
 
       term = new Xterm({
         cursorBlink: true,
-        fontFamily: 'Consolas, "Courier New", monospace',
+        fontFamily: '"JetBrains Mono", Consolas, monospace',
         fontSize: 14,
         theme: {
-          background: '#07090f',
-          foreground: '#f3f4f6',
-          cursor: '#00d2ff',
+          background: '#07080a',
+          foreground: '#e2e4e9',
+          cursor: '#f59e0b',
           black: '#000000',
-          red: '#f43f5e',
+          red: '#ef4444',
           green: '#10b981',
           yellow: '#f59e0b',
-          blue: '#3b82f6',
-          magenta: '#a855f7',
-          cyan: '#00d2ff',
+          blue: '#d97706',
+          magenta: '#c2410c',
+          cyan: '#f59e0b',
           white: '#ffffff',
         }
       });
@@ -55,7 +55,7 @@
 
       // Przekazywanie wpisywanych znaków do Rusta
       term.onData((data: string) => {
-        invoke('send_terminal_input', { input: data }).ok;
+        invoke('send_terminal_input', { input: data });
       });
 
       // 3. Słuchaj strumienia stdout z Rusta
@@ -67,7 +67,7 @@
       });
 
       // Małe powitanie
-      term.writeln('\x1b[1;36m[Jarvis SSH Terminal - Inicjalizacja...]\x1b[0m');
+      term.writeln('\x1b[1;33m[Jarvis SSH Terminal - Inicjalizacja...]\x1b[0m');
 
       // Obsługa zmiany rozmiaru okna
       window.addEventListener('resize', handleResize);
@@ -135,10 +135,10 @@
 
 <style>
   .terminal-view {
-    padding: 30px;
+    padding: 24px;
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 20px;
     height: 100%;
     overflow: hidden;
   }
@@ -151,13 +151,13 @@
   }
 
   .title-area h1 {
-    font-size: 2rem;
+    font-size: 1.6rem;
     color: white;
   }
 
   .subtitle {
     color: var(--text-secondary);
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     margin-top: 4px;
   }
 
@@ -178,9 +178,9 @@
   /* Wrapper terminala */
   .terminal-wrapper {
     flex: 1;
-    border-radius: var(--radius-md);
-    background: #07090f;
-    padding: 16px;
+    border-radius: var(--radius-sm);
+    background: #07080a;
+    padding: 12px;
     border: 1px solid var(--border-color);
     overflow: hidden;
     display: flex;
@@ -198,7 +198,7 @@
   }
 
   :global(.xterm-viewport) {
-    background-color: #07090f !important;
+    background-color: #07080a !important;
   }
 
   .spin {

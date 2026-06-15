@@ -213,24 +213,24 @@
       <table class="rules-table">
         <thead>
           <tr>
-            <th width="10%">Nr</th>
-            <th width="25%">Port / Usługa</th>
-            <th width="20%">Akcja</th>
-            <th width="25%">Z adresu IP</th>
-            <th width="20%" style="text-align: right;">Usuń</th>
+            <th style="width: 10%;">Nr</th>
+            <th style="width: 25%;">Port / Usługa</th>
+            <th style="width: 20%;">Akcja</th>
+            <th style="width: 25%;">Z adresu IP</th>
+            <th style="width: 20%; text-align: right;">Usuń</th>
           </tr>
         </thead>
         <tbody>
           {#each rules as rule}
             <tr>
-              <td><span class="badge warning">{rule.num}</span></td>
-              <td><strong>{rule.to}</strong></td>
+              <td><span class="badge warning mono-val">{rule.num}</span></td>
+              <td class="mono-val"><strong>{rule.to}</strong></td>
               <td>
                 <span class="badge {rule.action.toUpperCase() === 'ALLOW' ? 'success' : 'danger'}">
                   {rule.action}
                 </span>
               </td>
-              <td><code>{rule.from}</code></td>
+              <td class="mono-val"><code>{rule.from}</code></td>
               <td class="actions-cell">
                 <button class="btn-table danger-text" onclick={() => deleteRule(rule.num)} title="Usuń regułę">
                   <Trash2 size={14} />
@@ -254,7 +254,7 @@
     <div class="modal-overlay">
       <div class="modal-content glass">
         <div class="modal-header-icon">
-          <KeyRound size={32} class="accent-purple-text" />
+          <KeyRound size={32} class="accent-amber-text" />
         </div>
         <h3>Wymagane uwierzytelnienie Sudo</h3>
         <p class="modal-desc">Ta operacja wymaga uprawnień roota. Wprowadź swoje hasło użytkownika (sudo):</p>
@@ -448,7 +448,7 @@
     letter-spacing: 0.05em;
     position: sticky;
     top: 0;
-    background: #0d121f;
+    background: var(--bg-secondary);
     z-index: 1;
   }
 

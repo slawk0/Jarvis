@@ -146,7 +146,7 @@
               theme: 'vs-dark',
               automaticLayout: true,
               fontSize: 14,
-              fontFamily: 'Consolas, "Courier New", monospace',
+              fontFamily: '"JetBrains Mono", Consolas, monospace',
               minimap: { enabled: false },
             });
 
@@ -345,9 +345,9 @@
     <div class="editor-view">
       <header class="editor-header">
         <div class="editor-title">
-          <FileCode size={18} class="accent-blue-text" />
+          <FileCode size={18} class="accent-amber-text" />
           <span>Edytujesz: <strong>{editingFile.split('/').pop()}</strong></span>
-          <span class="path-badge">{editingFile}</span>
+          <span class="path-badge mono-val">{editingFile}</span>
           
           {#if editorSaveStatus === 'saved'}
             <span class="save-status-badge saved">● Zapisano</span>
@@ -393,7 +393,7 @@
       </button>
       <input 
         type="text" 
-        class="path-input" 
+        class="path-input mono-val" 
         bind:value={currentPath} 
         onkeydown={(e) => e.key === 'Enter' && loadDirectory()} 
       />
@@ -426,10 +426,10 @@
         <table class="files-table">
           <thead>
             <tr>
-              <th width="40%">Nazwa</th>
-              <th width="15%">Rozmiar</th>
-              <th width="15%">Uprawnienia</th>
-              <th width="30%" style="text-align: right;">Akcje</th>
+              <th style="width: 40%;">Nazwa</th>
+              <th style="width: 15%;">Rozmiar</th>
+              <th style="width: 15%;">Uprawnienia</th>
+              <th style="width: 30%; text-align: right;">Akcje</th>
             </tr>
           </thead>
           <tbody>
@@ -458,7 +458,7 @@
                   {/if}
                   <span>{file.name}</span>
                 </td>
-                <td>{file.is_dir ? '--' : formatBytes(file.size)}</td>
+                <td class="mono-val">{file.is_dir ? '--' : formatBytes(file.size)}</td>
                 <td><span class="badge warning">{formatPermissions(file.permissions)}</span></td>
                 <td class="actions-cell">
                   {#if !file.is_dir}
@@ -596,8 +596,8 @@
 
   .path-input {
     flex: 1;
-    font-family: Consolas, monospace;
-    font-size: 0.9rem;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
   }
 
   .actions-group {
@@ -638,7 +638,7 @@
     letter-spacing: 0.05em;
     position: sticky;
     top: 0;
-    background: #0d121f;
+    background: var(--bg-secondary);
     z-index: 1;
   }
 
@@ -651,7 +651,7 @@
   }
 
   .folder-row:hover {
-    background: rgba(59, 130, 246, 0.06);
+    background: var(--bg-hover);
   }
 
   .file-row:hover {
@@ -667,7 +667,7 @@
   }
 
   .folder-icon {
-    color: var(--accent-blue);
+    color: var(--accent-amber);
   }
 
   .file-icon {
@@ -796,7 +796,7 @@
     border: 1px solid var(--border-color);
     padding: 4px 10px;
     border-radius: 4px;
-    font-family: Consolas, monospace;
+    font-family: var(--font-mono);
     font-size: 0.8rem;
     color: var(--text-secondary);
   }
@@ -826,12 +826,12 @@
     background: rgba(16, 185, 129, 0.1);
   }
   .save-status-badge.saving {
-    color: #3b82f6;
-    background: rgba(59, 130, 246, 0.1);
+    color: var(--accent-amber);
+    background: var(--accent-amber-glow);
   }
   .save-status-badge.dirty {
-    color: #f59e0b;
-    background: rgba(245, 158, 11, 0.1);
+    color: var(--accent-rust);
+    background: var(--accent-rust-glow);
   }
   .save-status-badge.error {
     color: #ef4444;

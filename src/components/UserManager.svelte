@@ -309,9 +309,9 @@
         <table class="users-table">
           <thead>
             <tr>
-              <th width="30%">Nazwa (UID)</th>
-              <th width="35%">Katalog Domowy & Powłoka</th>
-              <th width="35%" style="text-align: right;">Akcje</th>
+              <th style="width: 30%;">Nazwa (UID)</th>
+              <th style="width: 35%;">Katalog Domowy & Powłoka</th>
+              <th style="width: 35%; text-align: right;">Akcje</th>
             </tr>
           </thead>
           <tbody>
@@ -319,11 +319,11 @@
               <tr>
                 <td>
                   <span class="user-name"><strong>{user.username}</strong></span>
-                  <span class="uid-tag">UID: {user.uid}</span>
+                  <span class="uid-tag mono-val">UID: {user.uid}</span>
                 </td>
                 <td>
-                  <span class="home-dir">{user.home}</span>
-                  <span class="shell-code"><code>{user.shell}</code></span>
+                  <span class="home-dir mono-val">{user.home}</span>
+                  <span class="shell-code mono-val"><code>{user.shell}</code></span>
                 </td>
                 <td class="actions-cell">
                   <button class="btn-table" onclick={() => { targetUser = user; showChangePassModal = true; }} title="Zmień hasło">
@@ -356,9 +356,9 @@
         <table class="groups-table">
           <thead>
             <tr>
-              <th width="40%">Nazwa Grupy (GID)</th>
-              <th width="40%">Członkowie</th>
-              <th width="20%" style="text-align: right;">Usuń</th>
+              <th style="width: 40%;">Nazwa Grupy (GID)</th>
+              <th style="width: 40%;">Członkowie</th>
+              <th style="width: 20%; text-align: right;">Usuń</th>
             </tr>
           </thead>
           <tbody>
@@ -366,9 +366,9 @@
               <tr>
                 <td>
                   <span class="group-name"><strong>{group.name}</strong></span>
-                  <span class="gid-tag">GID: {group.gid}</span>
+                  <span class="gid-tag mono-val">GID: {group.gid}</span>
                 </td>
-                <td class="members-cell">
+                <td class="members-cell mono-val">
                   {group.members.length > 0 ? group.members.join(', ') : '(brak)'}
                 </td>
                 <td class="actions-cell">
@@ -391,7 +391,7 @@
     <div class="modal-overlay">
       <div class="modal-content glass">
         <div class="modal-header-icon">
-          <KeyRound size={32} class="accent-purple-text" />
+          <KeyRound size={32} class="accent-amber-text" />
         </div>
         <h3>Wymagane uwierzytelnienie Sudo</h3>
         <p class="modal-desc">Ta operacja wymaga uprawnień roota. Wprowadź swoje hasło użytkownika (sudo):</p>
@@ -612,7 +612,7 @@
     letter-spacing: 0.05em;
     position: sticky;
     top: 0;
-    background: #0d121f;
+    background: var(--bg-secondary);
     z-index: 1;
   }
 
@@ -645,7 +645,7 @@
 
   .shell-code {
     font-size: 0.75rem;
-    color: var(--accent-blue);
+    color: var(--accent-amber);
     margin-top: 2px;
     display: inline-block;
   }

@@ -109,7 +109,7 @@
   <!-- Sekcja informacji systemowych -->
   <section class="system-info-panel glass">
     <div class="info-item">
-      <Info class="info-icon" size={20} />
+      <Info class="info-icon animate-pulse" size={20} />
       <div>
         <span class="info-label">System Operacyjny</span>
         <span class="info-val">{stats.os}</span>
@@ -119,7 +119,7 @@
       <Activity class="info-icon" size={20} />
       <div>
         <span class="info-label">Czas Uruchomienia (Uptime)</span>
-        <span class="info-val">{stats.uptime}</span>
+        <span class="info-val mono-val">{stats.uptime}</span>
       </div>
     </div>
     <div class="info-item">
@@ -137,7 +137,7 @@
     <div class="metric-card glass">
       <div class="card-header">
         <h3>Procesor (CPU)</h3>
-        <Cpu size={18} class="accent-blue-text" />
+        <Cpu size={18} class="accent-amber-text" />
       </div>
       <div class="gauge-container">
         <svg class="ring-gauge" viewBox="0 0 100 100">
@@ -149,7 +149,7 @@
           />
         </svg>
         <div class="gauge-value">
-          <span class="val">{Math.round(stats.cpu_usage)}%</span>
+          <span class="val mono-val">{Math.round(stats.cpu_usage)}%</span>
         </div>
       </div>
     </div>
@@ -158,7 +158,7 @@
     <div class="metric-card glass">
       <div class="card-header">
         <h3>Pamięć operacyjna</h3>
-        <Activity size={18} class="accent-purple-text" />
+        <Activity size={18} class="accent-rust-text" />
       </div>
       <div class="gauge-container">
         <svg class="ring-gauge" viewBox="0 0 100 100">
@@ -170,8 +170,8 @@
           />
         </svg>
         <div class="gauge-value">
-          <span class="val">{Math.round((stats.ram_used / stats.ram_total) * 100)}%</span>
-          <span class="desc">{stats.ram_used} MB / {stats.ram_total} MB</span>
+          <span class="val mono-val">{Math.round((stats.ram_used / stats.ram_total) * 100)}%</span>
+          <span class="desc mono-val">{stats.ram_used} MB / {stats.ram_total} MB</span>
         </div>
       </div>
     </div>
@@ -192,8 +192,8 @@
           />
         </svg>
         <div class="gauge-value">
-          <span class="val">{Math.round((stats.disk_used / stats.disk_total) * 100)}%</span>
-          <span class="desc">{(stats.disk_used / 1024).toFixed(1)} GB / {(stats.disk_total / 1024).toFixed(1)} GB</span>
+          <span class="val mono-val">{Math.round((stats.disk_used / stats.disk_total) * 100)}%</span>
+          <span class="desc mono-val">{(stats.disk_used / 1024).toFixed(1)} GB / {(stats.disk_total / 1024).toFixed(1)} GB</span>
         </div>
       </div>
     </div>
@@ -213,30 +213,37 @@
         <svg viewBox="0 0 500 120" preserveAspectRatio="none" class="chart-svg">
           <defs>
             <linearGradient id="cpu-grad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="var(--accent-blue)" stop-opacity="0.3"/>
-              <stop offset="100%" stop-color="var(--accent-blue)" stop-opacity="0.0"/>
+              <stop offset="0%" stop-color="var(--accent-amber)" stop-opacity="0.2"/>
+              <stop offset="100%" stop-color="var(--accent-amber)" stop-opacity="0.0"/>
             </linearGradient>
             <linearGradient id="ram-grad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="var(--accent-purple)" stop-opacity="0.3"/>
-              <stop offset="100%" stop-color="var(--accent-purple)" stop-opacity="0.0"/>
+              <stop offset="0%" stop-color="var(--accent-rust)" stop-opacity="0.1"/>
+              <stop offset="100%" stop-color="var(--accent-rust)" stop-opacity="0.0"/>
             </linearGradient>
           </defs>
           
-          <!-- Siatka -->
-          <line x1="0" y1="30" x2="500" y2="30" stroke="rgba(255,255,255,0.03)" />
-          <line x1="0" y1="60" x2="500" y2="60" stroke="rgba(255,255,255,0.03)" />
-          <line x1="0" y1="90" x2="500" y2="90" stroke="rgba(255,255,255,0.03)" />
+          <!-- Siatka oscyloskopowa -->
+          <line x1="0" y1="20" x2="500" y2="20" stroke="rgba(245, 158, 11, 0.05)" stroke-width="0.5" />
+          <line x1="0" y1="40" x2="500" y2="40" stroke="rgba(245, 158, 11, 0.05)" stroke-width="0.5" />
+          <line x1="0" y1="60" x2="500" y2="60" stroke="rgba(245, 158, 11, 0.05)" stroke-width="0.5" />
+          <line x1="0" y1="80" x2="500" y2="80" stroke="rgba(245, 158, 11, 0.05)" stroke-width="0.5" />
+          <line x1="0" y1="100" x2="500" y2="100" stroke="rgba(245, 158, 11, 0.05)" stroke-width="0.5" />
+          
+          <line x1="100" y1="0" x2="100" y2="120" stroke="rgba(245, 158, 11, 0.05)" stroke-width="0.5" />
+          <line x1="200" y1="0" x2="200" y2="120" stroke="rgba(245, 158, 11, 0.05)" stroke-width="0.5" />
+          <line x1="300" y1="0" x2="300" y2="120" stroke="rgba(245, 158, 11, 0.05)" stroke-width="0.5" />
+          <line x1="400" y1="0" x2="400" y2="120" stroke="rgba(245, 158, 11, 0.05)" stroke-width="0.5" />
 
           <!-- Obszar CPU -->
           {#if cpuHistory.length > 1}
             <path d={getSvgAreaPath(cpuHistory)} fill="url(#cpu-grad)" />
-            <path d={getSvgPath(cpuHistory)} fill="none" stroke="var(--accent-blue)" stroke-width="2" stroke-linecap="round" />
+            <path d={getSvgPath(cpuHistory)} fill="none" stroke="var(--accent-amber)" stroke-width="1.5" stroke-linecap="round" />
           {/if}
 
           <!-- Obszar RAM -->
           {#if ramHistory.length > 1}
             <path d={getSvgAreaPath(ramHistory)} fill="url(#ram-grad)" />
-            <path d={getSvgPath(ramHistory)} fill="none" stroke="var(--accent-purple)" stroke-width="2" stroke-dasharray="3,3" stroke-linecap="round" />
+            <path d={getSvgPath(ramHistory)} fill="none" stroke="var(--accent-rust)" stroke-width="1.5" stroke-dasharray="3,3" stroke-linecap="round" />
           {/if}
         </svg>
       </div>
@@ -247,17 +254,17 @@
       <h3>Prędkość sieciowa (I/O)</h3>
       <div class="net-stats">
         <div class="net-dir">
-          <ArrowDown size={32} class="net-icon down" />
+          <ArrowDown size={28} class="net-icon down" />
           <div class="net-info">
             <span class="label">POBIERANIE</span>
-            <span class="value down-val">{downSpeed}</span>
+            <span class="value down-val mono-val">{downSpeed}</span>
           </div>
         </div>
         <div class="net-dir">
-          <ArrowUp size={32} class="net-icon up" />
+          <ArrowUp size={28} class="net-icon up" />
           <div class="net-info">
             <span class="label">WYSYŁANIE</span>
-            <span class="value up-val">{upSpeed}</span>
+            <span class="value up-val mono-val">{upSpeed}</span>
           </div>
         </div>
       </div>
@@ -267,10 +274,10 @@
 
 <style>
   .dashboard {
-    padding: 30px;
+    padding: 24px;
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 20px;
     height: 100%;
     overflow-y: auto;
   }
@@ -282,22 +289,22 @@
   }
 
   .title-area h1 {
-    font-size: 2rem;
+    font-size: 1.6rem;
     color: white;
   }
 
   .subtitle {
     color: var(--text-secondary);
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     margin-top: 4px;
   }
 
   .error-badge {
     background: var(--accent-red-glow);
-    border: 1px solid rgba(244, 63, 94, 0.3);
+    border: 1px solid rgba(239, 68, 68, 0.3);
     padding: 8px 16px;
     border-radius: var(--radius-sm);
-    color: #ff8595;
+    color: #ff8585;
     font-size: 0.85rem;
   }
 
@@ -305,28 +312,28 @@
   .system-info-panel {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 24px;
-    padding: 20px;
-    border-radius: var(--radius-md);
+    gap: 20px;
+    padding: 16px;
+    border-radius: var(--radius-sm);
   }
 
   .info-item {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 14px;
   }
 
   .info-icon {
-    color: var(--accent-blue);
-    background: rgba(0, 210, 255, 0.1);
-    padding: 10px;
+    color: var(--accent-amber);
+    background: rgba(245, 158, 11, 0.08);
+    padding: 8px;
     border-radius: var(--radius-sm);
-    box-shadow: 0 0 10px rgba(0, 210, 255, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.15);
   }
 
   .info-label {
     display: block;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -334,7 +341,7 @@
 
   .info-val {
     display: block;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     color: var(--text-primary);
     font-weight: 500;
     margin-top: 2px;
@@ -344,16 +351,16 @@
   .metrics-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 24px;
+    gap: 20px;
   }
 
   .metric-card {
-    border-radius: var(--radius-md);
-    padding: 24px;
+    border-radius: var(--radius-sm);
+    padding: 20px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 20px;
+    gap: 16px;
   }
 
   .card-header {
@@ -362,48 +369,48 @@
     justify-content: space-between;
     align-items: center;
     border-bottom: 1px solid var(--border-color);
-    padding-bottom: 12px;
+    padding-bottom: 10px;
   }
 
   .card-header h3 {
-    font-size: 1rem;
+    font-size: 0.9rem;
     color: var(--text-primary);
     font-weight: 500;
   }
 
-  .accent-blue-text { color: var(--accent-blue); }
-  .accent-purple-text { color: var(--accent-purple); }
+  .accent-amber-text { color: var(--accent-amber); }
+  .accent-rust-text { color: var(--accent-rust); }
   .accent-green-text { color: var(--accent-green); }
 
   /* Circular Progress Ring */
   .gauge-container {
     position: relative;
-    width: 140px;
-    height: 140px;
+    width: 120px;
+    height: 120px;
   }
 
   .ring-gauge {
     transform: rotate(-90deg);
-    width: 140px;
-    height: 140px;
+    width: 120px;
+    height: 120px;
   }
 
   .gauge-bg {
     fill: none;
-    stroke: rgba(255, 255, 255, 0.03);
-    stroke-width: 8;
+    stroke: rgba(255, 255, 255, 0.02);
+    stroke-width: 7;
   }
 
   .gauge-fill {
     fill: none;
-    stroke-width: 8;
+    stroke-width: 7;
     stroke-linecap: round;
     transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .gauge-fill.cpu { stroke: var(--accent-blue); filter: drop-shadow(0 0 5px var(--accent-blue-glow)); }
-  .gauge-fill.ram { stroke: var(--accent-purple); filter: drop-shadow(0 0 5px rgba(168, 85, 247, 0.3)); }
-  .gauge-fill.disk { stroke: var(--accent-green); filter: drop-shadow(0 0 5px var(--accent-green-glow)); }
+  .gauge-fill.cpu { stroke: var(--accent-amber); filter: drop-shadow(0 0 4px var(--accent-amber-glow)); }
+  .gauge-fill.ram { stroke: var(--accent-rust); filter: drop-shadow(0 0 4px var(--accent-rust-glow)); }
+  .gauge-fill.disk { stroke: var(--accent-green); filter: drop-shadow(0 0 4px var(--accent-green-glow)); }
 
   .gauge-value {
     position: absolute;
@@ -420,17 +427,18 @@
   }
 
   .gauge-value .val {
-    font-size: 1.6rem;
-    font-family: var(--font-display);
+    font-size: 1.4rem;
+    font-family: var(--font-mono);
     font-weight: 700;
     color: white;
   }
 
   .gauge-value .desc {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
+    font-family: var(--font-mono);
     color: var(--text-secondary);
     margin-top: 4px;
-    max-width: 110px;
+    max-width: 100px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -440,15 +448,15 @@
   .charts-grid {
     display: grid;
     grid-template-columns: 2fr 1fr;
-    gap: 24px;
+    gap: 20px;
   }
 
   .chart-card {
-    border-radius: var(--radius-md);
-    padding: 24px;
+    border-radius: var(--radius-sm);
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 16px;
   }
 
   .chart-header {
@@ -458,14 +466,14 @@
   }
 
   .chart-header h3 {
-    font-size: 1rem;
+    font-size: 0.9rem;
     font-weight: 500;
   }
 
   .legend {
     display: flex;
-    gap: 16px;
-    font-size: 0.8rem;
+    gap: 12px;
+    font-size: 0.75rem;
   }
 
   .legend-item {
@@ -476,19 +484,20 @@
   }
 
   .color-dot {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
   }
-  .color-dot.cpu { background-color: var(--accent-blue); }
-  .color-dot.ram { background-color: var(--accent-purple); }
+  .color-dot.cpu { background-color: var(--accent-amber); }
+  .color-dot.ram { background-color: var(--accent-rust); }
 
   .chart-container {
     height: 120px;
     width: 100%;
-    background: rgba(0, 0, 0, 0.15);
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
-    padding: 10px;
+    padding: 8px;
     overflow: hidden;
   }
 
@@ -500,22 +509,22 @@
 
   /* Network Card */
   .network-card {
-    border-radius: var(--radius-md);
-    padding: 24px;
+    border-radius: var(--radius-sm);
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 16px;
   }
 
   .network-card h3 {
-    font-size: 1rem;
+    font-size: 0.9rem;
     font-weight: 500;
   }
 
   .net-stats {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 16px;
     justify-content: center;
     height: 100%;
   }
@@ -523,22 +532,24 @@
   .net-dir {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 14px;
   }
 
   .net-icon {
-    padding: 8px;
+    padding: 6px;
     border-radius: var(--radius-sm);
   }
 
   .net-icon.down {
-    color: var(--accent-blue);
-    background: rgba(0, 210, 255, 0.08);
+    color: var(--accent-amber);
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.15);
   }
 
   .net-icon.up {
-    color: var(--accent-purple);
-    background: rgba(168, 85, 247, 0.08);
+    color: var(--accent-rust);
+    background: rgba(194, 65, 12, 0.08);
+    border: 1px solid rgba(194, 65, 12, 0.15);
   }
 
   .net-info {
@@ -547,15 +558,15 @@
   }
 
   .net-info .label {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: var(--text-muted);
     font-weight: 600;
     letter-spacing: 0.05em;
   }
 
   .net-info .value {
-    font-size: 1.3rem;
-    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-family: var(--font-mono);
     font-weight: 700;
     color: white;
     margin-top: 2px;

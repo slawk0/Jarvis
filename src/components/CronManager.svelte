@@ -225,10 +225,10 @@
       <table class="cron-table">
         <thead>
           <tr>
-            <th width="10%">Aktywny</th>
-            <th width="20%">Harmonogram (Cron)</th>
-            <th width="50%">Komenda</th>
-            <th width="20%" style="text-align: right;">Akcje</th>
+            <th style="width: 10%;">Aktywny</th>
+            <th style="width: 20%;">Harmonogram (Cron)</th>
+            <th style="width: 50%;">Komenda</th>
+            <th style="width: 20%; text-align: right;">Akcje</th>
           </tr>
         </thead>
         <tbody>
@@ -244,10 +244,10 @@
                 </button>
               </td>
               <td>
-                <code class="cron-code">{job.expression}</code>
+                <code class="cron-code mono-val">{job.expression}</code>
               </td>
               <td class="command-cell" title={job.command}>
-                <code>{job.command}</code>
+                <code class="mono-val">{job.command}</code>
               </td>
               <td class="actions-cell">
                 <button class="btn-table" onclick={() => openEditModal(job, index)} title="Edytuj">
@@ -430,7 +430,7 @@
     letter-spacing: 0.05em;
     position: sticky;
     top: 0;
-    background: #0d121f;
+    background: var(--bg-secondary);
     z-index: 1;
   }
 
@@ -456,17 +456,17 @@
   }
 
   .toggle-icon.active {
-    color: var(--accent-blue);
+    color: var(--accent-amber);
   }
 
   .cron-code {
-    font-family: Consolas, monospace;
-    color: var(--accent-blue);
-    background: rgba(0, 210, 255, 0.05);
+    font-family: var(--font-mono);
+    color: var(--accent-amber);
+    background: var(--accent-amber-glow);
     padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    border: 1px solid rgba(0, 210, 255, 0.1);
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    border: 1px solid rgba(245, 158, 11, 0.15);
   }
 
   .command-cell {
@@ -585,7 +585,7 @@
     font-size: 0.85rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--accent-purple);
+    color: var(--accent-amber);
     border-bottom: 1px solid var(--border-color);
     padding-bottom: 6px;
   }

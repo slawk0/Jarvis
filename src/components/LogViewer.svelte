@@ -279,10 +279,10 @@
           <tbody>
             {#each activeSessions as session}
               <tr>
-                <td><strong>{session.username}</strong></td>
-                <td><span class="badge warning">{session.tty}</span></td>
-                <td><code>{session.ip}</code></td>
-                <td class="date-cell">{session.date}</td>
+                <td class="mono-val"><strong>{session.username}</strong></td>
+                <td><span class="badge warning mono-val">{session.tty}</span></td>
+                <td class="mono-val"><code>{session.ip}</code></td>
+                <td class="date-cell mono-val">{session.date}</td>
                 <td class="actions-cell">
                   {#if session.tty !== 'tty1' && session.username !== 'slawek'}
                     <button class="btn-table danger-text" onclick={() => disconnectSession(session.tty)} title="Rozłącz sesję">
@@ -320,10 +320,10 @@
           <tbody>
             {#each loginHistory as hist}
               <tr>
-                <td><strong>{hist.username}</strong></td>
-                <td><span class="badge warning">{hist.tty}</span></td>
-                <td><code>{hist.ip}</code></td>
-                <td class="time-cell">{hist.time}</td>
+                <td class="mono-val"><strong>{hist.username}</strong></td>
+                <td><span class="badge warning mono-val">{hist.tty}</span></td>
+                <td class="mono-val"><code>{hist.ip}</code></td>
+                <td class="time-cell mono-val">{hist.time}</td>
               </tr>
             {/each}
             
@@ -343,7 +343,7 @@
     <div class="modal-overlay">
       <div class="modal-content glass">
         <div class="modal-header-icon">
-          <KeyRound size={32} class="accent-purple-text" />
+          <KeyRound size={32} class="accent-amber-text" />
         </div>
         <h3>Wymagane uwierzytelnienie Sudo</h3>
         <p class="modal-desc">Ta operacja wymaga uprawnień roota. Wprowadź swoje hasło użytkownika (sudo):</p>
@@ -433,9 +433,9 @@
   }
 
   .tab-btn.active {
-    background: rgba(59, 130, 246, 0.1);
-    color: var(--accent-blue);
-    border: 1px solid rgba(59, 130, 246, 0.2);
+    background: var(--bg-active);
+    color: var(--accent-amber);
+    border: 1px solid rgba(245, 158, 11, 0.2);
     font-weight: 600;
   }
 
@@ -487,17 +487,17 @@
   .log-display-container {
     flex: 1;
     overflow: auto;
-    border-radius: var(--radius-md);
-    background: #07090f;
-    padding: 20px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-primary);
+    padding: 16px;
     border: 1px solid var(--border-color);
   }
 
   .log-text {
-    font-family: Consolas, "Courier New", monospace;
-    font-size: 0.85rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
     line-height: 1.5;
-    color: #a7b5cc;
+    color: #d1d4db;
     white-space: pre-wrap;
     user-select: text;
   }
@@ -554,7 +554,7 @@
     letter-spacing: 0.05em;
     position: sticky;
     top: 0;
-    background: #0d121f;
+    background: var(--bg-secondary);
     z-index: 1;
   }
 
