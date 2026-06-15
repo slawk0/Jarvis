@@ -44,7 +44,7 @@
     {#each menuItems as item}
       <button 
         class="nav-item {activeTab === item.id ? 'active' : ''}" 
-        onclick={() => { onTabSelect(item.id); activeTab = item.id; }}
+        onclick={() => onTabSelect(item.id)}
       >
         <item.icon size={18} class="nav-icon" />
         <span class="nav-label">{item.label}</span>

@@ -2,8 +2,28 @@
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { Calendar, Trash2, Plus, Edit, RefreshCw, Play, ShieldAlert, Check, ToggleLeft, ToggleRight } from 'lucide-svelte';
+  import SortableTh from './ui/SortableTh.svelte';
+  import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
 
   let cronJobs = $state<any[]>([]);
+  type CronSortCol = 'active' | 'expression' | 'command';
+  let cronSort = $state<SortState<CronSortCol>>({ column: 'expression', direction: 'asc' });
+
+  const sortedCronJobs = $derived(
+    applySort(
+      cronJobs.filter((j) => !j.is_meta),
+      cronSort,
+      {
+        active: (j) => j.is_active,
+        expression: (j) => j.expression || '',
+        command: (j) => j.command || '',
+      },
+    ),
+  );
+
+  function setCronSort(column: string) {
+    cronSort = nextSort(cronSort, column as CronSortCol);
+  }
   let isLoading = $state(false);
   let errorMsg = $state('');
 
@@ -193,12 +213,9 @@
   });
 </script>
 
-<div class="cron-manager fade-in">
-  <header class="cm-header">
-    <div class="title-area">
-      <h1>Zadania Harmonogramu (Cron)</h1>
-      <p class="subtitle">Zautomatyzuj uruchamianie skryptów i poleceń w tle</p>
-    </div>
+<div class="cron-manager manager-shell fade-in">
+  <header class="manager-header">
+    <h1 class="page-title">Zadania Harmonogramu (Cron)</h1>
     {#if errorMsg}
       <div class="error-badge">{errorMsg}</div>
     {/if}
@@ -225,14 +242,14 @@
       <table class="cron-table">
         <thead>
           <tr>
-            <th style="width: 10%;">Aktywny</th>
-            <th style="width: 20%;">Harmonogram (Cron)</th>
-            <th style="width: 50%;">Komenda</th>
-            <th style="width: 20%; text-align: right;">Akcje</th>
+            <SortableTh label="Aktywny" column="active" activeColumn={cronSort.column} direction={cronSort.direction} onsort={setCronSort} width="10%" />
+            <SortableTh label="Harmonogram (Cron)" column="expression" activeColumn={cronSort.column} direction={cronSort.direction} onsort={setCronSort} width="20%" />
+            <SortableTh label="Komenda" column="command" activeColumn={cronSort.column} direction={cronSort.direction} onsort={setCronSort} width="50%" />
+            <th style="width: 20%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Akcje</th>
           </tr>
         </thead>
         <tbody>
-          {#each cronJobs.filter(j => !j.is_meta) as job, index}
+          {#each sortedCronJobs as job, index}
             <tr class={job.is_active ? '' : 'disabled-row'}>
               <td>
                 <button class="btn-toggle" onclick={() => toggleCronJob(job)} title={job.is_active ? 'Wyłącz' : 'Włącz'}>
@@ -260,7 +277,7 @@
             </tr>
           {/each}
 
-          {#if cronJobs.filter(j => !j.is_meta).length === 0 && !isLoading}
+          {#if sortedCronJobs.length === 0 && !isLoading}
             <tr>
               <td colspan="4" class="empty-state">Brak aktywnych zadań w pliku crontab</td>
             </tr>
@@ -359,30 +376,7 @@
 
 <style>
   .cron-manager {
-    padding: 30px;
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-    height: 100%;
-    overflow: hidden;
-  }
-
-  .cm-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-shrink: 0;
-  }
-
-  .title-area h1 {
-    font-size: 2rem;
-    color: white;
-  }
-
-  .subtitle {
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    margin-top: 4px;
+    /* uses .manager-shell */
   }
 
   .error-badge {
@@ -398,8 +392,8 @@
   .ops-bar {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
+    gap: 8px;
+    padding: 8px 10px;
     border-radius: var(--radius-md);
     flex-shrink: 0;
   }

@@ -1,0 +1,1613 @@
+<script lang="ts">
+  import { onMount, onDestroy } from 'svelte';
+  import { invoke } from '@tauri-apps/api/core';
+  import { getCurrentWindow } from '@tauri-apps/api/window';
+  import {
+    Folder,
+    File,
+    ArrowLeft,
+    RefreshCw,
+    Plus,
+    Trash2,
+    Edit,
+    CornerDownLeft,
+    Download,
+    Upload,
+    KeyRound,
+    Search,
+    X,
+    Loader2,
+  } from 'lucide-svelte';
+  import SftpBulkActionsBar from './SftpBulkActionsBar.svelte';
+  import SortableTh from '../ui/SortableTh.svelte';
+  import type { FileInfo } from '$lib/sftp/types';
+  import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
+  import {
+    formatBytes,
+    formatModified,
+    formatPermissions,
+    getRemotePath,
+    joinRemotePath,
+    isSubPath,
+    fileRemotePath,
+    parentPath,
+    isHiddenEntry,
+  } from '$lib/sftp/pathUtils';
+  import {
+    initTransferStore,
+    destroyTransferStore,
+    setOnBatchComplete,
+    startUploadBatch,
+    startDownloadBatch,
+    startMoveBatch,
+    startDeleteBatch,
+  } from '$lib/sftp/transferStore.svelte';
+  import { registerBackHandler } from '$lib/backNavigation.svelte';
+
+  interface Props {
+    onEdit: (filePath: string, file: FileInfo) => void;
+    onChmod: (file: FileInfo) => void;
+    onRename: (file: FileInfo) => void;
+    onNewFile: () => void;
+    onNewDir: () => void;
+    onError: (msg: string) => void;
+    onPathChange?: (path: string) => void;
+  }
+
+  let { onEdit, onChmod, onRename, onNewFile, onNewDir, onError, onPathChange }: Props = $props();
+
+  export function getCurrentPath() {
+    return lastLoadedPath;
+  }
+
+  export async function refresh() {
+    await loadDirectory();
+  }
+
+  let currentPath = $state('');
+  let lastLoadedPath = $state('');
+  let files = $state<FileInfo[]>([]);
+  let isLoading = $state(false);
+
+  let selectedPaths = $state<Set<string>>(new Set());
+  let lastClickedIndex = $state(-1);
+  let moveMode = $state(false);
+  let dragOverFolder = $state<string | null>(null);
+  let externalDragOver = $state(false);
+  let unlistenDrag: (() => void) | null = null;
+  let unregisterBack: (() => void) | null = null;
+
+  // Conflict modal
+  let showConflictModal = $state(false);
+  let pendingUploadPaths = $state<string[]>([]);
+  let conflictFiles = $state<string[]>([]);
+  let conflictAction = $state<'overwrite' | 'skip' | 'rename'>('overwrite');
+  let searchQuery = $state('');
+  let hideHidden = $state(true);
+  let recursiveSearch = $state(false);
+  let searchRootPath = $state('');
+  let searchResults = $state<FileInfo[]>([]);
+  let isSearchLoading = $state(false);
+  let searchGeneration = 0;
+  let searchDebounce: ReturnType<typeof setTimeout> | undefined;
+  type FileSortCol = 'name' | 'size' | 'permissions' | 'modified';
+  let fileSort = $state<SortState<FileSortCol>>({ column: 'name', direction: 'asc' });
+  let folderSizes = $state<Map<string, number>>(new Map());
+  let folderSizesLoading = $state<Set<string>>(new Set());
+  let folderSizeGeneration = 0;
+
+  const isRecursiveActive = $derived(recursiveSearch && searchQuery.trim().length > 0);
+
+  const effectiveSearchRoot = $derived(searchRootPath.trim() || lastLoadedPath);
+
+  function entrySize(file: FileInfo): number {
+    if (!file.is_dir) return file.size;
+    const path = fileRemotePath(file, lastLoadedPath);
+    return folderSizes.get(path) ?? file.size;
+  }
+
+  function formatEntrySize(file: FileInfo): string {
+    if (!file.is_dir) return formatBytes(file.size);
+    const path = fileRemotePath(file, lastLoadedPath);
+    const computed = folderSizes.get(path);
+    if (computed !== undefined) return formatBytes(computed);
+    if (folderSizesLoading.has(path)) return '…';
+    if (isRecursiveActive) return formatBytes(file.size);
+    return '…';
+  }
+
+  const visibleFiles = $derived(
+    hideHidden ? files.filter((f) => !isHiddenEntry(f.name)) : files,
+  );
+
+  const localFilteredFiles = $derived(
+    !isRecursiveActive && searchQuery.trim()
+      ? visibleFiles.filter((f) =>
+          f.name.toLowerCase().includes(searchQuery.trim().toLowerCase()),
+        )
+      : visibleFiles,
+  );
+
+  const listSource = $derived(isRecursiveActive ? searchResults : localFilteredFiles);
+
+  async function resolveFolderSizes(dirPath: string, dirs: FileInfo[]) {
+    const gen = ++folderSizeGeneration;
+    const paths = dirs.map((d) => getRemotePath(dirPath, d.name));
+    if (paths.length === 0) return;
+
+    folderSizes = new Map();
+    folderSizesLoading = new Set(paths);
+
+    const worker = async (path: string) => {
+      if (gen !== folderSizeGeneration) return;
+      try {
+        const size = await invoke<number>('sftp_dir_size', { path });
+        if (gen !== folderSizeGeneration) return;
+        folderSizes = new Map(folderSizes).set(path, size);
+      } catch {
+        if (gen !== folderSizeGeneration) return;
+        folderSizes = new Map(folderSizes).set(path, 0);
+      } finally {
+        if (gen !== folderSizeGeneration) return;
+        const next = new Set(folderSizesLoading);
+        next.delete(path);
+        folderSizesLoading = next;
+      }
+    };
+
+    const concurrency = 6;
+    for (let i = 0; i < paths.length; i += concurrency) {
+      if (gen !== folderSizeGeneration) return;
+      await Promise.all(paths.slice(i, i + concurrency).map(worker));
+    }
+  }
+
+  const displayFiles = $derived(
+    applySort(
+      listSource,
+      fileSort,
+      {
+        name: (f) => f.name,
+        size: (f) => entrySize(f),
+        permissions: (f) => f.permissions ?? 0,
+        modified: (f) => f.modified,
+      },
+      { dirsFirst: (f) => f.is_dir },
+    ),
+  );
+
+  const visiblePaths = $derived(
+    displayFiles.map((f) => fileRemotePath(f, lastLoadedPath)),
+  );
+
+  const allSelected = $derived(
+    displayFiles.length > 0 &&
+      displayFiles.every((f) => selectedPaths.has(fileRemotePath(f, lastLoadedPath))),
+  );
+
+  function clearSearch() {
+    searchQuery = '';
+    searchResults = [];
+    isSearchLoading = false;
+    if (searchDebounce) clearTimeout(searchDebounce);
+  }
+
+  function setSearchScope(recursive: boolean) {
+    if (recursiveSearch === recursive) return;
+    recursiveSearch = recursive;
+    if (recursive) {
+      if (!searchRootPath.trim()) searchRootPath = lastLoadedPath;
+    } else {
+      searchResults = [];
+      isSearchLoading = false;
+    }
+    if (searchQuery.trim()) scheduleRecursiveSearch();
+  }
+
+  function scheduleRecursiveSearch() {
+    if (!recursiveSearch) {
+      searchResults = [];
+      isSearchLoading = false;
+      return;
+    }
+
+    if (searchDebounce) clearTimeout(searchDebounce);
+
+    const q = searchQuery.trim();
+    if (!q) {
+      searchResults = [];
+      isSearchLoading = false;
+      return;
+    }
+
+    isSearchLoading = true;
+
+    searchDebounce = setTimeout(() => {
+      void runRecursiveSearch();
+    }, 350);
+  }
+
+  async function runRecursiveSearch() {
+    const q = searchQuery.trim();
+    if (!q || !recursiveSearch) return;
+
+    const gen = ++searchGeneration;
+    isSearchLoading = true;
+    onError('');
+
+    try {
+      const results = await invoke<FileInfo[]>('sftp_find', {
+        root: effectiveSearchRoot,
+        query: q,
+        hideHidden,
+      });
+      if (gen !== searchGeneration) return;
+      searchResults = results;
+    } catch (err: unknown) {
+      if (gen !== searchGeneration) return;
+      searchResults = [];
+      onError('Błąd wyszukiwania: ' + String(err));
+    } finally {
+      if (gen === searchGeneration) isSearchLoading = false;
+    }
+  }
+
+  function onSearchInput() {
+    scheduleRecursiveSearch();
+  }
+
+  function onHideHiddenChange() {
+    if (recursiveSearch && searchQuery.trim()) {
+      isSearchLoading = true;
+      scheduleRecursiveSearch();
+    }
+  }
+
+  function resolveFileByPath(path: string): FileInfo | undefined {
+    return (
+      files.find((f) => fileRemotePath(f, lastLoadedPath) === path) ??
+      searchResults.find((f) => fileRemotePath(f, lastLoadedPath) === path)
+    );
+  }
+
+  function refreshAfterFsChange() {
+    if (isRecursiveActive) {
+      void runRecursiveSearch();
+    } else {
+      void loadDirectory();
+    }
+  }
+
+  async function loadDirectory() {
+    isLoading = true;
+    onError('');
+    try {
+      const result = await invoke<FileInfo[]>('sftp_list', { path: currentPath });
+      const loadedPath = currentPath;
+      files = result;
+      lastLoadedPath = loadedPath;
+      selectedPaths = new Set();
+      clearSearch();
+      searchRootPath = loadedPath;
+      onPathChange?.(lastLoadedPath);
+      void resolveFolderSizes(loadedPath, result.filter((f) => f.is_dir));
+    } catch (err: unknown) {
+      onError('Nie można odczytać katalogu: ' + String(err));
+      currentPath = lastLoadedPath;
+    } finally {
+      isLoading = false;
+    }
+  }
+
+  async function navigateToFolder(path: string) {
+    if (moveMode) {
+      await executeBulkMove(path);
+      return;
+    }
+    clearSearch();
+    recursiveSearch = false;
+    currentPath = path;
+    await loadDirectory();
+  }
+
+  async function openFolderByName(name: string) {
+    await navigateToFolder(getRemotePath(lastLoadedPath, name));
+  }
+
+  async function handleGoBack() {
+    if (lastLoadedPath === '/' || lastLoadedPath === '') return;
+    const parts = lastLoadedPath.split('/');
+    parts.pop();
+    currentPath = parts.join('/') || '/';
+    await loadDirectory();
+  }
+
+  function toggleSelect(path: string, index: number, event: MouseEvent) {
+    const next = new Set(selectedPaths);
+    if (event.shiftKey && lastClickedIndex >= 0) {
+      const start = Math.min(lastClickedIndex, index);
+      const end = Math.max(lastClickedIndex, index);
+      for (let i = start; i <= end; i++) {
+        next.add(visiblePaths[i]);
+      }
+    } else if (event.ctrlKey || event.metaKey) {
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+    } else {
+      if (next.has(path) && next.size === 1) next.clear();
+      else {
+        next.clear();
+        next.add(path);
+      }
+    }
+    selectedPaths = next;
+    lastClickedIndex = index;
+  }
+
+  function setFileSort(column: string) {
+    fileSort = nextSort(fileSort, column as FileSortCol);
+  }
+
+  function toggleSelectAll() {
+    if (allSelected) {
+      const next = new Set(selectedPaths);
+      for (const p of visiblePaths) next.delete(p);
+      selectedPaths = next;
+    } else {
+      selectedPaths = new Set([...selectedPaths, ...visiblePaths]);
+    }
+  }
+
+  function handleRowClick(file: FileInfo, remotePath: string, index: number, e: MouseEvent) {
+    const target = e.target as HTMLElement;
+    if (target.closest('.actions-cell') || target.closest('input[type=checkbox]')) return;
+
+    if (moveMode && file.is_dir) {
+      void openFolderByName(file.name);
+      return;
+    }
+
+    toggleSelect(remotePath, index, e);
+  }
+
+  function handleRowDblClick(file: FileInfo, remotePath: string, e: MouseEvent) {
+    const target = e.target as HTMLElement;
+    if (target.closest('.actions-cell') || target.closest('input[type=checkbox]')) return;
+    if (moveMode) return;
+
+    if (file.is_dir) {
+      void navigateToFolder(remotePath);
+    } else {
+      onEdit(remotePath, file);
+    }
+  }
+
+  function clearSelection() {
+    selectedPaths = new Set();
+    moveMode = false;
+  }
+
+  async function handleBulkDownload() {
+    const paths = Array.from(selectedPaths);
+    if (paths.length === 0) return;
+    try {
+      await startDownloadBatch(paths);
+      clearSelection();
+    } catch (err: unknown) {
+      onError('Błąd pobierania: ' + String(err));
+    }
+  }
+
+  async function handleBulkDelete() {
+    const paths = Array.from(selectedPaths);
+    if (paths.length === 0) return;
+    if (!confirm(`Usunąć ${paths.length} element(ów)?`)) return;
+
+    const items = paths.map((p) => {
+      const file = resolveFileByPath(p);
+      return { path: p, is_dir: file?.is_dir ?? false };
+    });
+
+    try {
+      await startDeleteBatch(items);
+      clearSelection();
+      setOnBatchComplete(() => refreshAfterFsChange());
+    } catch (err: unknown) {
+      onError('Błąd usuwania: ' + String(err));
+    }
+  }
+
+  function startMoveMode() {
+    if (selectedPaths.size === 0) return;
+    moveMode = true;
+  }
+
+  async function executeBulkMove(destDir: string) {
+    const moves = Array.from(selectedPaths).map((src) => {
+      const name = src.split('/').pop() || src;
+      return { src, dest: joinRemotePath(destDir, name) };
+    });
+
+    for (const m of moves) {
+      if (isSubPath(m.src, m.dest)) {
+        onError('Nie można przenieść folderu do samego siebie lub podfolderu.');
+        moveMode = false;
+        return;
+      }
+    }
+
+    try {
+      await startMoveBatch(moves);
+      moveMode = false;
+      clearSelection();
+      setOnBatchComplete(() => refreshAfterFsChange());
+    } catch (err: unknown) {
+      onError('Błąd przenoszenia: ' + String(err));
+      moveMode = false;
+    }
+  }
+
+  // Internal drag-and-drop (move on server)
+  const DRAG_MIME = 'application/x-jarvis-sftp';
+
+  function handleDragStart(e: DragEvent, file: FileInfo) {
+    const path = fileRemotePath(file, lastLoadedPath);
+    let paths: string[];
+    if (selectedPaths.has(path) && selectedPaths.size > 1) {
+      paths = Array.from(selectedPaths);
+    } else {
+      paths = [path];
+      if (!selectedPaths.has(path)) {
+        selectedPaths = new Set([path]);
+      }
+    }
+    e.dataTransfer?.setData(DRAG_MIME, JSON.stringify({ paths }));
+    e.dataTransfer!.effectAllowed = 'move';
+  }
+
+  function handleDragOverFolder(e: DragEvent, folderName: string) {
+    e.preventDefault();
+    e.dataTransfer!.dropEffect = 'move';
+    dragOverFolder = folderName;
+  }
+
+  function handleDragLeaveFolder() {
+    dragOverFolder = null;
+  }
+
+  async function handleDropOnFolder(e: DragEvent, folderName: string) {
+    e.preventDefault();
+    dragOverFolder = null;
+    const raw = e.dataTransfer?.getData(DRAG_MIME);
+    if (!raw) return;
+
+    try {
+      const { paths } = JSON.parse(raw) as { paths: string[] };
+      const destDir = getRemotePath(lastLoadedPath, folderName);
+      const moves = paths.map((src) => {
+        const name = src.split('/').pop() || src;
+        return { src, dest: joinRemotePath(destDir, name) };
+      });
+
+      for (const m of moves) {
+        if (isSubPath(m.src, m.dest)) {
+          onError('Nie można przenieść folderu do samego siebie lub podfolderu.');
+          return;
+        }
+      }
+
+      await startMoveBatch(moves);
+      setOnBatchComplete(() => refreshAfterFsChange());
+    } catch (err: unknown) {
+      onError('Błąd przenoszenia: ' + String(err));
+    }
+  }
+
+  // External upload via Tauri drag-drop
+  async function queueExternalUpload(paths: string[]) {
+    const existing = new Set(files.map((f) => f.name));
+    const conflicts = paths
+      .map((p) => p.split(/[/\\]/).pop() || p)
+      .filter((name) => existing.has(name));
+
+    if (conflicts.length > 0) {
+      pendingUploadPaths = paths;
+      conflictFiles = conflicts;
+      showConflictModal = true;
+      return;
+    }
+
+    await doUpload(paths);
+  }
+
+  async function doUpload(paths: string[], action?: 'overwrite' | 'skip' | 'rename') {
+    try {
+      if (action === 'skip') {
+        const existing = new Set(files.map((f) => f.name));
+        paths = paths.filter((p) => !existing.has(p.split(/[/\\]/).pop() || ''));
+      }
+      if (paths.length === 0) return;
+
+      if (action === 'rename') {
+        const existing = new Set(files.map((f) => f.name));
+        const pairs = paths.map((p) => {
+          let name = p.split(/[/\\]/).pop() || p;
+          if (existing.has(name)) {
+            const dot = name.lastIndexOf('.');
+            if (dot > 0) {
+              name = `${name.slice(0, dot)}.1${name.slice(dot)}`;
+            } else {
+              name = `${name}.1`;
+            }
+          }
+          return `${p}::${joinRemotePath(lastLoadedPath, name)}`;
+        });
+        await startUploadBatch(lastLoadedPath, pairs);
+      } else {
+        await startUploadBatch(lastLoadedPath, paths);
+      }
+      setOnBatchComplete(() => refreshAfterFsChange());
+    } catch (err: unknown) {
+      onError('Błąd wysyłania: ' + String(err));
+    }
+  }
+
+  async function pickAndUpload() {
+    try {
+      const paths = await invoke<string[]>('sftp_pick_files');
+      if (paths.length > 0) await queueExternalUpload(paths);
+    } catch (err: unknown) {
+      onError('Błąd wyboru plików: ' + String(err));
+    }
+  }
+
+  function resolveConflict() {
+    showConflictModal = false;
+    doUpload(pendingUploadPaths, conflictAction);
+    pendingUploadPaths = [];
+    conflictFiles = [];
+  }
+
+  async function pickFolderAndUpload() {
+    try {
+      const folder = await invoke<string | null>('sftp_pick_folder');
+      if (folder) await queueExternalUpload([folder]);
+    } catch (err: unknown) {
+      onError('Błąd wyboru folderu: ' + String(err));
+    }
+  }
+
+  async function downloadSingle(file: FileInfo) {
+    const path = fileRemotePath(file, lastLoadedPath);
+    try {
+      await startDownloadBatch([path]);
+    } catch (err: unknown) {
+      onError('Błąd pobierania: ' + String(err));
+    }
+  }
+
+  async function deleteSingle(file: FileInfo) {
+    const path = fileRemotePath(file, lastLoadedPath);
+    if (!confirm(`Czy na pewno chcesz usunąć ${file.is_dir ? 'katalog' : 'plik'} "${file.name}"?`)) return;
+    try {
+      await startDeleteBatch([{ path, is_dir: file.is_dir }]);
+      setOnBatchComplete(() => refreshAfterFsChange());
+    } catch (err: unknown) {
+      onError('Błąd usuwania: ' + String(err));
+    }
+  }
+
+  // Context menu
+  let showContextMenu = $state(false);
+  let contextMenuX = $state(0);
+  let contextMenuY = $state(0);
+  let contextMenuFile = $state<FileInfo | null>(null);
+
+  function handleContextMenu(event: MouseEvent, file: FileInfo) {
+    event.preventDefault();
+    contextMenuFile = file;
+    contextMenuX = event.clientX;
+    contextMenuY = event.clientY;
+    showContextMenu = true;
+  }
+
+  function closeContextMenu() {
+    showContextMenu = false;
+  }
+
+  onMount(async () => {
+    unregisterBack = registerBackHandler({
+      id: 'sftp-browser',
+      priority: 80,
+      canGoBack: () =>
+        showConflictModal ||
+        showContextMenu ||
+        moveMode ||
+        (lastLoadedPath !== '/' && lastLoadedPath !== ''),
+      goBack: () => {
+        if (showConflictModal) {
+          showConflictModal = false;
+          pendingUploadPaths = [];
+          return;
+        }
+        if (showContextMenu) {
+          closeContextMenu();
+          return;
+        }
+        if (moveMode) {
+          moveMode = false;
+          return;
+        }
+        void handleGoBack();
+      },
+      label: () => {
+        if (showConflictModal) return 'Anuluj rozwiązywanie konfliktu';
+        if (showContextMenu) return 'Zamknij menu kontekstowe';
+        if (moveMode) return 'Anuluj przenoszenie plików';
+        return 'Wróć do folderu nadrzędnego';
+      },
+    });
+
+    await initTransferStore();
+    setOnBatchComplete(() => refreshAfterFsChange());
+
+    try {
+      const home = await invoke<string>('sftp_get_home_dir');
+      currentPath = home;
+      lastLoadedPath = home;
+    } catch {
+      currentPath = '/';
+      lastLoadedPath = '/';
+    }
+    await loadDirectory();
+
+    try {
+      const win = getCurrentWindow();
+      unlistenDrag = await win.onDragDropEvent((event) => {
+        if (event.payload.type === 'over') {
+          externalDragOver = true;
+        } else if (event.payload.type === 'drop') {
+          externalDragOver = false;
+          if (event.payload.paths?.length) {
+            queueExternalUpload(event.payload.paths);
+          }
+        } else {
+          externalDragOver = false;
+        }
+      });
+    } catch {
+      // drag-drop may be unavailable outside Tauri
+    }
+  });
+
+  onDestroy(() => {
+    unregisterBack?.();
+    unlistenDrag?.();
+    destroyTransferStore();
+  });
+</script>
+
+<svelte:window onclick={closeContextMenu} />
+
+<div class="browser">
+  <div
+    class="nav-bar glass"
+    class:drop-active={externalDragOver}
+  >
+    <button class="secondary btn-icon-compact" onclick={handleGoBack} disabled={currentPath === '/'}>
+      <ArrowLeft size={15} />
+    </button>
+    <input
+      type="text"
+      class="path-input mono-val"
+      bind:value={currentPath}
+      onkeydown={(e) => e.key === 'Enter' && loadDirectory()}
+    />
+    <button class="secondary btn-icon-compact" onclick={loadDirectory} disabled={isLoading}>
+      <RefreshCw size={15} class={isLoading ? 'spin' : ''} />
+    </button>
+    <div class="actions-group">
+      <button class="secondary btn-compact" onclick={pickAndUpload}>
+        <Upload size={14} /> Wyślij pliki
+      </button>
+      <button class="secondary btn-compact" onclick={pickFolderAndUpload}>
+        <Upload size={14} /> Wyślij folder
+      </button>
+      <button class="secondary btn-compact" onclick={onNewFile}>
+        <Plus size={14} /> Nowy plik
+      </button>
+      <button class="secondary btn-compact" onclick={onNewDir}>
+        <Plus size={14} /> Nowy folder
+      </button>
+    </div>
+    <div class="actions-divider"></div>
+    <SftpBulkActionsBar
+      inline
+      selectedCount={selectedPaths.size}
+      {moveMode}
+      onDownload={handleBulkDownload}
+      onDelete={handleBulkDelete}
+      onMove={startMoveMode}
+      onCancelMove={() => (moveMode = false)}
+      onClearSelection={clearSelection}
+    />
+  </div>
+
+  <div class="search-panel glass" class:search-active={isSearchLoading && recursiveSearch}>
+    <div class="search-panel-row">
+      <div class="search-panel-input-row">
+        {#if isSearchLoading && recursiveSearch && searchQuery.trim()}
+          <Loader2 size={14} class="spin search-leading-icon" />
+        {:else}
+          <Search size={14} class="search-leading-icon" />
+        {/if}
+        <input
+          type="text"
+          class="search-panel-input mono-val"
+          placeholder={recursiveSearch
+            ? 'Szukaj w podfolderach…'
+            : 'Szukaj w tym katalogu…'}
+          bind:value={searchQuery}
+          oninput={onSearchInput}
+          onkeydown={(e) => e.key === 'Enter' && recursiveSearch && runRecursiveSearch()}
+        />
+        {#if searchQuery}
+          <button class="search-clear" type="button" onclick={clearSearch} title="Wyczyść wyszukiwanie">
+            <X size={13} />
+          </button>
+        {/if}
+      </div>
+      <div class="search-scope-toggle" role="radiogroup" aria-label="Zakres wyszukiwania">
+        <button
+          type="button"
+          class="scope-btn"
+          class:active={!recursiveSearch}
+          role="radio"
+          aria-checked={!recursiveSearch}
+          onclick={() => setSearchScope(false)}
+        >
+          Ten folder
+        </button>
+        <button
+          type="button"
+          class="scope-btn"
+          class:active={recursiveSearch}
+          role="radio"
+          aria-checked={recursiveSearch}
+          onclick={() => setSearchScope(true)}
+        >
+          Podfoldery
+        </button>
+      </div>
+      <label class="option-toggle" title="Ukryj pliki i foldery zaczynające się od kropki">
+        <input type="checkbox" bind:checked={hideHidden} onchange={onHideHiddenChange} />
+        <span>Ukryj ukryte</span>
+      </label>
+    </div>
+
+    {#if recursiveSearch}
+      <div class="search-scope-row">
+        <span class="search-scope-label">Szukaj od ścieżki:</span>
+        <input
+          type="text"
+          class="search-scope-path mono-val"
+          bind:value={searchRootPath}
+          placeholder={lastLoadedPath}
+          onkeydown={(e) => e.key === 'Enter' && runRecursiveSearch()}
+        />
+        <button
+          class="secondary btn-compact scope-reset-btn"
+          type="button"
+          onclick={() => (searchRootPath = lastLoadedPath)}
+          title="Ustaw na bieżący folder"
+        >
+          Bieżący folder
+        </button>
+      </div>
+    {:else if searchQuery.trim()}
+      <p class="search-scope-hint">Filtruje listę w <span class="mono-val">{lastLoadedPath}</span></p>
+    {/if}
+  </div>
+
+  {#if recursiveSearch && searchQuery.trim()}
+    <div class="search-status glass" class:searching={isSearchLoading} class:done={!isSearchLoading}>
+      {#if isSearchLoading}
+        <Loader2 size={16} class="spin status-icon" />
+        <span>Szukanie w <span class="mono-val">{effectiveSearchRoot}</span>…</span>
+      {:else}
+        <Search size={16} class="status-icon done-icon" />
+        <span>
+          Zakończono — {displayFiles.length}
+          {displayFiles.length === 1 ? 'wynik' : 'wyników'}
+          {#if displayFiles.length === 0}
+            <span class="status-hint">(brak dopasowań dla „{searchQuery}”)</span>
+          {/if}
+        </span>
+      {/if}
+    </div>
+  {/if}
+
+  <div class="files-area">
+    <div
+      class="files-table-container glass"
+      class:drop-active={externalDragOver}
+      class:search-pending={isSearchLoading && recursiveSearch && searchQuery.trim()}
+    >
+    {#if externalDragOver}
+      <div class="drop-overlay">
+        <Upload size={32} />
+        <p>Upuść pliki aby wysłać na serwer</p>
+      </div>
+    {/if}
+
+    {#if isSearchLoading && recursiveSearch && searchQuery.trim()}
+      <div class="loading-state overlay-loading">
+        <Loader2 class="spin" size={32} />
+        <p>Szukanie w <span class="mono-val">{effectiveSearchRoot}</span>…</p>
+        <p class="loading-hint">To może chwilę potrwać przy dużych katalogach</p>
+      </div>
+    {/if}
+
+    {#if isLoading && files.length === 0 && !(isSearchLoading && recursiveSearch)}
+      <div class="loading-state">
+        <RefreshCw class="spin" size={32} />
+        <p>Ładowanie struktury plików...</p>
+      </div>
+    {:else}
+      <table class="files-table">
+        <thead>
+          <tr>
+            <th style="width: 36px;">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onchange={toggleSelectAll}
+                title="Zaznacz wszystko"
+              />
+            </th>
+            <SortableTh label="Nazwa" column="name" activeColumn={fileSort.column} direction={fileSort.direction} onsort={setFileSort} width={isRecursiveActive ? '28%' : '34%'} />
+            <SortableTh label="Rozmiar" column="size" activeColumn={fileSort.column} direction={fileSort.direction} onsort={setFileSort} width="12%" />
+            {#if isRecursiveActive}
+              <th style="width: 18%; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Ścieżka</th>
+            {/if}
+            <SortableTh label="Uprawnienia" column="permissions" activeColumn={fileSort.column} direction={fileSort.direction} onsort={setFileSort} width="12%" />
+            <SortableTh label="Modyfikacja" column="modified" activeColumn={fileSort.column} direction={fileSort.direction} onsort={setFileSort} width="14%" />
+            <th style="width: {isRecursiveActive ? '20%' : '26%'}; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Akcje</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each displayFiles as file, index}
+            {@const remotePath = fileRemotePath(file, lastLoadedPath)}
+            {@const isSelected = selectedPaths.has(remotePath)}
+            <tr
+              class:folder-row={file.is_dir}
+              class:file-row={!file.is_dir}
+              class:selected={isSelected}
+              class:drop-target={!isRecursiveActive && dragOverFolder === file.name}
+              draggable={!isRecursiveActive}
+              onclick={(e) => handleRowClick(file, remotePath, index, e)}
+              ondblclick={(e) => handleRowDblClick(file, remotePath, e)}
+              ondragstart={!isRecursiveActive ? (e) => handleDragStart(e, file) : undefined}
+              oncontextmenu={(e) => handleContextMenu(e, file)}
+              ondragover={file.is_dir && !isRecursiveActive ? (e) => handleDragOverFolder(e, file.name) : undefined}
+              ondragleave={file.is_dir && !isRecursiveActive ? handleDragLeaveFolder : undefined}
+              ondrop={file.is_dir && !isRecursiveActive ? (e) => handleDropOnFolder(e, file.name) : undefined}
+            >
+              <td onclick={(e) => e.stopPropagation()}>
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onclick={(e) => {
+                    e.stopPropagation();
+                    toggleSelect(remotePath, index, e);
+                  }}
+                />
+              </td>
+              <td class="file-name-cell" title="Dwuklik — otwórz">
+                {#if file.is_dir}
+                  <Folder size={18} class="folder-icon" />
+                {:else}
+                  <File size={18} class="file-icon" />
+                {/if}
+                <span>{file.name}</span>
+              </td>
+              <td class="mono-val">{formatEntrySize(file)}</td>
+              {#if isRecursiveActive}
+                <td class="mono-val path-cell" title={remotePath}>{parentPath(remotePath)}</td>
+              {/if}
+              <td><span class="badge warning">{formatPermissions(file.permissions)}</span></td>
+              <td class="mono-val date-cell">{formatModified(file.modified)}</td>
+              <td class="actions-cell" onclick={(e) => e.stopPropagation()}>
+                {#if !file.is_dir}
+                  <button class="btn-table" onclick={() => onEdit(remotePath, file)} title="Edytuj">
+                    <Edit size={14} />
+                  </button>
+                  <button class="btn-table" onclick={() => downloadSingle(file)} title="Pobierz">
+                    <Download size={14} />
+                  </button>
+                {/if}
+                <button class="btn-table" onclick={() => onChmod(file)} title="Uprawnienia">
+                  <KeyRound size={14} />
+                </button>
+                <button class="btn-table" onclick={() => onRename(file)} title="Zmień nazwę">
+                  <CornerDownLeft size={14} />
+                </button>
+                <button class="btn-table danger-text" onclick={() => deleteSingle(file)} title="Usuń">
+                  <Trash2 size={14} />
+                </button>
+              </td>
+            </tr>
+          {/each}
+
+          {#if displayFiles.length === 0 && !isLoading && !isSearchLoading}
+            <tr>
+              <td colspan={isRecursiveActive ? 7 : 6} class="empty-state">
+                {#if isRecursiveActive}
+                  Brak wyników dla „{searchQuery}” w {effectiveSearchRoot}
+                {:else if searchQuery.trim()}
+                  Brak wyników dla „{searchQuery}”
+                {:else}
+                  Katalog jest pusty — przeciągnij pliki aby wysłać
+                {/if}
+              </td>
+            </tr>
+          {/if}
+        </tbody>
+      </table>
+    {/if}
+    </div>
+  </div>
+</div>
+
+{#if showContextMenu && contextMenuFile}
+  <div
+    class="context-menu glass"
+    style="top: {contextMenuY}px; left: {contextMenuX}px;"
+    onclick={(e) => e.stopPropagation()}
+  >
+    {#if !contextMenuFile.is_dir}
+      <button
+        class="menu-item"
+        onclick={() => {
+          onEdit(fileRemotePath(contextMenuFile!, lastLoadedPath), contextMenuFile!);
+          closeContextMenu();
+        }}
+      >
+        <Edit size={14} /> <span>Edytuj plik</span>
+      </button>
+      <button
+        class="menu-item"
+        onclick={() => {
+          downloadSingle(contextMenuFile!);
+          closeContextMenu();
+        }}
+      >
+        <Download size={14} /> <span>Pobierz</span>
+      </button>
+    {/if}
+    <button
+      class="menu-item"
+      onclick={() => {
+        onChmod(contextMenuFile!);
+        closeContextMenu();
+      }}
+    >
+      <KeyRound size={14} /> <span>Uprawnienia (chmod)</span>
+    </button>
+    <button
+      class="menu-item"
+      onclick={() => {
+        onRename(contextMenuFile!);
+        closeContextMenu();
+      }}
+    >
+      <CornerDownLeft size={14} /> <span>Zmień nazwę</span>
+    </button>
+    <hr class="menu-divider" />
+    <button
+      class="menu-item danger-text"
+      onclick={() => {
+        deleteSingle(contextMenuFile!);
+        closeContextMenu();
+      }}
+    >
+      <Trash2 size={14} /> <span>Usuń</span>
+    </button>
+  </div>
+{/if}
+
+{#if showConflictModal}
+  <div class="modal-overlay">
+    <div class="modal-content glass">
+      <h3>Konflikt nazw plików</h3>
+      <p class="conflict-desc">
+        {conflictFiles.length} plik(ów) już istnieje w tym katalogu. Co zrobić?
+      </p>
+      <ul class="conflict-list">
+        {#each conflictFiles.slice(0, 5) as name}
+          <li class="mono-val">{name}</li>
+        {/each}
+        {#if conflictFiles.length > 5}
+          <li>…i {conflictFiles.length - 5} więcej</li>
+        {/if}
+      </ul>
+      <div class="conflict-options">
+        <label>
+          <input type="radio" bind:group={conflictAction} value="overwrite" />
+          Nadpisz istniejące
+        </label>
+        <label>
+          <input type="radio" bind:group={conflictAction} value="skip" />
+          Pomiń istniejące
+        </label>
+        <label>
+          <input type="radio" bind:group={conflictAction} value="rename" />
+          Zmień nazwę (dopisz .1)
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button class="primary" onclick={resolveConflict}>Kontynuuj</button>
+        <button
+          class="secondary"
+          onclick={() => {
+            showConflictModal = false;
+            pendingUploadPaths = [];
+          }}
+        >
+          Anuluj
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<style>
+  .browser {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .option-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .option-toggle input {
+    accent-color: var(--accent-amber);
+  }
+
+  .search-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 10px;
+    border-radius: var(--radius-md);
+    flex-shrink: 0;
+    border: 1px solid var(--border-color);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .search-panel.search-active {
+    border-color: rgba(245, 158, 11, 0.45);
+    box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.12);
+  }
+
+  .search-panel-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .search-panel-input-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 160px;
+  }
+
+  .search-leading-icon {
+    position: absolute;
+    left: 10px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    pointer-events: none;
+  }
+
+  .search-scope-toggle {
+    display: inline-flex;
+    padding: 2px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: rgba(0, 0, 0, 0.2);
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  .scope-btn {
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    padding: 4px 8px;
+    min-height: 28px;
+    border-radius: calc(var(--radius-sm) - 2px);
+    cursor: pointer;
+    transition:
+      color 0.15s ease,
+      background 0.15s ease,
+      transform 0.12s cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .scope-btn:hover:not(.active) {
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .scope-btn.active {
+    color: var(--accent-amber);
+    background: rgba(245, 158, 11, 0.14);
+    font-weight: 600;
+  }
+
+  .scope-btn:active {
+    transform: scale(0.96);
+  }
+
+  .search-panel-input {
+    width: 100%;
+    padding: 6px 32px 6px 30px;
+    font-size: 0.82rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: rgba(0, 0, 0, 0.25);
+    color: var(--text-primary);
+    transition: border-color 0.15s ease;
+  }
+
+  .search-panel-input:focus {
+    outline: none;
+    border-color: rgba(245, 158, 11, 0.45);
+  }
+
+  .search-scope-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding-top: 2px;
+  }
+
+  .search-scope-label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  .search-scope-path {
+    flex: 1;
+    min-width: 160px;
+    padding: 7px 10px;
+    font-size: 0.82rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: rgba(0, 0, 0, 0.2);
+    color: var(--text-primary);
+  }
+
+  .scope-reset-btn {
+    flex-shrink: 0;
+    min-height: 36px;
+  }
+
+  .search-scope-hint {
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-wrap: pretty;
+  }
+
+  .search-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: var(--radius-md);
+    font-size: 0.78rem;
+    flex-shrink: 0;
+    border: 1px solid var(--border-color);
+    transition: border-color 0.2s ease, background 0.2s ease;
+  }
+
+  .search-status.searching {
+    border-color: rgba(245, 158, 11, 0.45);
+    background: rgba(245, 158, 11, 0.06);
+    color: var(--accent-amber);
+  }
+
+  .search-status.done {
+    border-color: rgba(16, 185, 129, 0.35);
+    background: rgba(16, 185, 129, 0.06);
+    color: var(--text-secondary);
+  }
+
+  .search-status .status-icon {
+    flex-shrink: 0;
+  }
+
+  .search-status .done-icon {
+    color: #10b981;
+  }
+
+  .search-status .status-hint {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+  }
+
+  .files-table-container.search-pending {
+    pointer-events: none;
+    opacity: 0.55;
+  }
+
+  .overlay-loading .loading-hint {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  .btn-sm {
+    padding: 4px 10px;
+    font-size: 0.75rem;
+  }
+
+  .path-cell {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    max-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .overlay-loading {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    background: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(2px);
+  }
+
+  .nav-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: var(--radius-md);
+    flex-shrink: 0;
+    position: relative;
+    flex-wrap: wrap;
+  }
+
+  .nav-bar.drop-active,
+  .files-table-container.drop-active {
+    outline: 2px dashed var(--accent-amber);
+    outline-offset: -2px;
+  }
+
+  .path-input {
+    flex: 1;
+    min-width: 120px;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    padding: 6px 10px;
+  }
+
+  .actions-group {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+
+  .search-clear {
+    position: absolute;
+    right: 6px;
+    background: transparent;
+    border: none;
+    padding: 6px;
+    min-width: 36px;
+    min-height: 36px;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+      color 0.15s ease,
+      background 0.15s ease,
+      transform 0.12s cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .search-clear:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
+
+  .search-clear:active {
+    transform: scale(0.96);
+  }
+
+  .files-area {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .files-table-container {
+    flex: 1;
+    overflow-y: auto;
+    border-radius: var(--radius-md);
+    position: relative;
+  }
+
+  .drop-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(2px);
+    color: var(--accent-amber);
+    pointer-events: none;
+  }
+
+  .files-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+  }
+
+  .files-table th,
+  .files-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .files-table th {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    position: sticky;
+    top: 0;
+    background: var(--bg-secondary);
+    z-index: 1;
+  }
+
+  .files-table tr {
+    transition: background 0.15s ease;
+  }
+
+  .folder-row {
+    cursor: default;
+  }
+
+  .file-row {
+    cursor: default;
+  }
+
+  .folder-row:hover,
+  .file-row:hover {
+    background: var(--bg-hover);
+  }
+
+  tr.selected {
+    background: rgba(245, 158, 11, 0.08);
+  }
+
+  tr.drop-target {
+    outline: 2px solid var(--accent-amber);
+    outline-offset: -2px;
+    background: rgba(245, 158, 11, 0.1);
+  }
+
+  .file-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    user-select: none;
+  }
+
+  .folder-icon {
+    color: var(--accent-amber);
+  }
+
+  .file-icon {
+    color: var(--text-secondary);
+  }
+
+  .date-cell {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .actions-cell {
+    text-align: right;
+    display: flex;
+    justify-content: flex-end;
+    gap: 4px;
+  }
+
+  .btn-table {
+    background: transparent;
+    border: none;
+    padding: 6px;
+    border-radius: 4px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: var(--transition-fast);
+  }
+
+  .btn-table:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .danger-text:hover {
+    color: var(--accent-red) !important;
+    background: var(--accent-red-glow) !important;
+  }
+
+  .loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 16px;
+    color: var(--text-secondary);
+    min-height: 200px;
+  }
+
+  .spin {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .empty-state {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    padding: 40px !important;
+  }
+
+  .context-menu {
+    position: fixed;
+    z-index: 1000;
+    min-width: 180px;
+    background: rgba(20, 20, 25, 0.92);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .menu-item {
+    background: transparent;
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+  }
+
+  .menu-item:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .menu-divider {
+    border: none;
+    border-top: 1px solid var(--border-color);
+    margin: 4px 0;
+  }
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 150;
+  }
+
+  .modal-content {
+    width: 420px;
+    padding: 24px;
+    border-radius: var(--radius-md);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .modal-content h3 {
+    color: white;
+    font-size: 1.1rem;
+    margin: 0;
+  }
+
+  .conflict-desc {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+  }
+
+  .conflict-list {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    padding-left: 18px;
+    margin: 0;
+  }
+
+  .conflict-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+  }
+
+  .conflict-options label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+</style>

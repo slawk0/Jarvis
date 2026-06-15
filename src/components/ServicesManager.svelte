@@ -2,9 +2,26 @@
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { Play, Square, RotateCw, Plus, RefreshCw, Eye, ShieldAlert, KeyRound } from 'lucide-svelte';
+  import SortableTh from './ui/SortableTh.svelte';
+  import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
 
   let services = $state<any[]>([]);
   let filteredServices = $state<any[]>([]);
+  type ServiceSortCol = 'name' | 'load' | 'status' | 'desc';
+  let serviceSort = $state<SortState<ServiceSortCol>>({ column: 'name', direction: 'asc' });
+
+  const sortedServices = $derived(
+    applySort(filteredServices, serviceSort, {
+      name: (s) => s.name || '',
+      load: (s) => s.load || '',
+      status: (s) => s.sub || '',
+      desc: (s) => s.desc || '',
+    }),
+  );
+
+  function setServiceSort(column: string) {
+    serviceSort = nextSort(serviceSort, column as ServiceSortCol);
+  }
   let searchQuery = $state('');
   let isLoading = $state(false);
   let errorMsg = $state('');
@@ -179,12 +196,9 @@ WantedBy=multi-user.target
   });
 </script>
 
-<div class="services-manager fade-in">
-  <header class="sm-header">
-    <div class="title-area">
-      <h1>Usługi Systemd</h1>
-      <p class="subtitle">Zarządzaj i twórz demony systemowe Linux</p>
-    </div>
+<div class="services-manager manager-shell fade-in">
+  <header class="manager-header">
+    <h1 class="page-title">Usługi Systemd</h1>
     {#if errorMsg}
       <div class="error-badge">{errorMsg}</div>
     {/if}
@@ -218,15 +232,15 @@ WantedBy=multi-user.target
       <table class="services-table">
         <thead>
           <tr>
-            <th style="width: 25%;">Nazwa Usługi</th>
-            <th style="width: 12%;">Stan Wczytania</th>
-            <th style="width: 12%;">Status</th>
-            <th style="width: 31%;">Opis</th>
-            <th style="width: 20%; text-align: right;">Sterowanie</th>
+            <SortableTh label="Nazwa Usługi" column="name" activeColumn={serviceSort.column} direction={serviceSort.direction} onsort={setServiceSort} width="25%" />
+            <SortableTh label="Stan Wczytania" column="load" activeColumn={serviceSort.column} direction={serviceSort.direction} onsort={setServiceSort} width="12%" />
+            <SortableTh label="Status" column="status" activeColumn={serviceSort.column} direction={serviceSort.direction} onsort={setServiceSort} width="12%" />
+            <SortableTh label="Opis" column="desc" activeColumn={serviceSort.column} direction={serviceSort.direction} onsort={setServiceSort} width="31%" />
+            <th style="width: 20%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Sterowanie</th>
           </tr>
         </thead>
         <tbody>
-          {#each filteredServices as service}
+          {#each sortedServices as service}
             <tr>
               <td class="service-name-cell mono-val">
                 <strong>{service.name}</strong>
@@ -259,7 +273,7 @@ WantedBy=multi-user.target
             </tr>
           {/each}
 
-          {#if filteredServices.length === 0 && !isLoading}
+          {#if sortedServices.length === 0 && !isLoading}
             <tr>
               <td colspan="5" class="empty-state">Brak dopasowanych usług</td>
             </tr>
@@ -342,30 +356,7 @@ WantedBy=multi-user.target
 
 <style>
   .services-manager {
-    padding: 30px;
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-    height: 100%;
-    overflow: hidden;
-  }
-
-  .sm-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-shrink: 0;
-  }
-
-  .title-area h1 {
-    font-size: 2rem;
-    color: white;
-  }
-
-  .subtitle {
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    margin-top: 4px;
+    /* uses .manager-shell */
   }
 
   .error-badge {
@@ -381,8 +372,8 @@ WantedBy=multi-user.target
   .ops-bar {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
+    gap: 8px;
+    padding: 8px 10px;
     border-radius: var(--radius-md);
     flex-shrink: 0;
   }

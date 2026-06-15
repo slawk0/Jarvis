@@ -95,12 +95,9 @@
   });
 </script>
 
-<div class="dashboard fade-in">
-  <header class="dash-header">
-    <div class="title-area">
-      <h1>Panel Główny</h1>
-      <p class="subtitle">Wgląd w parametry serwera w czasie rzeczywistym</p>
-    </div>
+<div class="dashboard manager-shell scrollable fade-in">
+  <header class="manager-header">
+    <h1 class="page-title">Panel Główny</h1>
     {#if errorMsg}
       <div class="error-badge">{errorMsg}</div>
     {/if}
@@ -274,29 +271,7 @@
 
 <style>
   .dashboard {
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    height: 100%;
-    overflow-y: auto;
-  }
-
-  .dash-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .title-area h1 {
-    font-size: 1.6rem;
-    color: white;
-  }
-
-  .subtitle {
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-    margin-top: 4px;
+    /* uses .manager-shell */
   }
 
   .error-badge {
@@ -312,28 +287,28 @@
   .system-info-panel {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
-    padding: 16px;
+    gap: 10px;
+    padding: 10px 12px;
     border-radius: var(--radius-sm);
   }
 
   .info-item {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 10px;
   }
 
   .info-icon {
     color: var(--accent-amber);
     background: rgba(245, 158, 11, 0.08);
-    padding: 8px;
+    padding: 6px;
     border-radius: var(--radius-sm);
     border: 1px solid rgba(245, 158, 11, 0.15);
   }
 
   .info-label {
     display: block;
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -341,10 +316,10 @@
 
   .info-val {
     display: block;
-    font-size: 0.9rem;
+    font-size: 0.82rem;
     color: var(--text-primary);
     font-weight: 500;
-    margin-top: 2px;
+    margin-top: 1px;
   }
 
   /* Metrics Grid */

@@ -6,6 +6,7 @@
   import { FitAddon } from '@xterm/addon-fit';
   import { Terminal as TerminalIcon, ExternalLink, RefreshCw } from 'lucide-svelte';
   import '@xterm/xterm/css/xterm.css';
+  import { registerBackHandler } from '$lib/backNavigation.svelte';
 
   type ContainerSession = {
     containerId: string;
@@ -144,6 +145,15 @@
   onMount(() => {
     activeContainer = containerSession ?? null;
     initTerminal();
+    return registerBackHandler({
+      id: 'terminal-container',
+      priority: 75,
+      canGoBack: () => !!activeContainer,
+      goBack: () => {
+        if (activeContainer) switchToServerShell();
+      },
+      label: 'Wróć do shella serwera',
+    });
   });
 
   onDestroy(() => {
@@ -158,18 +168,13 @@
   });
 </script>
 
-<div class="terminal-view fade-in">
-  <header class="term-header">
+<div class="terminal-view manager-shell fade-in">
+  <header class="manager-header term-header">
     <div class="title-area">
       {#if activeContainer}
-        <h1>Shell kontenera</h1>
-        <p class="subtitle">
-          {activeContainer.containerName}
-          <span class="mono-val container-id">({activeContainer.shell})</span>
-        </p>
+        <h1 class="page-title">Shell: {activeContainer.containerName}</h1>
       {:else}
-        <h1>Konsola SSH</h1>
-        <p class="subtitle">Wbudowany terminal do bezpośredniej pracy na serwerze</p>
+        <h1 class="page-title">Konsola SSH</h1>
       {/if}
     </div>
     {#if errorMsg}
@@ -197,40 +202,17 @@
 
 <style>
   .terminal-view {
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    height: 100%;
-    overflow: hidden;
+    /* uses .manager-shell */
   }
 
   .term-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-shrink: 0;
-    gap: 16px;
     flex-wrap: wrap;
   }
 
-  .title-area h1 {
-    font-size: 1.6rem;
-    color: white;
-  }
-
-  .subtitle {
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-    margin-top: 4px;
+  .term-header .actions {
     display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .container-id {
-    color: var(--text-muted);
-    font-size: 0.78rem;
+    gap: 8px;
+    flex-wrap: wrap;
   }
 
   .error-badge {

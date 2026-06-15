@@ -2,9 +2,26 @@
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { Shield, ShieldOff, Plus, Trash2, RefreshCw, KeyRound, Check, ShieldAlert } from 'lucide-svelte';
+  import SortableTh from './ui/SortableTh.svelte';
+  import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
 
   let ufwActive = $state(false);
   let rules = $state<any[]>([]);
+  type RuleSortCol = 'num' | 'to' | 'action' | 'from';
+  let ruleSort = $state<SortState<RuleSortCol>>({ column: 'num', direction: 'asc' });
+
+  const sortedRules = $derived(
+    applySort(rules, ruleSort, {
+      num: (r) => parseInt(String(r.num).replace(/\D/g, ''), 10) || 0,
+      to: (r) => r.to || '',
+      action: (r) => r.action || '',
+      from: (r) => r.from || '',
+    }),
+  );
+
+  function setRuleSort(column: string) {
+    ruleSort = nextSort(ruleSort, column as RuleSortCol);
+  }
   let isLoading = $state(false);
   let errorMsg = $state('');
 
@@ -161,12 +178,9 @@
   });
 </script>
 
-<div class="firewall-manager fade-in">
-  <header class="fm-header">
-    <div class="title-area">
-      <h1>Zapora Sieciowa (UFW)</h1>
-      <p class="subtitle">Zabezpiecz serwer blokując lub zezwalając na ruch na portach</p>
-    </div>
+<div class="firewall-manager manager-shell fade-in">
+  <header class="manager-header">
+    <h1 class="page-title">Zapora Sieciowa (UFW)</h1>
     {#if errorMsg}
       <div class="error-badge">{errorMsg}</div>
     {/if}
@@ -176,17 +190,11 @@
   <div class="status-bar glass">
     <div class="status-indicator">
       {#if ufwActive}
-        <Shield size={24} class="shield-icon active" />
-        <div>
-          <span class="status-title">Zapora jest AKTYWNA</span>
-          <span class="status-desc">Ruch na serwerze jest filtrowany według poniższych reguł</span>
-        </div>
+        <Shield size={16} class="shield-icon active" />
+        <span class="status-title">Zapora AKTYWNA</span>
       {:else}
-        <ShieldOff size={24} class="shield-icon inactive" />
-        <div>
-          <span class="status-title">Zapora jest NIEAKTYWNA</span>
-          <span class="status-desc">Wszystkie porty wejściowe i wyjściowe są otwarte</span>
-        </div>
+        <ShieldOff size={16} class="shield-icon inactive" />
+        <span class="status-title">Zapora NIEAKTYWNA</span>
       {/if}
     </div>
 
@@ -213,15 +221,15 @@
       <table class="rules-table">
         <thead>
           <tr>
-            <th style="width: 10%;">Nr</th>
-            <th style="width: 25%;">Port / Usługa</th>
-            <th style="width: 20%;">Akcja</th>
-            <th style="width: 25%;">Z adresu IP</th>
-            <th style="width: 20%; text-align: right;">Usuń</th>
+            <SortableTh label="Nr" column="num" activeColumn={ruleSort.column} direction={ruleSort.direction} onsort={setRuleSort} width="10%" />
+            <SortableTh label="Port / Usługa" column="to" activeColumn={ruleSort.column} direction={ruleSort.direction} onsort={setRuleSort} width="25%" />
+            <SortableTh label="Akcja" column="action" activeColumn={ruleSort.column} direction={ruleSort.direction} onsort={setRuleSort} width="20%" />
+            <SortableTh label="Z adresu IP" column="from" activeColumn={ruleSort.column} direction={ruleSort.direction} onsort={setRuleSort} width="25%" />
+            <th style="width: 20%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Usuń</th>
           </tr>
         </thead>
         <tbody>
-          {#each rules as rule}
+          {#each sortedRules as rule}
             <tr>
               <td><span class="badge warning mono-val">{rule.num}</span></td>
               <td class="mono-val"><strong>{rule.to}</strong></td>
@@ -239,7 +247,7 @@
             </tr>
           {/each}
 
-          {#if rules.length === 0}
+          {#if sortedRules.length === 0}
             <tr>
               <td colspan="5" class="empty-state">Brak skonfigurowanych reguł. UFW blokuje domyślnie ruch wejściowy.</td>
             </tr>
@@ -319,30 +327,7 @@
 
 <style>
   .firewall-manager {
-    padding: 30px;
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-    height: 100%;
-    overflow: hidden;
-  }
-
-  .fm-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-shrink: 0;
-  }
-
-  .title-area h1 {
-    font-size: 2rem;
-    color: white;
-  }
-
-  .subtitle {
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    margin-top: 4px;
+    /* uses .manager-shell */
   }
 
   .error-badge {
@@ -359,7 +344,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 20px 24px;
+    padding: 8px 12px;
     border-radius: var(--radius-md);
     flex-shrink: 0;
   }
@@ -367,45 +352,30 @@
   .status-indicator {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 8px;
   }
 
   .shield-icon {
-    padding: 12px;
-    border-radius: 50%;
-    box-shadow: 0 0 15px rgba(255, 255, 255, 0.05);
+    flex-shrink: 0;
   }
 
   .shield-icon.active {
     color: var(--accent-green);
-    background: rgba(16, 185, 129, 0.1);
-    box-shadow: 0 0 15px var(--accent-green-glow);
-    border: 1px solid rgba(16, 185, 129, 0.2);
   }
 
   .shield-icon.inactive {
     color: var(--text-muted);
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid var(--border-color);
   }
 
   .status-title {
-    display: block;
-    font-size: 1.1rem;
+    font-size: 0.85rem;
     font-weight: 600;
     color: white;
   }
 
-  .status-desc {
-    display: block;
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    margin-top: 2px;
-  }
-
   .status-actions {
     display: flex;
-    gap: 10px;
+    gap: 8px;
   }
 
   /* Rules list */

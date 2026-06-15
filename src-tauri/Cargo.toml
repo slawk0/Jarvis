@@ -29,5 +29,6 @@ keyring = "2.1"
 tokio = { version = "1", features = ["full"] }
 parking_lot = "0.12"
 async-trait = "0.1"
+rfd = "0.15"
 
 

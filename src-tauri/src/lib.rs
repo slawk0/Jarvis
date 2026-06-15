@@ -1,4 +1,7 @@
 mod ssh;
+mod sftp_transfer;
+mod du_size;
+mod sftp_find;
 
 use parking_lot::Mutex;
 use std::sync::Arc;
@@ -8,6 +11,12 @@ use tauri::{Manager, Emitter, State, AppHandle};
 use serde::{Serialize, Deserialize};
 use keyring::Entry;
 use ssh::{SshConnection, ServerStats, FileInfo};
+use sftp_transfer::{
+    build_delete_jobs, build_move_jobs, build_upload_jobs, collect_local_files,
+    collect_remote_files, get_downloads_dir, DeleteItem, MoveItem, TransferRunner,
+    UploadItem,
+};
+use std::sync::atomic::AtomicBool;
 use tokio::sync::mpsc;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -39,6 +48,8 @@ pub struct AppState {
     pub terminal_cancel: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
     pub docker_log_cancel: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
     pub docker_compose_cancel: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
+    pub sftp_transfer_cancel: Arc<AtomicBool>,
+    pub sftp_transfer_running: Arc<AtomicBool>,
 }
 
 fn stop_terminal_sessions(state: &AppState) {
@@ -292,6 +303,32 @@ async fn sftp_list(state: State<'_, AppState>, path: String) -> Result<Vec<FileI
         conn_guard.as_ref().ok_or("Brak aktywnego połączenia SSH")?.clone()
     };
     conn.sftp_list_dir(&path).await
+}
+
+#[tauri::command]
+async fn sftp_dir_size(state: State<'_, AppState>, path: String) -> Result<u64, String> {
+    let conn = {
+        let conn_guard = state.connection.lock();
+        conn_guard.as_ref().ok_or("Brak aktywnego połączenia SSH")?.clone()
+    };
+    conn.sftp_dir_size(&path).await
+}
+
+#[tauri::command]
+async fn sftp_find(
+    state: State<'_, AppState>,
+    root: String,
+    query: String,
+    hide_hidden: bool,
+) -> Result<Vec<FileInfo>, String> {
+    let conn = {
+        let conn_guard = state.connection.lock();
+        conn_guard
+            .as_ref()
+            .ok_or("Brak aktywnego połączenia SSH")?
+            .clone()
+    };
+    conn.sftp_find(&root, &query, hide_hidden).await
 }
 
 #[tauri::command]
@@ -617,6 +654,174 @@ fn open_external_terminal(
 }
 
 #[tauri::command]
+fn spawn_transfer_batch(
+    state: &AppState,
+    app_handle: AppHandle,
+    jobs: Vec<sftp_transfer::InternalJob>,
+) -> Result<(), String> {
+    if state.sftp_transfer_running.load(std::sync::atomic::Ordering::Relaxed) {
+        return Err("Transfer już trwa. Poczekaj lub anuluj bieżącą operację.".to_string());
+    }
+
+    state
+        .sftp_transfer_cancel
+        .store(false, std::sync::atomic::Ordering::Relaxed);
+    state
+        .sftp_transfer_running
+        .store(true, std::sync::atomic::Ordering::Relaxed);
+
+    let conn = {
+        let conn_guard = state.connection.lock();
+        conn_guard
+            .as_ref()
+            .ok_or("Brak aktywnego połączenia SSH")?
+            .clone()
+    };
+
+    let cancel = state.sftp_transfer_cancel.clone();
+    let running = state.sftp_transfer_running.clone();
+    let runner = TransferRunner::new(cancel);
+
+    tokio::spawn(async move {
+        runner.run_batch(conn, app_handle, jobs).await;
+        running.store(false, std::sync::atomic::Ordering::Relaxed);
+    });
+
+    Ok(())
+}
+
+#[tauri::command]
+async fn sftp_start_upload_batch(
+    state: State<'_, AppState>,
+    app_handle: AppHandle,
+    remote_dir: String,
+    local_paths: Vec<String>,
+) -> Result<u32, String> {
+    let jobs = if local_paths.iter().any(|p| p.contains("::")) {
+        // Pre-built items: local::remote pairs from frontend flatten
+        let items: Vec<UploadItem> = local_paths
+            .iter()
+            .map(|pair| {
+                let parts: Vec<&str> = pair.splitn(2, "::").collect();
+                UploadItem {
+                    local_path: parts[0].to_string(),
+                    remote_path: parts.get(1).copied().unwrap_or("").to_string(),
+                }
+            })
+            .collect();
+        build_upload_jobs(items)
+    } else {
+        collect_local_files(&local_paths, &remote_dir)?
+    };
+    let count = jobs.len() as u32;
+    spawn_transfer_batch(&state, app_handle, jobs)?;
+    Ok(count)
+}
+
+#[tauri::command]
+async fn sftp_start_download_batch(
+    state: State<'_, AppState>,
+    app_handle: AppHandle,
+    remote_paths: Vec<String>,
+    local_dir: Option<String>,
+) -> Result<u32, String> {
+    let conn = {
+        let conn_guard = state.connection.lock();
+        conn_guard
+            .as_ref()
+            .ok_or("Brak aktywnego połączenia SSH")?
+            .clone()
+    };
+
+    let base_dir = if let Some(dir) = local_dir {
+        PathBuf::from(dir)
+    } else {
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        get_downloads_dir().join(format!("Jarvis-SFTP-{}", ts))
+    };
+    fs::create_dir_all(&base_dir)
+        .map_err(|e| format!("Nie można utworzyć katalogu docelowego: {}", e))?;
+
+    let sftp = sftp_transfer::open_sftp(&conn).await?;
+    let mut jobs = Vec::new();
+    for remote_path in &remote_paths {
+        let name = remote_path
+            .split('/')
+            .filter(|s| !s.is_empty())
+            .last()
+            .unwrap_or("download");
+        let local_path = base_dir.join(name);
+        let mut path_jobs =
+            collect_remote_files(&sftp, remote_path, &local_path, remote_path).await?;
+        jobs.append(&mut path_jobs);
+    }
+
+    let count = jobs.len() as u32;
+    spawn_transfer_batch(&state, app_handle, jobs)?;
+    Ok(count)
+}
+
+#[tauri::command]
+async fn sftp_start_move_batch(
+    state: State<'_, AppState>,
+    app_handle: AppHandle,
+    moves: Vec<MoveItem>,
+) -> Result<u32, String> {
+    let jobs = build_move_jobs(moves);
+    let count = jobs.len() as u32;
+    spawn_transfer_batch(&state, app_handle, jobs)?;
+    Ok(count)
+}
+
+#[tauri::command]
+async fn sftp_start_delete_batch(
+    state: State<'_, AppState>,
+    app_handle: AppHandle,
+    paths: Vec<DeleteItem>,
+) -> Result<u32, String> {
+    let jobs = build_delete_jobs(paths);
+    let count = jobs.len() as u32;
+    spawn_transfer_batch(&state, app_handle, jobs)?;
+    Ok(count)
+}
+
+#[tauri::command]
+async fn sftp_cancel_transfer(state: State<'_, AppState>) -> Result<(), String> {
+    state
+        .sftp_transfer_cancel
+        .store(true, std::sync::atomic::Ordering::Relaxed);
+    Ok(())
+}
+
+#[tauri::command]
+fn sftp_get_downloads_dir() -> String {
+    get_downloads_dir().to_string_lossy().to_string()
+}
+
+#[tauri::command]
+fn sftp_pick_files() -> Result<Vec<String>, String> {
+    let files = rfd::FileDialog::new()
+        .set_title("Wybierz pliki do wysłania")
+        .pick_files();
+    Ok(files
+        .unwrap_or_default()
+        .iter()
+        .map(|p| p.to_string_lossy().to_string())
+        .collect())
+}
+
+#[tauri::command]
+fn sftp_pick_folder() -> Result<Option<String>, String> {
+    Ok(rfd::FileDialog::new()
+        .set_title("Wybierz folder do wysłania")
+        .pick_folder()
+        .map(|p| p.to_string_lossy().to_string()))
+}
+
+#[tauri::command]
 async fn sftp_get_home_dir(state: State<'_, AppState>) -> Result<String, String> {
     let conn = {
         let conn_guard = state.connection.lock();
@@ -853,6 +1058,8 @@ pub fn run() {
             terminal_cancel: Arc::new(Mutex::new(None)),
             docker_log_cancel: Arc::new(Mutex::new(None)),
             docker_compose_cancel: Arc::new(Mutex::new(None)),
+            sftp_transfer_cancel: Arc::new(AtomicBool::new(false)),
+            sftp_transfer_running: Arc::new(AtomicBool::new(false)),
         })
         .invoke_handler(tauri::generate_handler![
             get_profiles,
@@ -865,6 +1072,8 @@ pub fn run() {
             set_sudo_password,
             has_sudo_password,
             sftp_list,
+            sftp_dir_size,
+            sftp_find,
             sftp_read,
             sftp_write,
             sftp_create_dir,
@@ -877,6 +1086,14 @@ pub fn run() {
             start_container_logs,
             stop_container_logs,
             sftp_get_home_dir,
+            sftp_start_upload_batch,
+            sftp_start_download_batch,
+            sftp_start_move_batch,
+            sftp_start_delete_batch,
+            sftp_cancel_transfer,
+            sftp_get_downloads_dir,
+            sftp_pick_files,
+            sftp_pick_folder,
             start_compose_pull,
             stop_compose_pull
         ])

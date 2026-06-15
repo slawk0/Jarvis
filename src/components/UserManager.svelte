@@ -2,6 +2,8 @@
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { Users, UserPlus, Trash2, KeyRound, RefreshCw, Check, ShieldAlert, Settings2, Plus } from 'lucide-svelte';
+  import SortableTh from './ui/SortableTh.svelte';
+  import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
 
   let users = $state<any[]>([]);
   let groups = $state<any[]>([]);
@@ -86,8 +88,38 @@
     if (showSystemAccounts) {
       return users;
     }
-    // Standardowi użytkownicy na Linuxie mają zazwyczaj UID >= 1000 lub są root (UID = 0)
     return users.filter(u => u.uid >= 1000 || u.uid === 0);
+  }
+
+  type UserSortCol = 'name' | 'home';
+  type GroupSortCol = 'name' | 'members';
+  let userSort = $state<SortState<UserSortCol>>({ column: 'name', direction: 'asc' });
+  let groupSort = $state<SortState<GroupSortCol>>({ column: 'name', direction: 'asc' });
+
+  const sortedUsers = $derived(
+    applySort(getVisibleUsers(), userSort, {
+      name: (u) => u.username || '',
+      home: (u) => u.home || '',
+    }),
+  );
+
+  const visibleGroups = $derived(
+    groups.filter(g => showSystemAccounts || g.gid >= 1000 || g.name === 'sudo' || g.name === 'docker'),
+  );
+
+  const sortedGroups = $derived(
+    applySort(visibleGroups, groupSort, {
+      name: (g) => g.name || '',
+      members: (g) => (g.members || []).join(', '),
+    }),
+  );
+
+  function setUserSort(column: string) {
+    userSort = nextSort(userSort, column as UserSortCol);
+  }
+
+  function setGroupSort(column: string) {
+    groupSort = nextSort(groupSort, column as GroupSortCol);
   }
 
   async function handleActionWithSudo(action: () => Promise<void>) {
@@ -268,12 +300,9 @@
   });
 </script>
 
-<div class="user-manager fade-in">
-  <header class="um-header">
-    <div class="title-area">
-      <h1>Użytkownicy i Grupy</h1>
-      <p class="subtitle">Zarządzaj kontami użytkowników, hasłami i uprawnieniami (sudo)</p>
-    </div>
+<div class="user-manager manager-shell fade-in">
+  <header class="manager-header">
+    <h1 class="page-title">Użytkownicy i Grupy</h1>
     {#if errorMsg}
       <div class="error-badge">{errorMsg}</div>
     {/if}
@@ -309,13 +338,13 @@
         <table class="users-table">
           <thead>
             <tr>
-              <th style="width: 30%;">Nazwa (UID)</th>
-              <th style="width: 35%;">Katalog Domowy & Powłoka</th>
-              <th style="width: 35%; text-align: right;">Akcje</th>
+              <SortableTh label="Nazwa (UID)" column="name" activeColumn={userSort.column} direction={userSort.direction} onsort={setUserSort} width="30%" />
+              <SortableTh label="Katalog Domowy & Powłoka" column="home" activeColumn={userSort.column} direction={userSort.direction} onsort={setUserSort} width="35%" />
+              <th style="width: 35%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Akcje</th>
             </tr>
           </thead>
           <tbody>
-            {#each getVisibleUsers() as user}
+            {#each sortedUsers as user}
               <tr>
                 <td>
                   <span class="user-name"><strong>{user.username}</strong></span>
@@ -356,13 +385,13 @@
         <table class="groups-table">
           <thead>
             <tr>
-              <th style="width: 40%;">Nazwa Grupy (GID)</th>
-              <th style="width: 40%;">Członkowie</th>
-              <th style="width: 20%; text-align: right;">Usuń</th>
+              <SortableTh label="Nazwa Grupy (GID)" column="name" activeColumn={groupSort.column} direction={groupSort.direction} onsort={setGroupSort} width="40%" />
+              <SortableTh label="Członkowie" column="members" activeColumn={groupSort.column} direction={groupSort.direction} onsort={setGroupSort} width="40%" />
+              <th style="width: 20%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Usuń</th>
             </tr>
           </thead>
           <tbody>
-            {#each groups.filter(g => showSystemAccounts || g.gid >= 1000 || g.name === 'sudo' || g.name === 'docker') as group}
+            {#each sortedGroups as group}
               <tr>
                 <td>
                   <span class="group-name"><strong>{group.name}</strong></span>
@@ -511,30 +540,7 @@
 
 <style>
   .user-manager {
-    padding: 30px;
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-    height: 100%;
-    overflow: hidden;
-  }
-
-  .um-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-shrink: 0;
-  }
-
-  .title-area h1 {
-    font-size: 2rem;
-    color: white;
-  }
-
-  .subtitle {
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    margin-top: 4px;
+    /* uses .manager-shell */
   }
 
   .error-badge {
@@ -550,8 +556,8 @@
   .ops-bar {
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 12px 16px;
+    gap: 8px;
+    padding: 8px 10px;
     border-radius: var(--radius-md);
     flex-shrink: 0;
   }

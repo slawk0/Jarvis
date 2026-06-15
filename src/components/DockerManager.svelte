@@ -14,6 +14,9 @@
   import yaml from 'js-yaml';
   import toml from 'toml';
   import { stickToBottom } from '$lib/stickToBottom';
+  import SortableTh from './ui/SortableTh.svelte';
+  import ListSortBar from './ui/ListSortBar.svelte';
+  import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
 
   // Props
   let { onRequestTerminalExec = (_ctx: { containerId: string; containerName: string; useSudo: boolean; shell: string }) => {} } = $props();
@@ -134,6 +137,78 @@
   let selectedImages = $state<string[]>([]);
   let selectedNetworks = $state<string[]>([]);
   let selectedCompose = $state<string[]>([]);
+
+  // Table sorting
+  let containerSort = $state<SortState<string>>({ column: 'name', direction: 'asc' });
+  let imageSort = $state<SortState<string>>({ column: 'repository', direction: 'asc' });
+  let networkSort = $state<SortState<string>>({ column: 'name', direction: 'asc' });
+  let composeSort = $state<SortState<string>>({ column: 'name', direction: 'asc' });
+  let volumeSort = $state<SortState<string>>({ column: 'name', direction: 'asc' });
+  let dirPickerSort = $state<SortState<string>>({ column: 'name', direction: 'asc' });
+  let browserSort = $state<SortState<string>>({ column: 'name', direction: 'asc' });
+
+  function getSortedContainers() {
+    return applySort(getFilteredContainers(), containerSort, {
+      name: (c) => c.Names || '',
+      image: (c) => c.Image || '',
+      status: (c) => c.State || '',
+      ports: (c) => c.Ports || '',
+      created: (c) => c.CreatedAt || c.RunningFor || '',
+    });
+  }
+
+  function getSortedImages() {
+    return applySort(getFilteredImages(), imageSort, {
+      repository: (i) => i.Repository || '',
+      tag: (i) => i.Tag || '',
+      id: (i) => i.ID || '',
+      size: (i) => i.Size || '',
+      created: (i) => i.CreatedAt || '',
+    });
+  }
+
+  function getSortedNetworks() {
+    return applySort(networks, networkSort, {
+      name: (n) => n.Name || '',
+      driver: (n) => n.Driver || '',
+      scope: (n) => n.Scope || '',
+      id: (n) => n.ID || '',
+    });
+  }
+
+  function getSortedCompose() {
+    return applySort(composeProjects, composeSort, {
+      name: (p) => p.Name || p.name || '',
+      status: (p) => p.Status || p.status || '',
+      config: (p) => p.ConfigFiles || p['config files'] || p.config_file || '',
+    });
+  }
+
+  function getSortedVolumes() {
+    return applySort(getFilteredVolumes(), volumeSort, {
+      name: (v) => v.Name || '',
+      driver: (v) => v.Driver || '',
+    });
+  }
+
+  function getSortedDirPickerEntries() {
+    return applySort(dirPickerEntries, dirPickerSort, {
+      name: (e) => e.name || e.filename || '',
+    });
+  }
+
+  function getSortedBrowserEntries() {
+    return applySort(
+      browserEntries,
+      browserSort,
+      {
+        name: (e) => e.name || '',
+        size: (e) => e.size || 0,
+        modified: (e) => e.modified || 0,
+      },
+      { dirsFirst: (e) => e.is_dir },
+    );
+  }
 
   // Unused Images helper state
   let usedImageIds = $state<string[]>([]);
@@ -716,8 +791,7 @@
     try {
       const entries: any[] = await invoke('sftp_list', { path });
       dirPickerEntries = entries
-        .filter((e: any) => e.is_dir || e.file_type === 'directory')
-        .sort((a: any, b: any) => (a.name || a.filename || '').localeCompare(b.name || b.filename || ''));
+        .filter((e: any) => e.is_dir || e.file_type === 'directory');
       dirPickerPath = path;
     } catch (err: any) {
       errorMsg = 'Błąd wczytywania katalogu: ' + err.toString();
@@ -1345,10 +1419,7 @@ networks:
         catch { return null; }
       }).filter(Boolean);
       
-      browserEntries = parsed.sort((a: any, b: any) => {
-        if (a.is_dir !== b.is_dir) return b.is_dir ? 1 : -1;
-        return a.name.localeCompare(b.name);
-      });
+      browserEntries = parsed;
     } catch (err: any) {
       browserErrorMsg = 'Błąd wczytywania folderu: ' + err.toString();
       browserEntries = [];
@@ -1726,26 +1797,7 @@ networks:
   });
 </script>
 
-<div class="docker-manager fade-in">
-  <header class="dm-header">
-    <div class="title-area">
-      <h1>Docker</h1>
-      <p class="subtitle">Zarządzaj kontenerami, obrazami i sieciami na serwerze</p>
-    </div>
-    {#if errorMsg}
-      <div class="error-badge">
-        <AlertCircle size={14} />
-        {errorMsg}
-        <button class="dismiss-btn" onclick={() => errorMsg = ''}>
-          <X size={12} />
-        </button>
-      </div>
-    {/if}
-    {#if successMsg}
-      <div class="success-badge">{successMsg}</div>
-    {/if}
-  </header>
-
+<div class="docker-manager manager-shell fade-in">
   {#if !dockerInstalled}
     <!-- Docker not installed -->
     <div class="not-installed-card glass">
@@ -1761,40 +1813,47 @@ networks:
       </a>
     </div>
   {:else}
-    <!-- Docker status bar -->
-    <div class="docker-status-bar glass">
-      <div class="status-row">
-        <div class="status-item">
-          <Container size={18} class="status-icon" />
-          <div>
-            <span class="status-label">Docker Engine</span>
-            <span class="status-value mono-val">{dockerVersion || '—'}</span>
-          </div>
+    <!-- Compact status bar -->
+    <div class="docker-top-bar glass">
+      <h1 class="page-title">Docker</h1>
+      <div class="status-item">
+        <Container size={14} class="status-icon" />
+        <span class="status-value mono-val tabular-nums">{dockerVersion || '—'}</span>
+      </div>
+      <div class="stats-row">
+        <div class="stat-chip running">
+          <Play size={11} />
+          <span class="mono-val tabular-nums">{runningCount}</span>
+          <span class="stat-label">aktywne</span>
         </div>
-
-        <div class="stats-row">
-          <div class="stat-chip running">
-            <Play size={12} />
-            <span class="mono-val">{runningCount}</span>
-            <span class="stat-label">aktywne</span>
-          </div>
-          <div class="stat-chip stopped">
-            <Square size={12} />
-            <span class="mono-val">{stoppedCount}</span>
-            <span class="stat-label">zatrzymane</span>
-          </div>
-          <div class="stat-chip neutral">
-            <Box size={12} />
-            <span class="mono-val">{totalImages}</span>
-            <span class="stat-label">obrazów</span>
-          </div>
-          <div class="stat-chip neutral">
-            <Network size={12} />
-            <span class="mono-val">{totalNetworks}</span>
-            <span class="stat-label">sieci</span>
-          </div>
+        <div class="stat-chip stopped">
+          <Square size={11} />
+          <span class="mono-val tabular-nums">{stoppedCount}</span>
+          <span class="stat-label">zatrzymane</span>
+        </div>
+        <div class="stat-chip neutral">
+          <Box size={11} />
+          <span class="mono-val tabular-nums">{totalImages}</span>
+          <span class="stat-label">obrazów</span>
+        </div>
+        <div class="stat-chip neutral">
+          <Network size={11} />
+          <span class="mono-val tabular-nums">{totalNetworks}</span>
+          <span class="stat-label">sieci</span>
         </div>
       </div>
+      {#if errorMsg}
+        <div class="error-badge">
+          <AlertCircle size={12} />
+          <span class="error-text">{errorMsg}</span>
+          <button class="dismiss-btn" onclick={() => errorMsg = ''}>
+            <X size={12} />
+          </button>
+        </div>
+      {/if}
+      {#if successMsg}
+        <div class="success-badge">{successMsg}</div>
+      {/if}
     </div>
 
     <!-- Sub-tabs -->
@@ -1850,16 +1909,16 @@ networks:
               <thead>
                 <tr>
                   <th style="width: 5%;"><input type="checkbox" checked={selectedContainers.length > 0 && selectedContainers.length === getFilteredContainers().length} onchange={toggleSelectAllContainers} /></th>
-                  <th style="width: 20%;">Nazwa</th>
-                  <th style="width: 18%;">Obraz</th>
-                  <th style="width: 12%;">Status</th>
-                  <th style="width: 15%;">Porty</th>
-                  <th style="width: 13%;">Utworzono</th>
-                  <th style="width: 17%; text-align: right;">Operacje</th>
+                  <SortableTh label="Nazwa" column="name" activeColumn={containerSort.column} direction={containerSort.direction} onsort={(c) => containerSort = nextSort(containerSort, c)} width="20%" />
+                  <SortableTh label="Obraz" column="image" activeColumn={containerSort.column} direction={containerSort.direction} onsort={(c) => containerSort = nextSort(containerSort, c)} width="18%" />
+                  <SortableTh label="Status" column="status" activeColumn={containerSort.column} direction={containerSort.direction} onsort={(c) => containerSort = nextSort(containerSort, c)} width="12%" />
+                  <SortableTh label="Porty" column="ports" activeColumn={containerSort.column} direction={containerSort.direction} onsort={(c) => containerSort = nextSort(containerSort, c)} width="15%" />
+                  <SortableTh label="Utworzono" column="created" activeColumn={containerSort.column} direction={containerSort.direction} onsort={(c) => containerSort = nextSort(containerSort, c)} width="13%" />
+                  <th style="width: 17%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Operacje</th>
                 </tr>
               </thead>
               <tbody>
-                {#each getFilteredContainers() as container}
+                {#each getSortedContainers() as container}
                   <tr>
                     <td><input type="checkbox" checked={selectedContainers.includes(container.ID)} onchange={() => toggleSelectContainer(container.ID)} /></td>
                     <td class="mono-val"><strong>{container.Names}</strong></td>
@@ -1980,16 +2039,16 @@ networks:
               <thead>
                 <tr>
                   <th style="width: 5%;"><input type="checkbox" checked={selectedImages.length > 0 && selectedImages.length === getFilteredImages().length} onchange={toggleSelectAllImages} /></th>
-                  <th style="width: 25%;">Repozytorium</th>
-                  <th style="width: 15%;">Tag</th>
-                  <th style="width: 18%;">ID Obrazu</th>
-                  <th style="width: 12%;">Rozmiar</th>
-                  <th style="width: 12%;">Utworzono</th>
-                  <th style="width: 13%; text-align: right;">Operacje</th>
+                  <SortableTh label="Repozytorium" column="repository" activeColumn={imageSort.column} direction={imageSort.direction} onsort={(c) => imageSort = nextSort(imageSort, c)} width="25%" />
+                  <SortableTh label="Tag" column="tag" activeColumn={imageSort.column} direction={imageSort.direction} onsort={(c) => imageSort = nextSort(imageSort, c)} width="15%" />
+                  <SortableTh label="ID Obrazu" column="id" activeColumn={imageSort.column} direction={imageSort.direction} onsort={(c) => imageSort = nextSort(imageSort, c)} width="18%" />
+                  <SortableTh label="Rozmiar" column="size" activeColumn={imageSort.column} direction={imageSort.direction} onsort={(c) => imageSort = nextSort(imageSort, c)} width="12%" />
+                  <SortableTh label="Utworzono" column="created" activeColumn={imageSort.column} direction={imageSort.direction} onsort={(c) => imageSort = nextSort(imageSort, c)} width="12%" />
+                  <th style="width: 13%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Operacje</th>
                 </tr>
               </thead>
               <tbody>
-                {#each getFilteredImages() as image}
+                {#each getSortedImages() as image}
                   <tr>
                     <td><input type="checkbox" checked={selectedImages.includes(image.ID)} onchange={() => toggleSelectImage(image.ID)} /></td>
                     <td class="mono-val">
@@ -2056,15 +2115,15 @@ networks:
               <thead>
                 <tr>
                   <th style="width: 5%;"><input type="checkbox" checked={selectedNetworks.length > 0 && selectedNetworks.length === networks.length} onchange={toggleSelectAllNetworks} /></th>
-                  <th style="width: 25%;">Nazwa</th>
-                  <th style="width: 18%;">Driver</th>
-                  <th style="width: 15%;">Zakres</th>
-                  <th style="width: 22%;">ID Sieci</th>
-                  <th style="width: 15%; text-align: right;">Operacje</th>
+                  <SortableTh label="Nazwa" column="name" activeColumn={networkSort.column} direction={networkSort.direction} onsort={(c) => networkSort = nextSort(networkSort, c)} width="25%" />
+                  <SortableTh label="Driver" column="driver" activeColumn={networkSort.column} direction={networkSort.direction} onsort={(c) => networkSort = nextSort(networkSort, c)} width="18%" />
+                  <SortableTh label="Zakres" column="scope" activeColumn={networkSort.column} direction={networkSort.direction} onsort={(c) => networkSort = nextSort(networkSort, c)} width="15%" />
+                  <SortableTh label="ID Sieci" column="id" activeColumn={networkSort.column} direction={networkSort.direction} onsort={(c) => networkSort = nextSort(networkSort, c)} width="22%" />
+                  <th style="width: 15%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Operacje</th>
                 </tr>
               </thead>
               <tbody>
-                {#each networks as network}
+                {#each getSortedNetworks() as network}
                   <tr>
                     <td><input type="checkbox" checked={selectedNetworks.includes(network.ID || network.Name)} onchange={() => toggleSelectNetwork(network.ID || network.Name)} /></td>
                     <td class="mono-val"><strong>{network.Name}</strong></td>
@@ -2146,14 +2205,14 @@ networks:
               <thead>
                 <tr>
                   <th style="width: 5%;"><input type="checkbox" checked={selectedCompose.length > 0 && selectedCompose.length === composeProjects.length} onchange={toggleSelectAllCompose} /></th>
-                  <th style="width: 20%;">Nazwa Projektu</th>
-                  <th style="width: 12%;">Status</th>
-                  <th style="width: 28%;">Plik Konfiguracyjny</th>
-                  <th style="width: 35%; text-align: right;">Operacje</th>
+                  <SortableTh label="Nazwa Projektu" column="name" activeColumn={composeSort.column} direction={composeSort.direction} onsort={(c) => composeSort = nextSort(composeSort, c)} width="20%" />
+                  <SortableTh label="Status" column="status" activeColumn={composeSort.column} direction={composeSort.direction} onsort={(c) => composeSort = nextSort(composeSort, c)} width="12%" />
+                  <SortableTh label="Plik Konfiguracyjny" column="config" activeColumn={composeSort.column} direction={composeSort.direction} onsort={(c) => composeSort = nextSort(composeSort, c)} width="28%" />
+                  <th style="width: 35%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Operacje</th>
                 </tr>
               </thead>
               <tbody>
-                {#each composeProjects as project}
+                {#each getSortedCompose() as project}
                   {@const projectName = project.Name || project.name || '—'}
                   {@const configFiles = project.ConfigFiles || project['config files'] || ''}
                   <tr>
@@ -2225,13 +2284,13 @@ networks:
             <table class="data-table">
               <thead>
                 <tr>
-                  <th style="width: 30%;">Nazwa</th>
-                  <th style="width: 20%;">Driver</th>
-                  <th style="width: 35%; text-align: right;">Operacje</th>
+                  <SortableTh label="Nazwa" column="name" activeColumn={volumeSort.column} direction={volumeSort.direction} onsort={(c) => volumeSort = nextSort(volumeSort, c)} width="30%" />
+                  <SortableTh label="Driver" column="driver" activeColumn={volumeSort.column} direction={volumeSort.direction} onsort={(c) => volumeSort = nextSort(volumeSort, c)} width="20%" />
+                  <th style="width: 35%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Operacje</th>
                 </tr>
               </thead>
               <tbody>
-                {#each getFilteredVolumes() as volume}
+                {#each getSortedVolumes() as volume}
                   <tr>
                     <td class="mono-val"><strong>{volume.Name}</strong></td>
                     <td><span class="badge warning">{volume.Driver || 'local'}</span></td>
@@ -2503,6 +2562,12 @@ networks:
         </div>
 
         <!-- Directory listing -->
+        <ListSortBar
+          columns={[{ id: 'name', label: 'Nazwa' }]}
+          activeColumn={dirPickerSort.column}
+          direction={dirPickerSort.direction}
+          onsort={(c) => dirPickerSort = nextSort(dirPickerSort, c)}
+        />
         <div class="dir-picker-list">
           <button class="dir-entry" onclick={navigateUp}>
             <ChevronLeft size={14} />
@@ -2511,7 +2576,7 @@ networks:
           {#if dirPickerLoading}
             <div class="dir-picker-loading"><Loader2 size={20} class="spin" /></div>
           {:else}
-            {#each dirPickerEntries as entry}
+            {#each getSortedDirPickerEntries() as entry}
               <button class="dir-entry" onclick={() => navigateDir(entry.name || entry.filename)}>
                 <FolderOpen size={14} />
                 <span>{entry.name || entry.filename}</span>
@@ -2650,11 +2715,21 @@ networks:
           {#if browserErrorMsg}
             <div class="error-text">{browserErrorMsg}</div>
           {/if}
+          <ListSortBar
+            columns={[
+              { id: 'name', label: 'Nazwa' },
+              { id: 'size', label: 'Rozmiar' },
+              { id: 'modified', label: 'Data modyfikacji' },
+            ]}
+            activeColumn={browserSort.column}
+            direction={browserSort.direction}
+            onsort={(c) => browserSort = nextSort(browserSort, c)}
+          />
           <div class="volume-file-list">
             {#if browserLoading}
               <div class="loading-state"><Loader2 size={24} class="spin" /></div>
             {:else}
-              {#each browserEntries as entry}
+              {#each getSortedBrowserEntries() as entry}
                 <button
                   class="volume-file-entry"
                   onclick={() => entry.is_dir ? navigateVolumeDir(entry.name) : editVolumeFile(entry.name)}
@@ -2847,45 +2922,41 @@ networks:
 
 <style>
   .docker-manager {
-    padding: 30px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    height: 100%;
-    overflow: hidden;
+    /* uses .manager-shell from global.css */
   }
 
-  .dm-header {
+  .docker-top-bar {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
     flex-shrink: 0;
-    gap: 16px;
     flex-wrap: wrap;
   }
 
-  .title-area h1 {
-    font-size: 2rem;
-    color: white;
-  }
-
-  .subtitle {
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    margin-top: 4px;
+  .docker-top-bar .page-title {
+    flex-shrink: 0;
   }
 
   .error-badge {
     background: var(--accent-red-glow);
     border: 1px solid rgba(244, 63, 94, 0.3);
-    padding: 8px 16px;
+    padding: 4px 10px;
     border-radius: var(--radius-sm);
     color: #ff8595;
-    font-size: 0.82rem;
+    font-size: 0.75rem;
     display: flex;
     align-items: center;
-    gap: 8px;
-    max-width: 500px;
+    gap: 6px;
+    max-width: 360px;
+    margin-left: auto;
+  }
+
+  .error-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .dismiss-btn {
@@ -2905,10 +2976,11 @@ networks:
   .success-badge {
     background: var(--accent-green-glow);
     border: 1px solid rgba(16, 185, 129, 0.3);
-    padding: 8px 16px;
+    padding: 4px 10px;
     border-radius: var(--radius-sm);
     color: var(--accent-green);
-    font-size: 0.82rem;
+    font-size: 0.75rem;
+    margin-left: auto;
   }
 
   /* Not installed card */
@@ -2955,63 +3027,44 @@ networks:
   }
 
   /* Docker status bar */
-  .docker-status-bar {
-    padding: 16px 20px;
-    border-radius: var(--radius-md);
-    flex-shrink: 0;
-  }
-
-  .status-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
   .status-item {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 6px;
+    flex-shrink: 0;
   }
 
   .status-icon {
     color: var(--accent-amber);
   }
 
-  .status-label {
-    display: block;
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-weight: 600;
-  }
-
   .status-value {
-    display: block;
-    font-size: 1rem;
-    color: white;
-    font-weight: 600;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    font-weight: 500;
   }
 
   .stats-row {
     display: flex;
-    gap: 12px;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-left: auto;
   }
 
   .stat-chip {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
+    gap: 4px;
+    padding: 3px 8px;
     border-radius: var(--radius-sm);
-    font-size: 0.8rem;
     border: 1px solid var(--border-color);
-    background: rgba(255, 255, 255, 0.02);
+    font-size: 0.72rem;
   }
 
   .stat-chip .mono-val {
-    font-weight: 700;
-    font-size: 0.9rem;
+    font-weight: 600;
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
   }
 
   .stat-label {
@@ -3037,9 +3090,9 @@ networks:
   /* Tabs bar */
   .tabs-bar {
     display: flex;
-    padding: 6px;
+    padding: 3px;
     border-radius: var(--radius-md);
-    gap: 6px;
+    gap: 3px;
     flex-shrink: 0;
   }
 
@@ -3049,13 +3102,13 @@ networks:
     border: none;
     border-radius: var(--radius-sm);
     color: var(--text-secondary);
-    padding: 10px;
+    padding: 6px 8px;
     cursor: pointer;
-    font-size: 0.9rem;
+    font-size: 0.78rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 6px;
     transition: var(--transition-fast);
   }
 
@@ -3075,7 +3128,7 @@ networks:
   .tab-content {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 8px;
     flex: 1;
     overflow: hidden;
     min-height: 0;
@@ -3085,8 +3138,8 @@ networks:
   .ops-bar {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
+    gap: 8px;
+    padding: 8px 10px;
     border-radius: var(--radius-md);
     flex-shrink: 0;
     flex-wrap: wrap;

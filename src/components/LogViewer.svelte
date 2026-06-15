@@ -3,6 +3,8 @@
   import { invoke } from '@tauri-apps/api/core';
   import { FileText, Users, LogOut, RefreshCw, KeyRound, Play, Pause, Search } from 'lucide-svelte';
   import { stickToBottom } from '$lib/stickToBottom';
+  import SortableTh from './ui/SortableTh.svelte';
+  import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
 
   let activeSubTab = $state('logs'); // 'logs' | 'sessions'
   let isLoading = $state(false);
@@ -62,6 +64,37 @@
   // --- ZAKŁADKA SESJI ---
   let activeSessions = $state<any[]>([]);
   let loginHistory = $state<any[]>([]);
+
+  type SessionSortCol = 'username' | 'tty' | 'ip' | 'date';
+  type HistorySortCol = 'username' | 'tty' | 'ip' | 'time';
+  let sessionSort = $state<SortState<SessionSortCol>>({ column: 'username', direction: 'asc' });
+  let historySort = $state<SortState<HistorySortCol>>({ column: 'time', direction: 'desc' });
+
+  const sortedSessions = $derived(
+    applySort(activeSessions, sessionSort, {
+      username: (s) => s.username || '',
+      tty: (s) => s.tty || '',
+      ip: (s) => s.ip || '',
+      date: (s) => s.date || '',
+    }),
+  );
+
+  const sortedHistory = $derived(
+    applySort(loginHistory, historySort, {
+      username: (h) => h.username || '',
+      tty: (h) => h.tty || '',
+      ip: (h) => h.ip || '',
+      time: (h) => h.time || '',
+    }),
+  );
+
+  function setSessionSort(column: string) {
+    sessionSort = nextSort(sessionSort, column as SessionSortCol);
+  }
+
+  function setHistorySort(column: string) {
+    historySort = nextSort(historySort, column as HistorySortCol);
+  }
 
   async function loadSessionsAndHistory() {
     isLoading = true;
@@ -199,12 +232,9 @@
   });
 </script>
 
-<div class="log-viewer fade-in">
-  <header class="lv-header">
-    <div class="title-area">
-      <h1>Logi i Aktywne Sesje</h1>
-      <p class="subtitle">Monitoruj logi systemowe i kontroluj zalogowanych użytkowników</p>
-    </div>
+<div class="log-viewer manager-shell fade-in">
+  <header class="manager-header">
+    <h1 class="page-title">Logi i Aktywne Sesje</h1>
     {#if errorMsg}
       <div class="error-badge">{errorMsg}</div>
     {/if}
@@ -270,15 +300,15 @@
         <table class="sessions-table">
           <thead>
             <tr>
-              <th>Użytkownik</th>
-              <th>Terminal</th>
-              <th>Adres IP</th>
-              <th>Data Zalogowania</th>
-              <th style="text-align: right;">Wyrzuć</th>
+              <SortableTh label="Użytkownik" column="username" activeColumn={sessionSort.column} direction={sessionSort.direction} onsort={setSessionSort} />
+              <SortableTh label="Terminal" column="tty" activeColumn={sessionSort.column} direction={sessionSort.direction} onsort={setSessionSort} />
+              <SortableTh label="Adres IP" column="ip" activeColumn={sessionSort.column} direction={sessionSort.direction} onsort={setSessionSort} />
+              <SortableTh label="Data Zalogowania" column="date" activeColumn={sessionSort.column} direction={sessionSort.direction} onsort={setSessionSort} />
+              <th style="text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Wyrzuć</th>
             </tr>
           </thead>
           <tbody>
-            {#each activeSessions as session}
+            {#each sortedSessions as session}
               <tr>
                 <td class="mono-val"><strong>{session.username}</strong></td>
                 <td><span class="badge warning mono-val">{session.tty}</span></td>
@@ -294,7 +324,7 @@
               </tr>
             {/each}
 
-            {#if activeSessions.length === 0}
+            {#if sortedSessions.length === 0}
               <tr>
                 <td colspan="5" class="empty-state">Brak aktywnych sesji</td>
               </tr>
@@ -312,14 +342,14 @@
         <table class="history-table">
           <thead>
             <tr>
-              <th>Użytkownik</th>
-              <th>Terminal</th>
-              <th>IP logowania</th>
-              <th>Szczegóły czasu</th>
+              <SortableTh label="Użytkownik" column="username" activeColumn={historySort.column} direction={historySort.direction} onsort={setHistorySort} />
+              <SortableTh label="Terminal" column="tty" activeColumn={historySort.column} direction={historySort.direction} onsort={setHistorySort} />
+              <SortableTh label="IP logowania" column="ip" activeColumn={historySort.column} direction={historySort.direction} onsort={setHistorySort} />
+              <SortableTh label="Szczegóły czasu" column="time" activeColumn={historySort.column} direction={historySort.direction} onsort={setHistorySort} />
             </tr>
           </thead>
           <tbody>
-            {#each loginHistory as hist}
+            {#each sortedHistory as hist}
               <tr>
                 <td class="mono-val"><strong>{hist.username}</strong></td>
                 <td><span class="badge warning mono-val">{hist.tty}</span></td>
@@ -328,7 +358,7 @@
               </tr>
             {/each}
             
-            {#if loginHistory.length === 0}
+            {#if sortedHistory.length === 0}
               <tr>
                 <td colspan="4" class="empty-state">Brak historii logowań</td>
               </tr>
@@ -368,30 +398,7 @@
 
 <style>
   .log-viewer {
-    padding: 30px;
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-    height: 100%;
-    overflow: hidden;
-  }
-
-  .lv-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-shrink: 0;
-  }
-
-  .title-area h1 {
-    font-size: 2rem;
-    color: white;
-  }
-
-  .subtitle {
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    margin-top: 4px;
+    /* uses .manager-shell */
   }
 
   .error-badge {
@@ -406,9 +413,9 @@
   /* Tabs Bar */
   .tabs-bar {
     display: flex;
-    padding: 6px;
+    padding: 3px;
     border-radius: var(--radius-md);
-    gap: 6px;
+    gap: 3px;
     flex-shrink: 0;
   }
 
@@ -418,13 +425,13 @@
     border: none;
     border-radius: var(--radius-sm);
     color: var(--text-secondary);
-    padding: 10px;
+    padding: 6px 8px;
     cursor: pointer;
-    font-size: 0.9rem;
+    font-size: 0.78rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 6px;
     transition: var(--transition-fast);
   }
 
@@ -444,8 +451,8 @@
   .log-controls-bar {
     display: flex;
     align-items: center;
-    gap: 20px;
-    padding: 12px 16px;
+    gap: 10px;
+    padding: 8px 10px;
     border-radius: var(--radius-md);
     flex-shrink: 0;
   }

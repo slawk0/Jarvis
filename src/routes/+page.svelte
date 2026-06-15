@@ -13,8 +13,14 @@
     ChevronRight, 
     Loader2, 
     AlertCircle,
-    Activity
+    Activity,
+    ArrowLeft
   } from 'lucide-svelte';
+  import {
+    canNavigateBack,
+    getBackDescription,
+    navigateBack,
+  } from '$lib/backNavigation.svelte';
 
   // Komponenty
   import Sidebar from '../components/Sidebar.svelte';
@@ -37,6 +43,84 @@
   let currentHostname = $state('Serwer');
   let currentProfileId = $state('');
   let terminalContainerSession = $state<{ containerId: string; containerName: string; useSudo: boolean; shell: string } | null>(null);
+  let tabHistory = $state<string[]>([]);
+
+  const TAB_LABELS: Record<string, string> = {
+    dashboard: 'Dashboard',
+    files: 'Pliki (SFTP)',
+    services: 'Usługi',
+    docker: 'Docker',
+    cron: 'Cron',
+    users: 'Użytkownicy',
+    firewall: 'Zapora',
+    logs: 'Logi',
+    terminal: 'Terminal',
+  };
+
+  function selectTab(tab: string) {
+    if (tab === activeTab) return;
+    tabHistory = [...tabHistory, activeTab];
+    if (tab === 'terminal') terminalContainerSession = null;
+    activeTab = tab;
+  }
+
+  function canGoBackGlobal(): boolean {
+    if (!isConnected) return showCreateProfile;
+    return canNavigateBack() || tabHistory.length > 0;
+  }
+
+  function getBackTooltip(): string {
+    if (!isConnected) {
+      return showCreateProfile
+        ? 'Wróć do listy profili (działa też boczny przycisk myszy)'
+        : 'Brak akcji do cofnięcia';
+    }
+    const handler = getBackDescription('');
+    if (handler) return `${handler} (działa też boczny przycisk myszy)`;
+    if (tabHistory.length > 0) {
+      const prev = tabHistory[tabHistory.length - 1];
+      const label = TAB_LABELS[prev] ?? prev;
+      return `Wróć do: ${label} (działa też boczny przycisk myszy)`;
+    }
+    return 'Brak akcji do cofnięcia';
+  }
+
+  function performBack(): boolean {
+    if (!isConnected) {
+      if (showCreateProfile) {
+        showCreateProfile = false;
+        currentProfileId = '';
+        return true;
+      }
+      return false;
+    }
+
+    if (navigateBack()) return true;
+
+    if (tabHistory.length > 0) {
+      const prev = tabHistory[tabHistory.length - 1];
+      tabHistory = tabHistory.slice(0, -1);
+      activeTab = prev;
+      if (prev === 'terminal') terminalContainerSession = null;
+      return true;
+    }
+
+    return false;
+  }
+
+  function handleMouseBack(event: MouseEvent) {
+    if (event.button !== 3) return;
+    if (!canGoBackGlobal()) return;
+    event.preventDefault();
+    performBack();
+  }
+
+  function handleAuxClick(event: MouseEvent) {
+    if (event.button !== 3) return;
+    if (!canGoBackGlobal()) return;
+    event.preventDefault();
+    performBack();
+  }
 
   // Profile serwerów
   let profiles = $state<any[]>([]);
@@ -111,6 +195,7 @@
       serverStats = stats;
       currentHostname = stats.hostname;
       isConnected = true;
+      tabHistory = [];
       activeTab = 'dashboard';
     } catch (err: any) {
       connectError = err.toString();
@@ -128,6 +213,7 @@
       isConnected = false;
       serverStats = null;
       currentHostname = 'Serwer';
+      tabHistory = [];
     }
   }
 
@@ -162,7 +248,20 @@
   });
 </script>
 
+<svelte:window onmouseup={handleMouseBack} onauxclick={handleAuxClick} />
+
 <main class="app-container">
+  <button
+    class="global-back-btn secondary btn-icon-compact"
+    type="button"
+    disabled={!canGoBackGlobal()}
+    onclick={() => performBack()}
+    aria-label="Cofnij"
+  >
+    <ArrowLeft size={16} />
+    <span class="back-tooltip" role="tooltip">{getBackTooltip()}</span>
+  </button>
+
   {#if isConnected}
     <!-- GŁÓWNY WORKSPACE APILKACJI -->
     <Sidebar
@@ -170,7 +269,7 @@
       hostname={currentHostname}
       onDisconnect={handleDisconnect}
       onTabSelect={(tab: string) => {
-        if (tab === 'terminal') terminalContainerSession = null;
+        selectTab(tab);
       }}
     />
     
@@ -187,7 +286,7 @@
             {:else if activeTab === 'docker'}
               <DockerManager onRequestTerminalExec={(session: { containerId: string; containerName: string; useSudo: boolean; shell: string }) => {
                 terminalContainerSession = session;
-                activeTab = 'terminal';
+                selectTab('terminal');
               }} />
             {:else if activeTab === 'cron'}
               <CronManager />
@@ -344,6 +443,58 @@
 </main>
 
 <style>
+  .app-container {
+    position: relative;
+  }
+
+  .global-back-btn {
+    position: fixed;
+    top: 10px;
+    right: 12px;
+    z-index: 200;
+    transition:
+      opacity 0.15s ease,
+      transform 0.12s cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .global-back-btn:not(:disabled):active {
+    transform: scale(0.96);
+  }
+
+  .global-back-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .global-back-btn .back-tooltip {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: max-content;
+    max-width: 280px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    background: rgba(12, 13, 18, 0.96);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    line-height: 1.35;
+    text-wrap: pretty;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(-4px);
+    transition:
+      opacity 0.15s ease,
+      transform 0.15s cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .global-back-btn:not(:disabled):hover .back-tooltip,
+  .global-back-btn:not(:disabled):focus-visible .back-tooltip {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
   .tab-wrapper {
     height: 100%;
     width: 100%;

@@ -27,6 +27,8 @@ pub struct FileInfo {
     pub size: u64,
     pub permissions: Option<u32>,
     pub modified: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
 }
 
 #[derive(Clone)]
@@ -294,6 +296,7 @@ impl SshConnection {
                 size,
                 permissions,
                 modified,
+                path: None,
             });
         }
         
@@ -306,6 +309,49 @@ impl SshConnection {
         });
         
         Ok(file_infos)
+    }
+
+    pub async fn sftp_dir_size(&self, dir_path: &str) -> Result<u64, String> {
+        let cmd = crate::du_size::du_folder_cmd(dir_path);
+        let (exit_code, stdout, stderr) = self.exec(&cmd).await?;
+
+        if exit_code != 0 {
+            let msg = stderr.trim();
+            return Err(if msg.is_empty() {
+                format!("du zakończyło się kodem {}", exit_code)
+            } else {
+                msg.to_string()
+            });
+        }
+
+        let line = stdout.lines().next().unwrap_or("").trim();
+        crate::du_size::parse_du_mb_line(line)
+    }
+
+    pub async fn sftp_find(
+        &self,
+        root: &str,
+        query: &str,
+        hide_hidden: bool,
+    ) -> Result<Vec<FileInfo>, String> {
+        let trimmed = query.trim();
+        if trimmed.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let cmd = crate::sftp_find::find_cmd(root, trimmed, hide_hidden);
+        let (exit_code, stdout, stderr) = self.exec(&cmd).await?;
+
+        if exit_code != 0 && stdout.trim().is_empty() {
+            let msg = stderr.trim();
+            return Err(if msg.is_empty() {
+                format!("find zakończyło się kodem {}", exit_code)
+            } else {
+                msg.to_string()
+            });
+        }
+
+        Ok(crate::sftp_find::parse_find_output(&stdout))
     }
 
     pub async fn sftp_read_file(&self, file_path: &str) -> Result<String, String> {
