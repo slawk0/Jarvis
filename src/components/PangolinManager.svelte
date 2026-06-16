@@ -4,7 +4,7 @@
   import { openUrl } from '@tauri-apps/plugin-opener';
   import { 
     Settings, Globe, Shield, Activity, ShieldAlert, Key, Plus, Trash2, 
-    Edit2, RefreshCw, UserCheck, UserPlus, ListFilter, Info, Check, 
+    Edit2, RefreshCw, UserCheck, UserPlus, ListFilter, Filter, Info, Check, 
     X, MapPin, Search, ChevronRight, ChevronLeft, Calendar, User, 
     Link, Radio, Laptop, Users
   } from 'lucide-svelte';
@@ -12,6 +12,7 @@
   import {
     formatCompact,
     getCountryName,
+    countryCodeToName,
     trafficBarGradient,
     trafficIntensity,
     type CountryTraffic
@@ -49,7 +50,10 @@
     method: '',
     host: '',
     path: '',
-    actor: ''
+    actor: '',
+    location: '',
+    reason: '',
+    resource: ''
   });
   let logsPagination = $state({ total: 0, limit: 50, offset: 0 });
   let selectedLogDetail = $state<any | null>(null);
@@ -59,6 +63,91 @@
     paths: [] as string[],
     locations: [] as string[]
   });
+
+  // Header Filters interactive state
+  let activeFilterField = $state<string | null>(null);
+  let filterInputs = $state({
+    resource: '',
+    host: '',
+    path: '',
+    reason: '',
+    actor: '',
+    location: ''
+  });
+
+  let isLoadingResourcesForFilter = $state(false);
+  async function loadResourcesForFilter() {
+    if (privResourcesList.length === 0 && pubResourcesList.length === 0) {
+      isLoadingResourcesForFilter = true;
+      try {
+        await Promise.all([loadPrivResources(), loadPubResources()]);
+      } catch (err) {
+        console.error('Failed to load resources for filter:', err);
+      } finally {
+        isLoadingResourcesForFilter = false;
+      }
+    }
+  }
+
+  function toggleFilterDropdown(field: string) {
+    if (activeFilterField === field) {
+      activeFilterField = null;
+    } else {
+      activeFilterField = field;
+      // Initialize inputs to current filter state
+      if (field === 'resource') {
+        filterInputs.resource = logFilters.resource;
+        loadResourcesForFilter();
+      }
+      if (field === 'host') filterInputs.host = logFilters.host;
+      if (field === 'path') filterInputs.path = logFilters.path;
+      if (field === 'reason') filterInputs.reason = logFilters.reason;
+      if (field === 'actor') filterInputs.actor = logFilters.actor;
+      if (field === 'location') filterInputs.location = logFilters.location;
+    }
+  }
+
+  function applyFilter(field: string) {
+    if (field === 'resource') logFilters.resource = filterInputs.resource;
+    if (field === 'host') logFilters.host = filterInputs.host;
+    if (field === 'path') logFilters.path = filterInputs.path;
+    if (field === 'reason') logFilters.reason = filterInputs.reason;
+    if (field === 'actor') logFilters.actor = filterInputs.actor;
+    if (field === 'location') logFilters.location = filterInputs.location;
+    logFilters.offset = 0;
+    activeFilterField = null;
+    loadLogsData();
+  }
+
+  function clearFilter(field: string) {
+    if (field === 'resource') { logFilters.resource = ''; filterInputs.resource = ''; }
+    if (field === 'host') { logFilters.host = ''; filterInputs.host = ''; }
+    if (field === 'path') { logFilters.path = ''; filterInputs.path = ''; }
+    if (field === 'reason') { logFilters.reason = ''; filterInputs.reason = ''; }
+    if (field === 'actor') { logFilters.actor = ''; filterInputs.actor = ''; }
+    if (field === 'location') { logFilters.location = ''; filterInputs.location = ''; }
+    if (field === 'action') { logFilters.action = ''; }
+    if (field === 'method') { logFilters.method = ''; }
+    logFilters.offset = 0;
+    activeFilterField = null;
+    loadLogsData();
+  }
+
+  function handleWindowClick(e: MouseEvent) {
+    if (activeFilterField) {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.filter-dropdown') && !target.closest('.filter-btn')) {
+        activeFilterField = null;
+      }
+    }
+  }
+
+  function setSelectFilter(field: 'action' | 'method', value: string) {
+    logFilters[field] = value;
+    logFilters.offset = 0;
+    activeFilterField = null;
+    loadLogsData();
+  }
 
   // Tunnels / Sites State
   let isSitesLoading = $state(false);
@@ -464,6 +553,9 @@
       if (logFilters.host) qParams.host = logFilters.host;
       if (logFilters.path) qParams.path = logFilters.path;
       if (logFilters.actor) qParams.actor = logFilters.actor;
+      if (logFilters.location) qParams.location = logFilters.location;
+      if (logFilters.reason) qParams.reason = logFilters.reason;
+      if (logFilters.resource) qParams.resource = logFilters.resource;
 
       const res = await apiCall('GET', `/org/${config.org_id}/logs/request`, qParams);
       if (res && res.data) {
@@ -982,6 +1074,8 @@
   });
 </script>
 
+<svelte:window onclick={handleWindowClick} />
+
 <div class="pangolin-container">
   <header class="tab-header">
     <div class="header-left">
@@ -1356,95 +1450,302 @@
       <!-- 2. AUDIT LOGS VIEW -->
       {#if activeSubTab === 'logs'}
         <div class="logs-view">
-          <div class="filters-bar glass">
-            <div class="filter-col">
-              <label for="log-status-select">Status</label>
-              <select id="log-status-select" bind:value={logFilters.action} onchange={loadLogsData}>
-                <option value="">Wszystkie</option>
-                <option value="allowed">Dozwolone</option>
-                <option value="blocked">Zablokowane</option>
-              </select>
+          <div class="filters-bar-simple">
+            <span class="view-title">Logi Audytu (Pangolin Proxy)</span>
+            <div class="bar-actions">
+              {#if logFilters.action || logFilters.method || logFilters.host || logFilters.path || logFilters.actor || logFilters.location || logFilters.reason || logFilters.resource}
+                <button class="secondary btn-sm text-orange" onclick={() => {
+                  logFilters = { limit: 50, offset: 0, action: '', method: '', host: '', path: '', actor: '', location: '', reason: '', resource: '' };
+                  filterInputs = { resource: '', host: '', path: '', reason: '', actor: '', location: '' };
+                  loadLogsData();
+                }}>
+                  Resetuj filtry
+                </button>
+              {/if}
+              <button class="secondary btn-icon-compact" onclick={loadLogsData}>
+                <RefreshCw size={14} class={isLogsLoading ? 'spin' : ''} />
+              </button>
             </div>
-            <div class="filter-col">
-              <label for="log-host-select">Host</label>
-              <select id="log-host-select" bind:value={logFilters.host} onchange={loadLogsData}>
-                <option value="">Wszystkie</option>
-                {#each uniqueFilters.hosts as h}
-                  <option value={h}>{h}</option>
-                {/each}
-              </select>
-            </div>
-            <div class="filter-col">
-              <label for="log-method-select">Metoda</label>
-              <select id="log-method-select" bind:value={logFilters.method} onchange={loadLogsData}>
-                <option value="">Wszystkie</option>
-                <option value="GET">GET</option>
-                <option value="POST">POST</option>
-                <option value="PUT">PUT</option>
-                <option value="DELETE">DELETE</option>
-                <option value="PATCH">PATCH</option>
-              </select>
-            </div>
-            <div class="filter-col flex-grow">
-              <label for="log-actor-input">Użytkownik / Aktor</label>
-              <input id="log-actor-input" type="text" placeholder="Filtruj po e-mailu/ID" bind:value={logFilters.actor} onkeydown={(e) => e.key === 'Enter' && loadLogsData()} />
-            </div>
-            <button class="primary" onclick={loadLogsData}>Filtruj</button>
-            <button class="secondary" onclick={() => {
-              logFilters = { limit: 50, offset: 0, action: '', method: '', host: '', path: '', actor: '' };
-              loadLogsData();
-            }}>Reset</button>
           </div>
 
           <div class="logs-table-wrapper glass">
             <table class="telemetry-table">
               <thead>
                 <tr>
-                  <th>Czas</th>
-                  <th>Metoda</th>
-                  <th>Zasób / Host</th>
-                  <th>IP / Kraj</th>
-                  <th>Aktor</th>
-                  <th>Status</th>
-                  <th>Powód</th>
+                  <th>Timestamp</th>
+                  
+                  <th class="filterable-th">
+                    <div class="th-content">
+                      <span>Action</span>
+                      <button class="filter-btn {logFilters.action ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('action'); }}>
+                        <Filter size={12} />
+                      </button>
+                    </div>
+                    {#if activeFilterField === 'action'}
+                      <div class="filter-dropdown glass" onclick={(e) => e.stopPropagation()}>
+                        <div class="dropdown-title">Filtruj Action</div>
+                        <div class="options-list">
+                          <button class="option-row {logFilters.action === '' ? 'selected' : ''}" onclick={() => setSelectFilter('action', '')}>Wszystkie</button>
+                          <button class="option-row {logFilters.action === 'allowed' ? 'selected' : ''}" onclick={() => setSelectFilter('action', 'allowed')}>Dozwolone</button>
+                          <button class="option-row {logFilters.action === 'blocked' ? 'selected' : ''}" onclick={() => setSelectFilter('action', 'blocked')}>Zablokowane</button>
+                        </div>
+                        <div class="dropdown-actions">
+                          <button class="btn-clear" onclick={() => clearFilter('action')}>Wyczyść</button>
+                        </div>
+                      </div>
+                    {/if}
+                  </th>
+
+                  <th>IP</th>
+
+                  <th class="filterable-th">
+                    <div class="th-content">
+                      <span>Location</span>
+                      <button class="filter-btn {logFilters.location ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('location'); }}>
+                        <Filter size={12} />
+                      </button>
+                    </div>
+                    {#if activeFilterField === 'location'}
+                      <div class="filter-dropdown glass" onclick={(e) => e.stopPropagation()}>
+                        <div class="dropdown-title">Filtruj Location</div>
+                        <div class="input-wrapper">
+                          <input type="text" placeholder="Kraj (np. PL)" bind:value={filterInputs.location} onkeydown={(e) => e.key === 'Enter' && applyFilter('location')} />
+                        </div>
+                        {#if uniqueFilters.locations.length > 0}
+                          <div class="suggestions-list">
+                            {#each uniqueFilters.locations as loc}
+                              <button class="suggestion-row {logFilters.location === loc ? 'selected' : ''}" onclick={() => { filterInputs.location = loc; applyFilter('location'); }}>
+                                {countryCodeToName(loc)} ({loc})
+                              </button>
+                            {/each}
+                          </div>
+                        {/if}
+                        <div class="dropdown-actions">
+                          <button class="btn-clear" onclick={() => clearFilter('location')}>Wyczyść</button>
+                          <button class="btn-apply" onclick={() => applyFilter('location')}>Zastosuj</button>
+                        </div>
+                      </div>
+                    {/if}
+                  </th>
+
+                  <th class="filterable-th">
+                    <div class="th-content">
+                      <span>Resource</span>
+                      <button class="filter-btn {logFilters.resource ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('resource'); }}>
+                        <Filter size={12} />
+                      </button>
+                    </div>
+                    {#if activeFilterField === 'resource'}
+                      <div class="filter-dropdown glass" onclick={(e) => e.stopPropagation()}>
+                        <div class="dropdown-title">Filtruj Resource</div>
+                        <div class="input-wrapper">
+                          <input type="text" placeholder="Szukaj zasobu lub wpisz ID..." bind:value={filterInputs.resource} onkeydown={(e) => e.key === 'Enter' && applyFilter('resource')} />
+                        </div>
+                        
+                        {#if isLoadingResourcesForFilter}
+                          <div class="text-center py-2 text-muted font-xs">Ładowanie zasobów...</div>
+                        {:else}
+                          <div class="suggestions-list" style="max-height: 200px;">
+                            <!-- Public Resources -->
+                            {#each pubResourcesList.filter(r => !filterInputs.resource || r.name.toLowerCase().includes(filterInputs.resource.toLowerCase()) || r.resourceId.toString().includes(filterInputs.resource)) as res}
+                              <button class="suggestion-row {logFilters.resource === res.resourceId.toString() ? 'selected' : ''}" onclick={() => { filterInputs.resource = res.resourceId.toString(); applyFilter('resource'); }} title={res.name}>
+                                <span class="pub-badge">PUB</span> {res.name} <span class="text-muted font-xxs">({res.resourceId})</span>
+                              </button>
+                            {/each}
+
+                            <!-- Private Resources -->
+                            {#each privResourcesList.filter(r => !filterInputs.resource || r.name.toLowerCase().includes(filterInputs.resource.toLowerCase()) || r.siteResourceId.toString().includes(filterInputs.resource)) as res}
+                              <button class="suggestion-row {logFilters.resource === res.siteResourceId.toString() ? 'selected' : ''}" onclick={() => { filterInputs.resource = res.siteResourceId.toString(); applyFilter('resource'); }} title={res.name}>
+                                <span class="priv-badge">PRIV</span> {res.name} <span class="text-muted font-xxs">({res.siteResourceId})</span>
+                              </button>
+                            {/each}
+                          </div>
+                        {/if}
+                        
+                        <div class="dropdown-actions">
+                          <button class="btn-clear" onclick={() => clearFilter('resource')}>Wyczyść</button>
+                          <button class="btn-apply" onclick={() => applyFilter('resource')}>Zastosuj</button>
+                        </div>
+                      </div>
+                    {/if}
+                  </th>
+
+                  <th class="filterable-th">
+                    <div class="th-content">
+                      <span>Host</span>
+                      <button class="filter-btn {logFilters.host ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('host'); }}>
+                        <Filter size={12} />
+                      </button>
+                    </div>
+                    {#if activeFilterField === 'host'}
+                      <div class="filter-dropdown glass" onclick={(e) => e.stopPropagation()}>
+                        <div class="dropdown-title">Filtruj Host</div>
+                        <div class="input-wrapper">
+                          <input type="text" placeholder="Host (np. api.net)" bind:value={filterInputs.host} onkeydown={(e) => e.key === 'Enter' && applyFilter('host')} />
+                        </div>
+                        {#if uniqueFilters.hosts.length > 0}
+                          <div class="suggestions-list">
+                            {#each uniqueFilters.hosts as h}
+                              <button class="suggestion-row {logFilters.host === h ? 'selected' : ''}" onclick={() => { filterInputs.host = h; applyFilter('host'); }}>
+                                {h}
+                              </button>
+                            {/each}
+                          </div>
+                        {/if}
+                        <div class="dropdown-actions">
+                          <button class="btn-clear" onclick={() => clearFilter('host')}>Wyczyść</button>
+                          <button class="btn-apply" onclick={() => applyFilter('host')}>Zastosuj</button>
+                        </div>
+                      </div>
+                    {/if}
+                  </th>
+
+                  <th class="filterable-th">
+                    <div class="th-content">
+                      <span>Path</span>
+                      <button class="filter-btn {logFilters.path ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('path'); }}>
+                        <Filter size={12} />
+                      </button>
+                    </div>
+                    {#if activeFilterField === 'path'}
+                      <div class="filter-dropdown glass" onclick={(e) => e.stopPropagation()}>
+                        <div class="dropdown-title">Filtruj Path</div>
+                        <div class="input-wrapper">
+                          <input type="text" placeholder="Ścieżka (np. /v1/...)" bind:value={filterInputs.path} onkeydown={(e) => e.key === 'Enter' && applyFilter('path')} />
+                        </div>
+                        {#if uniqueFilters.paths.length > 0}
+                          <div class="suggestions-list">
+                            {#each uniqueFilters.paths.slice(0, 5) as p}
+                              <button class="suggestion-row {logFilters.path === p ? 'selected' : ''}" onclick={() => { filterInputs.path = p; applyFilter('path'); }} title={p}>
+                                {p}
+                              </button>
+                            {/each}
+                          </div>
+                        {/if}
+                        <div class="dropdown-actions">
+                          <button class="btn-clear" onclick={() => clearFilter('path')}>Wyczyść</button>
+                          <button class="btn-apply" onclick={() => applyFilter('path')}>Zastosuj</button>
+                        </div>
+                      </div>
+                    {/if}
+                  </th>
+
+                  <th class="filterable-th">
+                    <div class="th-content">
+                      <span>Method</span>
+                      <button class="filter-btn {logFilters.method ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('method'); }}>
+                        <Filter size={12} />
+                      </button>
+                    </div>
+                    {#if activeFilterField === 'method'}
+                      <div class="filter-dropdown glass" onclick={(e) => e.stopPropagation()}>
+                        <div class="dropdown-title">Filtruj Method</div>
+                        <div class="options-list">
+                          <button class="option-row {logFilters.method === '' ? 'selected' : ''}" onclick={() => setSelectFilter('method', '')}>Wszystkie</button>
+                          <button class="option-row {logFilters.method === 'GET' ? 'selected' : ''}" onclick={() => setSelectFilter('method', 'GET')}>GET</button>
+                          <button class="option-row {logFilters.method === 'POST' ? 'selected' : ''}" onclick={() => setSelectFilter('method', 'POST')}>POST</button>
+                          <button class="option-row {logFilters.method === 'PUT' ? 'selected' : ''}" onclick={() => setSelectFilter('method', 'PUT')}>PUT</button>
+                          <button class="option-row {logFilters.method === 'DELETE' ? 'selected' : ''}" onclick={() => setSelectFilter('method', 'DELETE')}>DELETE</button>
+                          <button class="option-row {logFilters.method === 'PATCH' ? 'selected' : ''}" onclick={() => setSelectFilter('method', 'PATCH')}>PATCH</button>
+                        </div>
+                        <div class="dropdown-actions">
+                          <button class="btn-clear" onclick={() => clearFilter('method')}>Wyczyść</button>
+                        </div>
+                      </div>
+                    {/if}
+                  </th>
+
+                  <th class="filterable-th">
+                    <div class="th-content">
+                      <span>Reason</span>
+                      <button class="filter-btn {logFilters.reason ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('reason'); }}>
+                        <Filter size={12} />
+                      </button>
+                    </div>
+                    {#if activeFilterField === 'reason'}
+                      <div class="filter-dropdown glass align-right" onclick={(e) => e.stopPropagation()}>
+                        <div class="dropdown-title">Filtruj Reason</div>
+                        <div class="input-wrapper">
+                          <input type="text" placeholder="Powód decyzji..." bind:value={filterInputs.reason} onkeydown={(e) => e.key === 'Enter' && applyFilter('reason')} />
+                        </div>
+                        <div class="dropdown-actions">
+                          <button class="btn-clear" onclick={() => clearFilter('reason')}>Wyczyść</button>
+                          <button class="btn-apply" onclick={() => applyFilter('reason')}>Zastosuj</button>
+                        </div>
+                      </div>
+                    {/if}
+                  </th>
+
+                  <th class="filterable-th">
+                    <div class="th-content">
+                      <span>Actor</span>
+                      <button class="filter-btn {logFilters.actor ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('actor'); }}>
+                        <Filter size={12} />
+                      </button>
+                    </div>
+                    {#if activeFilterField === 'actor'}
+                      <div class="filter-dropdown glass align-right" onclick={(e) => e.stopPropagation()}>
+                        <div class="dropdown-title">Filtruj Actor</div>
+                        <div class="input-wrapper">
+                          <input type="text" placeholder="Aktor..." bind:value={filterInputs.actor} onkeydown={(e) => e.key === 'Enter' && applyFilter('actor')} />
+                        </div>
+                        {#if uniqueFilters.actors.length > 0}
+                          <div class="suggestions-list">
+                            {#each uniqueFilters.actors.slice(0, 5) as act}
+                              <button class="suggestion-row {logFilters.actor === act ? 'selected' : ''}" onclick={() => { filterInputs.actor = act; applyFilter('actor'); }}>
+                                {act}
+                              </button>
+                            {/each}
+                          </div>
+                        {/if}
+                        <div class="dropdown-actions">
+                          <button class="btn-clear" onclick={() => clearFilter('actor')}>Wyczyść</button>
+                          <button class="btn-apply" onclick={() => applyFilter('actor')}>Zastosuj</button>
+                        </div>
+                      </div>
+                    {/if}
+                  </th>
+
                   <th></th>
                 </tr>
               </thead>
               <tbody>
                 {#if isLogsLoading}
                   <tr>
-                    <td colspan="8" class="text-center py-6">
+                    <td colspan="11" class="text-center py-6">
                       <RefreshCw class="spin" size={24} />
                       <p>Wczytywanie logów audytu...</p>
                     </td>
                   </tr>
                 {:else if logsList.length === 0}
                   <tr>
-                    <td colspan="8" class="text-center py-6 text-muted">Brak wpisów logów pasujących do filtrów.</td>
+                    <td colspan="11" class="text-center py-6 text-muted">Brak wpisów logów pasujących do filtrów.</td>
                   </tr>
                 {:else}
                   {#each logsList as log}
                     <tr class="log-row" onclick={() => selectedLogDetail = log}>
                       <td class="mono-stats font-xs">{formatTime(log.timestamp)}</td>
                       <td>
-                        <span class="method-tag {log.method?.toLowerCase()}">{log.method}</span>
-                      </td>
-                      <td class="truncate-cell" title="{log.host}{log.path}">{log.host}{log.path}</td>
-                      <td>
-                        <div class="ip-block">
-                          <span>{log.ip}</span>
-                          {#if log.location}
-                            <span class="country-badge">{log.location}</span>
-                          {/if}
-                        </div>
-                      </td>
-                      <td class="truncate-cell" title={log.actor}>{log.actor || 'Anonimowy'}</td>
-                      <td>
                         <span class="status-badge {log.action ? 'allowed' : 'blocked'}">
-                          {log.action ? 'Dozwolony' : 'Zablokowany'}
+                          {log.action ? 'Allowed' : 'Blocked'}
                         </span>
                       </td>
+                      <td class="mono-stats font-xs">{log.ip}</td>
+                      <td>
+                        {#if log.location}
+                          <span class="country-badge">{log.location}</span>
+                        {:else}
+                          -
+                        {/if}
+                      </td>
+                      <td class="mono-stats font-xs">{log.resourceId || log.siteResourceId || '-'}</td>
+                      <td class="truncate-cell" title={log.host}>{log.host || '-'}</td>
+                      <td class="truncate-cell" title={log.path}>{log.path || '-'}</td>
+                      <td>
+                        <span class="method-tag {log.method?.toLowerCase()}">{log.method}</span>
+                      </td>
                       <td class="truncate-cell text-muted" title={log.reason}>{log.reason || '-'}</td>
+                      <td class="truncate-cell" title={log.actor}>{log.actor || 'Anonymous'}</td>
                       <td>
                         <ChevronRight size={14} />
                       </td>
@@ -2969,39 +3270,15 @@
   }
 
   /* Logs view CSS */
-  .filters-bar {
-    display: flex;
-    gap: 16px;
-    padding: 16px 20px;
-    border-radius: var(--radius-md);
-    margin-bottom: 20px;
-    align-items: flex-end;
-  }
-
-  .filter-col {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .filter-col label {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-  }
-
-  .filter-col select, .filter-col input {
-    height: 36px;
-    padding: 6px 12px;
-  }
-
   .flex-grow {
     flex-grow: 1;
   }
 
   .logs-table-wrapper {
     border-radius: var(--radius-md);
-    overflow: hidden;
+    overflow: visible;
     margin-bottom: 16px;
+    position: relative;
   }
 
   .telemetry-table {
@@ -3020,6 +3297,232 @@
     letter-spacing: 0.05em;
     text-transform: uppercase;
     border-bottom: 1px solid var(--border-color);
+  }
+
+  .pub-badge {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    color: #10b981;
+    font-size: 0.65rem;
+    padding: 1px 4px;
+    border-radius: 4px;
+    margin-right: 6px;
+    font-weight: 600;
+  }
+
+  .priv-badge {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+    font-size: 0.65rem;
+    padding: 1px 4px;
+    border-radius: 4px;
+    margin-right: 6px;
+    font-weight: 600;
+  }
+
+  .filters-bar-simple {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    backdrop-filter: blur(12px);
+  }
+
+  .filters-bar-simple .view-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .filters-bar-simple .bar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .filterable-th {
+    position: relative;
+  }
+
+  .th-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .filter-btn {
+    background: none;
+    border: none;
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition-fast);
+  }
+
+  .filter-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+  }
+
+  .filter-btn.active {
+    color: var(--color-orange, #ff7b00);
+    background: rgba(255, 123, 0, 0.15);
+  }
+
+  .filter-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 6px;
+    min-width: 220px;
+    background: rgba(20, 20, 20, 0.85);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 12px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    text-transform: none; /* Reset uppercase from th */
+    letter-spacing: normal;
+    color: var(--text-primary);
+    font-weight: normal;
+  }
+
+  .filter-dropdown.align-right {
+    left: auto;
+    right: 0;
+  }
+
+  .dropdown-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .input-wrapper {
+    margin-bottom: 10px;
+  }
+
+  .input-wrapper input {
+    width: 100%;
+    padding: 6px 10px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: white;
+    font-size: 0.8rem;
+    outline: none;
+    transition: var(--transition-fast);
+  }
+
+  .input-wrapper input:focus {
+    border-color: var(--color-orange, #ff7b00);
+    background: rgba(0, 0, 0, 0.6);
+  }
+
+  .options-list, .suggestions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 150px;
+    overflow-y: auto;
+    margin-bottom: 8px;
+    padding-right: 4px;
+  }
+
+  .options-list::-webkit-scrollbar, .suggestions-list::-webkit-scrollbar {
+    width: 4px;
+  }
+  .options-list::-webkit-scrollbar-thumb, .suggestions-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+  }
+
+  .option-row, .suggestion-row {
+    background: none;
+    border: none;
+    text-align: left;
+    padding: 6px 8px;
+    font-size: 0.8rem;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: var(--transition-fast);
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .option-row:hover, .suggestion-row:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
+  }
+
+  .option-row.selected, .suggestion-row.selected {
+    background: rgba(255, 123, 0, 0.15);
+    color: var(--color-orange, #ff7b00);
+    font-weight: 500;
+  }
+
+  .dropdown-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding-top: 8px;
+  }
+
+  .btn-clear {
+    background: none;
+    border: none;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    transition: var(--transition-fast);
+  }
+
+  .btn-clear:hover {
+    color: white;
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .btn-apply {
+    background: var(--color-orange, #ff7b00);
+    border: none;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: var(--transition-fast);
+  }
+
+  .btn-apply:hover {
+    background: #e06c00;
+    transform: translateY(-1px);
+  }
+
+  .btn-apply:active {
+    transform: translateY(0);
   }
 
   .telemetry-table td {
