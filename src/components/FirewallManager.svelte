@@ -45,6 +45,30 @@
   let sudoPassword = $state('');
   let pendingAction: (() => Promise<void>) | null = null;
   let sudoError = $state('');
+  let isSudoAuthorized = $state(false);
+  let isInitialized = $state(false);
+
+  async function checkSudo() {
+    try {
+      isSudoAuthorized = await invoke<boolean>('has_sudo_password');
+    } catch {
+      isSudoAuthorized = false;
+    }
+    isInitialized = true;
+    if (isSudoAuthorized) {
+      if (firewallMode === 'ufw') loadUfwStatus();
+      else loadIptablesStatus();
+    }
+  }
+
+  function requestSudoAuth() {
+    pendingAction = async () => {
+      isSudoAuthorized = true;
+      if (firewallMode === 'ufw') await loadUfwStatus();
+      else await loadIptablesStatus();
+    };
+    showSudoModal = true;
+  }
 
   // New rule form
   let showAddModal = $state(false);
@@ -181,6 +205,7 @@
       await invoke('set_sudo_password', { password: sudoPassword });
       showSudoModal = false;
       sudoPassword = '';
+      isSudoAuthorized = true;
       if (pendingAction) {
         const action = pendingAction;
         pendingAction = null;
@@ -308,7 +333,7 @@
   }
 
   onMount(() => {
-    loadUfwStatus();
+    checkSudo();
   });
 
   let activeChainData = $derived(iptablesChains.find(c => c.name === activeChain));
@@ -318,16 +343,34 @@
   <header class="manager-header">
     <div class="header-content">
       <h1 class="page-title">{$LL.firewall.title()}</h1>
-      <div class="mode-selector">
-        <button class="mode-btn {firewallMode === 'ufw' ? 'active' : ''}" onclick={() => switchMode('ufw')}>UFW</button>
-        <button class="mode-btn {firewallMode === 'iptables' ? 'active' : ''}" onclick={() => switchMode('iptables')}>iptables</button>
-      </div>
+      {#if isSudoAuthorized}
+        <div class="mode-selector">
+          <button class="mode-btn {firewallMode === 'ufw' ? 'active' : ''}" onclick={() => switchMode('ufw')}>UFW</button>
+          <button class="mode-btn {firewallMode === 'iptables' ? 'active' : ''}" onclick={() => switchMode('iptables')}>iptables</button>
+        </div>
+      {/if}
     </div>
     {#if errorMsg}
       <div class="error-badge">{errorMsg}</div>
     {/if}
   </header>
 
+  {#if !isSudoAuthorized && isInitialized}
+    <div class="auth-gate fade-in">
+      <div class="auth-gate-card glass">
+        <div class="auth-gate-icon">
+          <KeyRound size={40} class="accent-amber-text" />
+        </div>
+        <h2>{$LL.sudo.authTitle()}</h2>
+        <p>
+          {$LL.sudo.authDesc()}
+        </p>
+        <button class="primary" onclick={requestSudoAuth}>
+          <KeyRound size={16} /> {$LL.sudo.passwordInputPlaceholder()}
+        </button>
+      </div>
+    </div>
+  {:else if isInitialized}
   {#if firewallMode === 'ufw'}
     <!-- Pasek stanu zapory UFW -->
     <div class="status-bar glass">
@@ -477,6 +520,8 @@
         </tbody>
       </table>
     </div>
+  {/if}
+
   {/if}
 
   <!-- Sudo Password Prompt Modal -->
@@ -797,6 +842,53 @@
   @keyframes spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
+  }
+
+  .auth-gate {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 420px;
+    padding: 24px;
+  }
+
+  .auth-gate-card {
+    max-width: 440px;
+    padding: 36px 32px;
+    border-radius: var(--radius-md);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .auth-gate-icon {
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    border-radius: 50%;
+    padding: 16px;
+    margin-bottom: 4px;
+  }
+
+  .auth-gate-card h2 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .auth-gate-card p {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    line-height: 1.55;
+    margin: 0;
+  }
+
+  .auth-gate-card button {
+    margin-top: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
   }
 
   .empty-state {

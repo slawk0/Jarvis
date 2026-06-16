@@ -6,6 +6,7 @@
   import SftpTransferPanel from './sftp/SftpTransferPanel.svelte';
   import type { FileInfo } from '$lib/sftp/types';
   import { getRemotePath } from '$lib/sftp/pathUtils';
+  import SudoModal from './SudoModal.svelte';
   import { registerBackHandler } from '$lib/backNavigation.svelte';
   import { get } from 'svelte/store';
   import { LL } from '$lib/i18n/i18n-svelte';
@@ -48,6 +49,13 @@
   let permOthersExec = $state(false);
   let permOctal = $state('644');
   let permRecursive = $state(false);
+
+  // Sudo modal
+  let showSudoModal = $state(false);
+  let sudoModalTitle = $state<string | undefined>(undefined);
+  let sudoModalDesc = $state<string | undefined>(undefined);
+  let pendingSudoAction = $state<(() => Promise<void>) | null>(null);
+  let usedSudoForRead = $state(false);
 
   const MAX_EDIT_BYTES = 5 * 1024 * 1024;
 
@@ -94,6 +102,7 @@
     errorMsg = '';
     try {
       const content: string = await invoke('sftp_read', { path: filePath });
+      usedSudoForRead = false;
       editingFile = filePath;
       editorSaveStatus = 'saved';
 
@@ -134,7 +143,95 @@
                 editorSaveStatus = 'saving';
                 try {
                   const currentVal = editorInstance.getValue();
-                  await invoke('sftp_write', { path: editingFile, content: currentVal });
+                  if (usedSudoForRead) {
+                    const escapedPath = "'" + editingFile.replace(/'/g, "'\\''") + "'";
+                    const b64 = btoa(unescape(encodeURIComponent(currentVal)));
+                    await invoke('exec_custom_command', { cmd: `echo ${b64} | base64 -d | sudo tee ${escapedPath} > /dev/null`, useSudo: true });
+                  } else {
+                    await invoke('sftp_write', { path: editingFile, content: currentVal });
+                  }
+                  editorSaveStatus = 'saved';
+                } catch (err: unknown) {
+                  editorSaveStatus = 'error';
+                  errorMsg = get(LL).files.autoSaveError({ error: formatInvokeError(err) });
+                }
+              }, 1500);
+            });
+          });
+        }
+      }, 100);
+    } catch (err: unknown) {
+      if (String(err).toLowerCase().includes('permission denied')) {
+        try {
+          const hasSudo = await invoke<boolean>('has_sudo_password');
+          if (hasSudo) {
+            await openFileSudo(filePath, file);
+            return;
+          }
+        } catch {}
+        
+        sudoModalTitle = get(LL).files.sudoRequired();
+        sudoModalDesc = undefined;
+        pendingSudoAction = async () => { await openFileSudo(filePath, file); };
+        showSudoModal = true;
+        return;
+      }
+      errorMsg = get(LL).files.readError({ error: formatInvokeError(err) });
+    } finally {
+      isLoading = false;
+    }
+  }
+
+  async function openFileSudo(filePath: string, file: FileInfo) {
+    isLoading = true;
+    errorMsg = '';
+    try {
+      const escapedPath = "'" + filePath.replace(/'/g, "'\\''") + "'";
+      const content: string = await invoke('exec_custom_command', { cmd: `sudo cat ${escapedPath}`, useSudo: true });
+      usedSudoForRead = true;
+      editingFile = filePath;
+      editorSaveStatus = 'saved';
+      
+      setTimeout(() => {
+        if (editorElement) {
+          (window as any).MonacoEnvironment = {
+            getWorkerUrl: function () {
+              return `data:text/javascript;charset=utf-8,${encodeURIComponent(`
+                self.MonacoEnvironment = {
+                  baseUrl: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.43.0/min/'
+                };
+                importScripts('https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.43.0/min/vs/base/worker/workerMain.js');
+              `)}`;
+            },
+          };
+
+          import('monaco-editor').then((monaco) => {
+            if (editorInstance) editorInstance.dispose();
+            editorInstance = monaco.editor.create(editorElement!, {
+              value: content,
+              language: detectLanguage(file.name),
+              theme: 'vs-dark',
+              automaticLayout: true,
+              fontSize: 14,
+              fontFamily: '"JetBrains Mono", Consolas, monospace',
+              minimap: { enabled: false },
+            });
+
+            editorInstance.onDidChangeModelContent(() => {
+              if (!autoSaveEnabled) {
+                editorSaveStatus = 'dirty';
+                return;
+              }
+              editorSaveStatus = 'dirty';
+              if (saveTimeout) clearTimeout(saveTimeout);
+              saveTimeout = setTimeout(async () => {
+                if (!editingFile) return;
+                editorSaveStatus = 'saving';
+                try {
+                  const currentVal = editorInstance.getValue();
+                  const escapedPath = "'" + editingFile.replace(/'/g, "'\\''") + "'";
+                  const b64 = btoa(unescape(encodeURIComponent(currentVal)));
+                  await invoke('exec_custom_command', { cmd: `echo ${b64} | base64 -d | sudo tee ${escapedPath} > /dev/null`, useSudo: true });
                   editorSaveStatus = 'saved';
                 } catch (err: unknown) {
                   editorSaveStatus = 'error';
@@ -157,7 +254,14 @@
     isLoading = true;
     errorMsg = '';
     try {
-      await invoke('sftp_write', { path: editingFile, content: editorInstance.getValue() });
+      const content = editorInstance.getValue();
+      if (usedSudoForRead) {
+        const escapedPath = "'" + editingFile.replace(/'/g, "'\\''") + "'";
+        const b64 = btoa(unescape(encodeURIComponent(content)));
+        await invoke('exec_custom_command', { cmd: `echo ${b64} | base64 -d | sudo tee ${escapedPath} > /dev/null`, useSudo: true });
+      } else {
+        await invoke('sftp_write', { path: editingFile, content });
+      }
       editorSaveStatus = 'saved';
     } catch (err: unknown) {
       errorMsg = get(LL).files.writeError({ error: formatInvokeError(err) });
@@ -285,19 +389,21 @@
         } catch {
           /* ignore */
         }
-        const sudoPass = prompt(get(LL).files.sudoRequired());
-        if (sudoPass) {
+        sudoModalTitle = get(LL).files.sudoRequired();
+        sudoModalDesc = undefined;
+        pendingSudoAction = async () => {
           try {
-            await invoke('set_sudo_password', { password: sudoPass });
             await invoke('exec_custom_command', { cmd, useSudo: true });
             showPermModal = false;
             await browserRef?.refresh();
           } catch (sudoErr: unknown) {
             errorMsg = get(LL).files.sudoError({ error: formatInvokeError(sudoErr) });
+          } finally {
+            isLoading = false;
           }
-        } else {
-          errorMsg = get(LL).files.sudoMissing();
-        }
+        };
+        showSudoModal = true;
+        return;
       } else {
         errorMsg = get(LL).files.chmodError({ error: formatInvokeError(err) });
       }
@@ -356,6 +462,15 @@
     if (saveTimeout) clearTimeout(saveTimeout);
   });
 </script>
+
+<SudoModal
+  bind:open={showSudoModal}
+  title={sudoModalTitle}
+  description={sudoModalDesc}
+  onSuccess={() => {
+    if (pendingSudoAction) pendingSudoAction();
+  }}
+/>
 
 <div class="file-manager manager-shell fade-in">
   <div class="browser-layer" class:hidden={!!editingFile}>

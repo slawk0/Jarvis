@@ -19,6 +19,7 @@
     Loader2,
   } from 'lucide-svelte';
   import SftpBulkActionsBar from './SftpBulkActionsBar.svelte';
+  import SudoModal from '../SudoModal.svelte';
   import SortableTh from '../ui/SortableTh.svelte';
   import type { FileInfo } from '$lib/sftp/types';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
@@ -92,6 +93,12 @@
   let searchRootPath = $state('');
   let searchResults = $state<FileInfo[]>([]);
   let isSearchLoading = $state(false);
+  
+  // Sudo modal
+  let showSudoModal = $state(false);
+  let sudoModalTitle = $state<string | undefined>(undefined);
+  let sudoModalDesc = $state<string | undefined>(undefined);
+  let pendingSudoAction: (() => Promise<void>) | null = null;
   let searchGeneration = 0;
   let searchDebounce: ReturnType<typeof setTimeout> | undefined;
   type FileSortCol = 'name' | 'size' | 'permissions' | 'modified';
@@ -295,6 +302,81 @@
       searchRootPath = loadedPath;
       onPathChange?.(lastLoadedPath);
       void resolveFolderSizes(loadedPath, result.filter((f) => f.is_dir));
+    } catch (err: unknown) {
+      const errStr = String(err).toLowerCase();
+      if (errStr.includes('permission denied')) {
+        try {
+          const hasSudo = await invoke<boolean>('has_sudo_password');
+          if (hasSudo) {
+            await loadDirectorySudo(currentPath);
+            return;
+          }
+        } catch {}
+        
+        sudoModalTitle = get(LL).files.sudoRequired();
+        sudoModalDesc = undefined;
+        pendingSudoAction = async () => { await loadDirectorySudo(currentPath); };
+        showSudoModal = true;
+        return;
+      }
+      onError(get(LL).sftp.errorList({ error: formatInvokeError(err) }));
+      currentPath = lastLoadedPath;
+    } finally {
+      isLoading = false;
+    }
+  }
+
+  async function loadDirectorySudo(path: string) {
+    isLoading = true;
+    onError('');
+    try {
+      const escapedPath = "'" + path.replace(/'/g, "'\\''") + "'";
+      const cmd = `ls -la --time-style=+%s ${escapedPath}`;
+      const out = await invoke<string>('exec_custom_command', { cmd, useSudo: true });
+      const lines = out.split('\n');
+      const newFiles: FileInfo[] = [];
+      for (const line of lines) {
+        if (!line.trim() || line.startsWith('total ')) continue;
+        const match = line.match(/^([d\-l][rwx\-st]+)\s+\d+\s+\S+\s+\S+\s+(\d+)\s+(\d+)\s+(.+)$/);
+        if (match) {
+          const name = match[4];
+          if (name === '.' || name === '..') continue;
+          let p = 0;
+          const perms = match[1];
+          if (perms[1] === 'r') p |= 0o400;
+          if (perms[2] === 'w') p |= 0o200;
+          if (perms[3] === 'x' || perms[3] === 's') p |= 0o100;
+          if (perms[4] === 'r') p |= 0o040;
+          if (perms[5] === 'w') p |= 0o020;
+          if (perms[6] === 'x' || perms[6] === 's') p |= 0o010;
+          if (perms[7] === 'r') p |= 0o004;
+          if (perms[8] === 'w') p |= 0o002;
+          if (perms[9] === 'x' || perms[9] === 't') p |= 0o001;
+          
+          newFiles.push({
+            name,
+            is_dir: perms.startsWith('d'),
+            size: parseInt(match[2], 10),
+            modified: parseInt(match[3], 10),
+            permissions: p,
+            path: null
+          });
+        }
+      }
+      
+      newFiles.sort((a, b) => {
+        if (a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+      
+      const loadedPath = path;
+      files = newFiles;
+      lastLoadedPath = loadedPath;
+      currentPath = loadedPath;
+      selectedPaths = new Set();
+      clearSearch();
+      searchRootPath = loadedPath;
+      onPathChange?.(lastLoadedPath);
     } catch (err: unknown) {
       onError(get(LL).sftp.errorList({ error: formatInvokeError(err) }));
       currentPath = lastLoadedPath;
@@ -696,6 +778,15 @@
 </script>
 
 <svelte:window onclick={closeContextMenu} />
+
+<SudoModal
+  bind:open={showSudoModal}
+  title={sudoModalTitle}
+  description={sudoModalDesc}
+  onSuccess={() => {
+    if (pendingSudoAction) pendingSudoAction();
+  }}
+/>
 
 <div class="browser">
   <div
