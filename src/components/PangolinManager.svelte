@@ -46,14 +46,14 @@
   let logFilters = $state({
     limit: 50,
     offset: 0,
-    action: '', // 'allowed', 'blocked', ''
-    method: '',
+    action: [] as string[],
+    method: [] as string[],
     host: '',
     path: '',
     actor: '',
-    location: '',
+    location: [] as string[],
     reason: '',
-    resource: ''
+    resource: [] as string[]
   });
   let logsPagination = $state({ total: 0, limit: 50, offset: 0 });
   let selectedLogDetail = $state<any | null>(null);
@@ -64,16 +64,70 @@
     locations: [] as string[]
   });
 
+  // Client-side precise filtering & reactive derived state
+  let filteredLogs = $derived.by(() => {
+    return logsList.filter(log => {
+      // 1. Action Filter
+      if (logFilters.action.length > 0) {
+        const logActionStr = log.action ? 'allowed' : 'blocked';
+        if (!logFilters.action.includes(logActionStr)) return false;
+      }
+      
+      // 2. Method Filter
+      if (logFilters.method.length > 0) {
+        if (!logFilters.method.includes(log.method)) return false;
+      }
+      
+      // 3. Location Filter
+      if (logFilters.location.length > 0) {
+        if (!log.location || !logFilters.location.includes(log.location)) return false;
+      }
+
+      // 4. Resource Filter
+      if (logFilters.resource.length > 0) {
+        const resId = (log.resourceId || log.siteResourceId || '').toString();
+        if (!logFilters.resource.includes(resId)) return false;
+      }
+
+      // 5. Host Filter
+      if (logFilters.host) {
+        if (!log.host || !log.host.toLowerCase().includes(logFilters.host.toLowerCase())) return false;
+      }
+
+      // 6. Path Filter
+      if (logFilters.path) {
+        if (!log.path || !log.path.toLowerCase().includes(logFilters.path.toLowerCase())) return false;
+      }
+
+      // 7. Actor Filter
+      if (logFilters.actor) {
+        if (!log.actor || !log.actor.toLowerCase().includes(logFilters.actor.toLowerCase())) return false;
+      }
+
+      // 8. Reason Filter
+      if (logFilters.reason) {
+        if (!log.reason || !log.reason.toLowerCase().includes(logFilters.reason.toLowerCase())) return false;
+      }
+
+      return true;
+    });
+  });
+
   // Header Filters interactive state
   let activeFilterField = $state<string | null>(null);
   let filterInputs = $state({
-    resource: '',
+    action: [] as string[],
+    method: [] as string[],
     host: '',
     path: '',
     reason: '',
     actor: '',
-    location: ''
+    location: [] as string[],
+    resource: [] as string[]
   });
+
+  let locationSearchQuery = $state('');
+  let resourceSearchQuery = $state('');
 
   let isLoadingResourcesForFilter = $state(false);
   async function loadResourcesForFilter() {
@@ -95,39 +149,56 @@
     } else {
       activeFilterField = field;
       // Initialize inputs to current filter state
+      if (field === 'action') filterInputs.action = [...logFilters.action];
+      if (field === 'method') filterInputs.method = [...logFilters.method];
+      if (field === 'location') {
+        filterInputs.location = [...logFilters.location];
+        locationSearchQuery = '';
+      }
       if (field === 'resource') {
-        filterInputs.resource = logFilters.resource;
+        filterInputs.resource = [...logFilters.resource];
+        resourceSearchQuery = '';
         loadResourcesForFilter();
       }
       if (field === 'host') filterInputs.host = logFilters.host;
       if (field === 'path') filterInputs.path = logFilters.path;
       if (field === 'reason') filterInputs.reason = logFilters.reason;
       if (field === 'actor') filterInputs.actor = logFilters.actor;
-      if (field === 'location') filterInputs.location = logFilters.location;
+    }
+  }
+
+  function toggleArrayItem(array: string[], item: string): string[] {
+    const idx = array.indexOf(item);
+    if (idx > -1) {
+      return array.filter(x => x !== item);
+    } else {
+      return [...array, item];
     }
   }
 
   function applyFilter(field: string) {
-    if (field === 'resource') logFilters.resource = filterInputs.resource;
+    if (field === 'action') logFilters.action = [...filterInputs.action];
+    if (field === 'method') logFilters.method = [...filterInputs.method];
+    if (field === 'location') logFilters.location = [...filterInputs.location];
+    if (field === 'resource') logFilters.resource = [...filterInputs.resource];
     if (field === 'host') logFilters.host = filterInputs.host;
     if (field === 'path') logFilters.path = filterInputs.path;
     if (field === 'reason') logFilters.reason = filterInputs.reason;
     if (field === 'actor') logFilters.actor = filterInputs.actor;
-    if (field === 'location') logFilters.location = filterInputs.location;
     logFilters.offset = 0;
     activeFilterField = null;
     loadLogsData();
   }
 
   function clearFilter(field: string) {
-    if (field === 'resource') { logFilters.resource = ''; filterInputs.resource = ''; }
+    if (field === 'action') { logFilters.action = []; filterInputs.action = []; }
+    if (field === 'method') { logFilters.method = []; filterInputs.method = []; }
+    if (field === 'location') { logFilters.location = []; filterInputs.location = []; locationSearchQuery = ''; }
+    if (field === 'resource') { logFilters.resource = []; filterInputs.resource = []; resourceSearchQuery = ''; }
     if (field === 'host') { logFilters.host = ''; filterInputs.host = ''; }
     if (field === 'path') { logFilters.path = ''; filterInputs.path = ''; }
     if (field === 'reason') { logFilters.reason = ''; filterInputs.reason = ''; }
     if (field === 'actor') { logFilters.actor = ''; filterInputs.actor = ''; }
-    if (field === 'location') { logFilters.location = ''; filterInputs.location = ''; }
-    if (field === 'action') { logFilters.action = ''; }
-    if (field === 'method') { logFilters.method = ''; }
     logFilters.offset = 0;
     activeFilterField = null;
     loadLogsData();
@@ -140,13 +211,6 @@
         activeFilterField = null;
       }
     }
-  }
-
-  function setSelectFilter(field: 'action' | 'method', value: string) {
-    logFilters[field] = value;
-    logFilters.offset = 0;
-    activeFilterField = null;
-    loadLogsData();
   }
 
   // Tunnels / Sites State
@@ -547,15 +611,22 @@
         offset: logFilters.offset.toString()
       };
 
-      if (logFilters.action === 'allowed') qParams.action = 'true';
-      if (logFilters.action === 'blocked') qParams.action = 'false';
-      if (logFilters.method) qParams.method = logFilters.method;
+      if (logFilters.action.length === 1) {
+        qParams.action = logFilters.action[0] === 'allowed' ? 'true' : 'false';
+      }
+      if (logFilters.method.length > 0) {
+        qParams.method = logFilters.method[0];
+      }
+      if (logFilters.location.length > 0) {
+        qParams.location = logFilters.location[0];
+      }
+      if (logFilters.resource.length > 0) {
+        qParams.resource = logFilters.resource[0];
+      }
       if (logFilters.host) qParams.host = logFilters.host;
       if (logFilters.path) qParams.path = logFilters.path;
       if (logFilters.actor) qParams.actor = logFilters.actor;
-      if (logFilters.location) qParams.location = logFilters.location;
       if (logFilters.reason) qParams.reason = logFilters.reason;
-      if (logFilters.resource) qParams.resource = logFilters.resource;
 
       const res = await apiCall('GET', `/org/${config.org_id}/logs/request`, qParams);
       if (res && res.data) {
@@ -1453,10 +1524,12 @@
           <div class="filters-bar-simple">
             <span class="view-title">Logi Audytu (Pangolin Proxy)</span>
             <div class="bar-actions">
-              {#if logFilters.action || logFilters.method || logFilters.host || logFilters.path || logFilters.actor || logFilters.location || logFilters.reason || logFilters.resource}
+              {#if logFilters.action.length > 0 || logFilters.method.length > 0 || logFilters.host || logFilters.path || logFilters.actor || logFilters.location.length > 0 || logFilters.reason || logFilters.resource.length > 0}
                 <button class="secondary btn-sm text-orange" onclick={() => {
-                  logFilters = { limit: 50, offset: 0, action: '', method: '', host: '', path: '', actor: '', location: '', reason: '', resource: '' };
-                  filterInputs = { resource: '', host: '', path: '', reason: '', actor: '', location: '' };
+                  logFilters = { limit: 50, offset: 0, action: [], method: [], host: '', path: '', actor: '', location: [], reason: '', resource: [] };
+                  filterInputs = { action: [], method: [], host: '', path: '', reason: '', actor: '', location: [], resource: [] };
+                  locationSearchQuery = '';
+                  resourceSearchQuery = '';
                   loadLogsData();
                 }}>
                   Resetuj filtry
@@ -1477,7 +1550,7 @@
                   <th class="filterable-th">
                     <div class="th-content">
                       <span>Action</span>
-                      <button class="filter-btn {logFilters.action ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('action'); }}>
+                      <button class="filter-btn {logFilters.action.length > 0 ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('action'); }}>
                         <Filter size={12} />
                       </button>
                     </div>
@@ -1485,12 +1558,18 @@
                       <div class="filter-dropdown glass" onclick={(e) => e.stopPropagation()}>
                         <div class="dropdown-title">Filtruj Action</div>
                         <div class="options-list">
-                          <button class="option-row {logFilters.action === '' ? 'selected' : ''}" onclick={() => setSelectFilter('action', '')}>Wszystkie</button>
-                          <button class="option-row {logFilters.action === 'allowed' ? 'selected' : ''}" onclick={() => setSelectFilter('action', 'allowed')}>Dozwolone</button>
-                          <button class="option-row {logFilters.action === 'blocked' ? 'selected' : ''}" onclick={() => setSelectFilter('action', 'blocked')}>Zablokowane</button>
+                          <label class="option-row-checkbox">
+                            <input type="checkbox" checked={filterInputs.action.includes('allowed')} onchange={() => filterInputs.action = toggleArrayItem(filterInputs.action, 'allowed')} />
+                            <span>Dozwolone</span>
+                          </label>
+                          <label class="option-row-checkbox">
+                            <input type="checkbox" checked={filterInputs.action.includes('blocked')} onchange={() => filterInputs.action = toggleArrayItem(filterInputs.action, 'blocked')} />
+                            <span>Zablokowane</span>
+                          </label>
                         </div>
                         <div class="dropdown-actions">
                           <button class="btn-clear" onclick={() => clearFilter('action')}>Wyczyść</button>
+                          <button class="btn-apply" onclick={() => applyFilter('action')}>Zastosuj</button>
                         </div>
                       </div>
                     {/if}
@@ -1501,7 +1580,7 @@
                   <th class="filterable-th">
                     <div class="th-content">
                       <span>Location</span>
-                      <button class="filter-btn {logFilters.location ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('location'); }}>
+                      <button class="filter-btn {logFilters.location.length > 0 ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('location'); }}>
                         <Filter size={12} />
                       </button>
                     </div>
@@ -1509,14 +1588,15 @@
                       <div class="filter-dropdown glass" onclick={(e) => e.stopPropagation()}>
                         <div class="dropdown-title">Filtruj Location</div>
                         <div class="input-wrapper">
-                          <input type="text" placeholder="Kraj (np. PL)" bind:value={filterInputs.location} onkeydown={(e) => e.key === 'Enter' && applyFilter('location')} />
+                          <input type="text" placeholder="Szukaj kraju..." bind:value={locationSearchQuery} />
                         </div>
                         {#if uniqueFilters.locations.length > 0}
-                          <div class="suggestions-list">
-                            {#each uniqueFilters.locations as loc}
-                              <button class="suggestion-row {logFilters.location === loc ? 'selected' : ''}" onclick={() => { filterInputs.location = loc; applyFilter('location'); }}>
-                                {countryCodeToName(loc)} ({loc})
-                              </button>
+                          <div class="suggestions-list" style="max-height: 180px;">
+                            {#each uniqueFilters.locations.filter(loc => !locationSearchQuery || countryCodeToName(loc).toLowerCase().includes(locationSearchQuery.toLowerCase()) || loc.toLowerCase().includes(locationSearchQuery.toLowerCase())) as loc}
+                              <label class="option-row-checkbox">
+                                <input type="checkbox" checked={filterInputs.location.includes(loc)} onchange={() => filterInputs.location = toggleArrayItem(filterInputs.location, loc)} />
+                                <span>{countryCodeToName(loc)} ({loc})</span>
+                              </label>
                             {/each}
                           </div>
                         {/if}
@@ -1531,7 +1611,7 @@
                   <th class="filterable-th">
                     <div class="th-content">
                       <span>Resource</span>
-                      <button class="filter-btn {logFilters.resource ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('resource'); }}>
+                      <button class="filter-btn {logFilters.resource.length > 0 ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('resource'); }}>
                         <Filter size={12} />
                       </button>
                     </div>
@@ -1539,7 +1619,7 @@
                       <div class="filter-dropdown glass" onclick={(e) => e.stopPropagation()}>
                         <div class="dropdown-title">Filtruj Resource</div>
                         <div class="input-wrapper">
-                          <input type="text" placeholder="Szukaj zasobu lub wpisz ID..." bind:value={filterInputs.resource} onkeydown={(e) => e.key === 'Enter' && applyFilter('resource')} />
+                          <input type="text" placeholder="Szukaj zasobu..." bind:value={resourceSearchQuery} />
                         </div>
                         
                         {#if isLoadingResourcesForFilter}
@@ -1547,17 +1627,21 @@
                         {:else}
                           <div class="suggestions-list" style="max-height: 200px;">
                             <!-- Public Resources -->
-                            {#each pubResourcesList.filter(r => !filterInputs.resource || r.name.toLowerCase().includes(filterInputs.resource.toLowerCase()) || r.resourceId.toString().includes(filterInputs.resource)) as res}
-                              <button class="suggestion-row {logFilters.resource === res.resourceId.toString() ? 'selected' : ''}" onclick={() => { filterInputs.resource = res.resourceId.toString(); applyFilter('resource'); }} title={res.name}>
-                                <span class="pub-badge">PUB</span> {res.name} <span class="text-muted font-xxs">({res.resourceId})</span>
-                              </button>
+                            {#each pubResourcesList.filter(r => !resourceSearchQuery || r.name.toLowerCase().includes(resourceSearchQuery.toLowerCase()) || r.resourceId.toString().includes(resourceSearchQuery)) as res}
+                              {@const rIdStr = res.resourceId.toString()}
+                              <label class="option-row-checkbox">
+                                <input type="checkbox" checked={filterInputs.resource.includes(rIdStr)} onchange={() => filterInputs.resource = toggleArrayItem(filterInputs.resource, rIdStr)} />
+                                <span class="pub-badge">PUB</span> <span title={res.name}>{res.name} ({res.resourceId})</span>
+                              </label>
                             {/each}
 
                             <!-- Private Resources -->
-                            {#each privResourcesList.filter(r => !filterInputs.resource || r.name.toLowerCase().includes(filterInputs.resource.toLowerCase()) || r.siteResourceId.toString().includes(filterInputs.resource)) as res}
-                              <button class="suggestion-row {logFilters.resource === res.siteResourceId.toString() ? 'selected' : ''}" onclick={() => { filterInputs.resource = res.siteResourceId.toString(); applyFilter('resource'); }} title={res.name}>
-                                <span class="priv-badge">PRIV</span> {res.name} <span class="text-muted font-xxs">({res.siteResourceId})</span>
-                              </button>
+                            {#each privResourcesList.filter(r => !resourceSearchQuery || r.name.toLowerCase().includes(resourceSearchQuery.toLowerCase()) || r.siteResourceId.toString().includes(resourceSearchQuery)) as res}
+                              {@const sIdStr = res.siteResourceId.toString()}
+                              <label class="option-row-checkbox">
+                                <input type="checkbox" checked={filterInputs.resource.includes(sIdStr)} onchange={() => filterInputs.resource = toggleArrayItem(filterInputs.resource, sIdStr)} />
+                                <span class="priv-badge">PRIV</span> <span title={res.name}>{res.name} ({res.siteResourceId})</span>
+                              </label>
                             {/each}
                           </div>
                         {/if}
@@ -1633,7 +1717,7 @@
                   <th class="filterable-th">
                     <div class="th-content">
                       <span>Method</span>
-                      <button class="filter-btn {logFilters.method ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('method'); }}>
+                      <button class="filter-btn {logFilters.method.length > 0 ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('method'); }}>
                         <Filter size={12} />
                       </button>
                     </div>
@@ -1641,15 +1725,16 @@
                       <div class="filter-dropdown glass" onclick={(e) => e.stopPropagation()}>
                         <div class="dropdown-title">Filtruj Method</div>
                         <div class="options-list">
-                          <button class="option-row {logFilters.method === '' ? 'selected' : ''}" onclick={() => setSelectFilter('method', '')}>Wszystkie</button>
-                          <button class="option-row {logFilters.method === 'GET' ? 'selected' : ''}" onclick={() => setSelectFilter('method', 'GET')}>GET</button>
-                          <button class="option-row {logFilters.method === 'POST' ? 'selected' : ''}" onclick={() => setSelectFilter('method', 'POST')}>POST</button>
-                          <button class="option-row {logFilters.method === 'PUT' ? 'selected' : ''}" onclick={() => setSelectFilter('method', 'PUT')}>PUT</button>
-                          <button class="option-row {logFilters.method === 'DELETE' ? 'selected' : ''}" onclick={() => setSelectFilter('method', 'DELETE')}>DELETE</button>
-                          <button class="option-row {logFilters.method === 'PATCH' ? 'selected' : ''}" onclick={() => setSelectFilter('method', 'PATCH')}>PATCH</button>
+                          {#each ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'] as m}
+                            <label class="option-row-checkbox">
+                              <input type="checkbox" checked={filterInputs.method.includes(m)} onchange={() => filterInputs.method = toggleArrayItem(filterInputs.method, m)} />
+                              <span>{m}</span>
+                            </label>
+                          {/each}
                         </div>
                         <div class="dropdown-actions">
                           <button class="btn-clear" onclick={() => clearFilter('method')}>Wyczyść</button>
+                          <button class="btn-apply" onclick={() => applyFilter('method')}>Zastosuj</button>
                         </div>
                       </div>
                     {/if}
@@ -1717,12 +1802,12 @@
                       <p>Wczytywanie logów audytu...</p>
                     </td>
                   </tr>
-                {:else if logsList.length === 0}
+                {:else if filteredLogs.length === 0}
                   <tr>
                     <td colspan="11" class="text-center py-6 text-muted">Brak wpisów logów pasujących do filtrów.</td>
                   </tr>
                 {:else}
-                  {#each logsList as log}
+                  {#each filteredLogs as log}
                     <tr class="log-row" onclick={() => selectedLogDetail = log}>
                       <td class="mono-stats font-xs">{formatTime(log.timestamp)}</td>
                       <td>
@@ -3476,6 +3561,32 @@
     background: rgba(255, 123, 0, 0.15);
     color: var(--color-orange, #ff7b00);
     font-weight: 500;
+  }
+
+  .option-row-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    font-size: 0.8rem;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: var(--transition-fast);
+    user-select: none;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .option-row-checkbox:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
+  }
+
+  .option-row-checkbox input[type="checkbox"] {
+    accent-color: var(--color-orange, #ff7b00);
+    cursor: pointer;
+    margin: 0;
   }
 
   .dropdown-actions {
