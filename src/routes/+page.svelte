@@ -35,6 +35,12 @@
   import DockerManager from '../components/DockerManager.svelte';
   import CrowdsecManager from '../components/CrowdsecManager.svelte';
   import PangolinManager from '../components/PangolinManager.svelte';
+  import MaintenanceManager from '../components/MaintenanceManager.svelte';
+  import BackupManager from '../components/BackupManager.svelte';
+  import NetworkManager from '../components/NetworkManager.svelte';
+  import RunbookManager from '../components/RunbookManager.svelte';
+  import { resetAlertCooldowns } from '$lib/alerts/monitor';
+  import type { ServerProfile } from '$lib/admin/types';
 
   // Stany logowania i połączenia
   let isConnected = $state(false);
@@ -44,6 +50,8 @@
   let activeTab = $state('dashboard');
   let currentHostname = $state('Serwer');
   let currentProfileId = $state('');
+  let currentProfileLabel = $state('Serwer');
+  let isSwitching = $state(false);
   let terminalContainerSession = $state<{ containerId: string; containerName: string; useSudo: boolean; shell: string } | null>(null);
   let tabHistory = $state<string[]>([]);
   let visitedTabs = $state<Record<string, boolean>>({ dashboard: true });
@@ -54,6 +62,10 @@
 
   const TAB_LABELS: Record<string, string> = {
     dashboard: 'Dashboard',
+    maintenance: 'Konserwacja',
+    backups: 'Backupy',
+    network: 'Sieć / Porty',
+    runbooks: 'Runbooki',
     files: 'Pliki (SFTP)',
     services: 'Usługi',
     docker: 'Docker',
@@ -132,7 +144,7 @@
   }
 
   // Profile serwerów
-  let profiles = $state<any[]>([]);
+  let profiles = $state<ServerProfile[]>([]);
   let showCreateProfile = $state(false);
   
   // Pola formularza profilu
@@ -203,6 +215,9 @@
       const stats = await invoke<any>('connect_ssh', { profileId });
       serverStats = stats;
       currentHostname = stats.hostname;
+      const prof = profiles.find((p) => p.id === profileId);
+      currentProfileLabel = prof?.label || stats.hostname;
+      resetAlertCooldowns();
       visitedTabs = { dashboard: true };
       isConnected = true;
       tabHistory = [];
@@ -211,6 +226,26 @@
       connectError = err.toString();
     } finally {
       isConnecting = false;
+    }
+  }
+
+  async function handleSwitchProfile(profileId: string) {
+    if (profileId === currentProfileId || isSwitching) return;
+    isSwitching = true;
+    connectError = '';
+    try {
+      terminalContainerSession = null;
+      const stats = await invoke<any>('switch_ssh', { profileId });
+      currentProfileId = profileId;
+      serverStats = stats;
+      currentHostname = stats.hostname;
+      const prof = profiles.find((p) => p.id === profileId);
+      currentProfileLabel = prof?.label || stats.hostname;
+      resetAlertCooldowns();
+    } catch (err: any) {
+      connectError = err.toString();
+    } finally {
+      isSwitching = false;
     }
   }
 
@@ -223,6 +258,7 @@
       isConnected = false;
       serverStats = null;
       currentHostname = 'Serwer';
+      currentProfileLabel = 'Serwer';
       tabHistory = [];
       visitedTabs = { dashboard: true };
     }
@@ -278,6 +314,10 @@
     <Sidebar
       bind:activeTab={activeTab}
       hostname={currentHostname}
+      profiles={profiles}
+      currentProfileId={currentProfileId}
+      isSwitching={isSwitching}
+      onSwitchProfile={handleSwitchProfile}
       onDisconnect={handleDisconnect}
       onTabSelect={(tab: string) => {
         selectTab(tab);
@@ -285,9 +325,44 @@
     />
     
     <div class="main-content">
+      {#if connectError && isConnected}
+        <div class="connect-error-bar">
+          <AlertCircle size={16} />
+          <span>{connectError}</span>
+        </div>
+      {/if}
+
       {#if visitedTabs['dashboard']}
         <div class="tab-wrapper" class:hidden={activeTab !== 'dashboard'}>
-          <Dashboard initialStats={serverStats} />
+          <Dashboard
+            initialStats={serverStats}
+            profileId={currentProfileId}
+            profileLabel={currentProfileLabel}
+          />
+        </div>
+      {/if}
+
+      {#if visitedTabs['maintenance']}
+        <div class="tab-wrapper" class:hidden={activeTab !== 'maintenance'}>
+          <MaintenanceManager />
+        </div>
+      {/if}
+
+      {#if visitedTabs['backups']}
+        <div class="tab-wrapper" class:hidden={activeTab !== 'backups'}>
+          <BackupManager profileId={currentProfileId} />
+        </div>
+      {/if}
+
+      {#if visitedTabs['network']}
+        <div class="tab-wrapper" class:hidden={activeTab !== 'network'}>
+          <NetworkManager />
+        </div>
+      {/if}
+
+      {#if visitedTabs['runbooks']}
+        <div class="tab-wrapper" class:hidden={activeTab !== 'runbooks'}>
+          <RunbookManager profileId={currentProfileId} />
         </div>
       {/if}
 
@@ -556,6 +631,18 @@
 
   .tab-wrapper.hidden {
     display: none !important;
+  }
+
+  .connect-error-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--accent-red-glow);
+    border-bottom: 1px solid rgba(239, 68, 68, 0.3);
+    color: #ff8585;
+    font-size: 0.82rem;
+    flex-shrink: 0;
   }
 
   /* Login screen styles */

@@ -20,6 +20,35 @@ pub struct ServerStats {
     pub network_tx: u64,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct DiskMount {
+    pub mount: String,
+    pub used_mb: u64,
+    pub total_mb: u64,
+    pub use_pct: u8,
+    pub inode_use_pct: u8,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ProcessInfo {
+    pub pid: String,
+    pub user: String,
+    pub cpu: f64,
+    pub mem: f64,
+    pub command: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ExtendedServerStats {
+    pub load_1: f64,
+    pub load_5: f64,
+    pub load_15: f64,
+    pub swap_used_mb: u64,
+    pub swap_total_mb: u64,
+    pub disk_mounts: Vec<DiskMount>,
+    pub top_processes: Vec<ProcessInfo>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FileInfo {
     pub name: String,
@@ -257,6 +286,98 @@ impl SshConnection {
             disk_total,
             network_rx,
             network_tx,
+        })
+    }
+
+    pub async fn get_extended_stats(&self) -> Result<ExtendedServerStats, String> {
+        let script = r#"
+        echo "===LOAD==="
+        awk '{print $1,$2,$3}' /proc/loadavg
+        echo "===SWAP==="
+        free -m | awk 'NR==3{printf "%d %d\n", $3,$2}'
+        echo "===MOUNTS==="
+        df -BM --output=target,used,size,pcent,ipcent 2>/dev/null | tail -n +2 | grep -vE 'tmpfs|snap|loop' | head -20
+        echo "===PROCS==="
+        ps aux --sort=-%mem 2>/dev/null | awk 'NR>1 && NR<=11 {printf "%s|%s|%.1f|%.1f|%s\n", $2,$1,$3,$4,substr($0,index($0,$11))}'
+        "#;
+
+        let (_code, stdout, _stderr) = self.exec(script).await?;
+
+        let mut load_1 = 0.0;
+        let mut load_5 = 0.0;
+        let mut load_15 = 0.0;
+        let mut swap_used_mb = 0u64;
+        let mut swap_total_mb = 0u64;
+        let mut disk_mounts = Vec::new();
+        let mut top_processes = Vec::new();
+
+        let mut section = "";
+        for line in stdout.lines() {
+            let line = line.trim();
+            if line.starts_with("===") {
+                section = line;
+                continue;
+            }
+            if line.is_empty() {
+                continue;
+            }
+
+            match section {
+                "===LOAD===" => {
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    if parts.len() >= 3 {
+                        load_1 = parts[0].parse().unwrap_or(0.0);
+                        load_5 = parts[1].parse().unwrap_or(0.0);
+                        load_15 = parts[2].parse().unwrap_or(0.0);
+                    }
+                }
+                "===SWAP===" => {
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    if parts.len() >= 2 {
+                        swap_used_mb = parts[0].parse().unwrap_or(0);
+                        swap_total_mb = parts[1].parse().unwrap_or(0);
+                    }
+                }
+                "===MOUNTS===" => {
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    if parts.len() >= 5 {
+                        let used_mb = parts[1].replace('M', "").parse::<u64>().unwrap_or(0);
+                        let total_mb = parts[2].replace('M', "").parse::<u64>().unwrap_or(0);
+                        let use_pct = parts[3].replace('%', "").parse::<u8>().unwrap_or(0);
+                        let inode_use_pct = parts[4].replace('%', "").parse::<u8>().unwrap_or(0);
+                        disk_mounts.push(DiskMount {
+                            mount: parts[0].to_string(),
+                            used_mb,
+                            total_mb,
+                            use_pct,
+                            inode_use_pct,
+                        });
+                    }
+                }
+                "===PROCS===" => {
+                    let parts: Vec<&str> = line.splitn(5, '|').collect();
+                    if parts.len() >= 5 {
+                        top_processes.push(ProcessInfo {
+                            pid: parts[0].to_string(),
+                            user: parts[1].to_string(),
+                            cpu: parts[2].parse().unwrap_or(0.0),
+                            mem: parts[3].parse().unwrap_or(0.0),
+                            command: parts[4].to_string(),
+                        });
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        Ok(ExtendedServerStats {
+            load_1,
+            load_5,
+            load_15,
+            swap_used_mb,
+            swap_total_mb,
+            disk_mounts,
+            top_processes,
         })
     }
 

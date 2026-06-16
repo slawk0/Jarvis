@@ -3,6 +3,7 @@ mod sftp_transfer;
 mod du_size;
 mod sftp_find;
 mod pangolin;
+mod profile_extras;
 
 
 use parking_lot::Mutex;
@@ -12,7 +13,7 @@ use std::path::PathBuf;
 use tauri::{Manager, Emitter, State, AppHandle};
 use serde::{Serialize, Deserialize};
 use keyring::Entry;
-use ssh::{SshConnection, ServerStats, FileInfo};
+use ssh::{SshConnection, ServerStats, ExtendedServerStats, FileInfo};
 use sftp_transfer::{
     build_delete_jobs, build_move_jobs, build_upload_jobs, collect_local_files,
     collect_remote_files, get_downloads_dir, DeleteItem, MoveItem, TransferRunner,
@@ -230,6 +231,24 @@ async fn get_server_stats(state: State<'_, AppState>) -> Result<ServerStats, Str
         conn_guard.as_ref().ok_or("Brak aktywnego połączenia SSH")?.clone()
     };
     conn.get_stats().await
+}
+
+#[tauri::command]
+async fn get_extended_server_stats(state: State<'_, AppState>) -> Result<ExtendedServerStats, String> {
+    let conn = {
+        let conn_guard = state.connection.lock();
+        conn_guard.as_ref().ok_or("Brak aktywnego połączenia SSH")?.clone()
+    };
+    conn.get_extended_stats().await
+}
+
+#[tauri::command]
+async fn switch_ssh(
+    state: State<'_, AppState>,
+    app_handle: AppHandle,
+    profile_id: String,
+) -> Result<ServerStats, String> {
+    connect_ssh(state, app_handle, profile_id).await
 }
 
 #[tauri::command]
@@ -1052,6 +1071,7 @@ async fn stop_compose_pull(state: State<'_, AppState>) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
         .manage(AppState {
             connection: Arc::new(Mutex::new(None)),
             sudo_password: Arc::new(Mutex::new(None)),
@@ -1069,7 +1089,9 @@ pub fn run() {
             delete_profile,
             connect_ssh,
             disconnect_ssh,
+            switch_ssh,
             get_server_stats,
+            get_extended_server_stats,
             exec_custom_command,
             set_sudo_password,
             has_sudo_password,
@@ -1100,7 +1122,9 @@ pub fn run() {
             stop_compose_pull,
             pangolin::get_pangolin_config,
             pangolin::save_pangolin_config,
-            pangolin::pangolin_api_request
+            pangolin::pangolin_api_request,
+            profile_extras::get_profile_extras,
+            profile_extras::save_profile_extras
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

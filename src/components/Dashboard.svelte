@@ -1,13 +1,21 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { Cpu, HardDrive, Info, Activity, ArrowDown, ArrowUp, Globe, Shield } from 'lucide-svelte';
+  import { Cpu, HardDrive, Info, Activity, ArrowDown, ArrowUp, Globe, Shield, Gauge, Layers } from 'lucide-svelte';
   import { formatCompact, getCountryName, type CountryTraffic } from '$lib/geo/countryUtils';
+  import { checkResourceAlerts } from '$lib/alerts/monitor';
+  import type { ExtendedServerStats, ProfileExtras } from '$lib/admin/types';
+  import { DEFAULT_PROFILE_EXTRAS } from '$lib/admin/types';
 
-  // Props in Svelte 5
-  let { initialStats } = $props();
+  let {
+    initialStats,
+    profileId = '',
+    profileLabel = 'Serwer',
+  } = $props();
 
   let stats = $state(initialStats);
+  let extended = $state<ExtendedServerStats | null>(null);
+  let alertConfig = $state<ProfileExtras['alert_thresholds']>({ ...DEFAULT_PROFILE_EXTRAS.alert_thresholds });
   let errorMsg = $state('');
   let cpuHistory = $state<number[]>([]);
   let ramHistory = $state<number[]>([]);
@@ -28,6 +36,25 @@
   });
 
   let intervalId: any;
+  let extendedIntervalId: any;
+
+  async function loadAlertConfig() {
+    if (!profileId) return;
+    try {
+      const extras: ProfileExtras = await invoke('get_profile_extras', { profileId });
+      alertConfig = extras.alert_thresholds;
+    } catch {
+      /* defaults */
+    }
+  }
+
+  async function loadExtendedStats() {
+    try {
+      extended = await invoke<ExtendedServerStats>('get_extended_server_stats');
+    } catch {
+      extended = null;
+    }
+  }
 
   async function loadProxyStats() {
     proxyStats.loading = true;
@@ -95,6 +122,8 @@
       stats = newStats;
       errorMsg = '';
 
+      await checkResourceAlerts(profileLabel, newStats, alertConfig);
+
       // Obliczanie przepustowości sieci
       const deltaRx = newStats.network_rx >= prevRx ? newStats.network_rx - prevRx : 0;
       const deltaTx = newStats.network_tx >= prevTx ? newStats.network_tx - prevTx : 0;
@@ -142,20 +171,37 @@
   }
 
   onMount(() => {
-    // Inicjalizacja historii
     cpuHistory = Array(15).fill(stats.cpu_usage);
     const initialRamPct = (stats.ram_used / stats.ram_total) * 100;
     ramHistory = Array(15).fill(initialRamPct);
 
     loadProxyStats();
+    loadAlertConfig();
+    loadExtendedStats();
 
-    // Odpytywanie co 2 sekundy
     intervalId = setInterval(updateStats, 2000);
+    extendedIntervalId = setInterval(loadExtendedStats, 10000);
+  });
+
+  $effect(() => {
+    if (profileId) loadAlertConfig();
   });
 
   onDestroy(() => {
     clearInterval(intervalId);
+    clearInterval(extendedIntervalId);
   });
+
+  async function saveAlertConfig() {
+    if (!profileId) return;
+    try {
+      const extras: ProfileExtras = await invoke('get_profile_extras', { profileId });
+      extras.alert_thresholds = alertConfig;
+      await invoke('save_profile_extras', { profileId, extras });
+    } catch (err: any) {
+      errorMsg = 'Nie udało się zapisać progów alertów: ' + err.toString();
+    }
+  }
 </script>
 
 <div class="dashboard manager-shell scrollable fade-in">
@@ -329,6 +375,94 @@
         </div>
       </div>
     </div>
+  </section>
+
+  {#if extended}
+    <section class="extended-grid">
+      <div class="ext-card glass">
+        <div class="ext-header"><Gauge size={16} /> Load average</div>
+        <div class="load-vals mono-val">
+          <span>{extended.load_1.toFixed(2)}</span>
+          <span class="sep">/</span>
+          <span>{extended.load_5.toFixed(2)}</span>
+          <span class="sep">/</span>
+          <span>{extended.load_15.toFixed(2)}</span>
+        </div>
+        <span class="ext-label">1 min / 5 min / 15 min</span>
+      </div>
+      <div class="ext-card glass">
+        <div class="ext-header"><Layers size={16} /> Swap</div>
+        <div class="ext-val mono-val">
+          {extended.swap_used_mb} / {extended.swap_total_mb} MB
+        </div>
+        <span class="ext-label">
+          {extended.swap_total_mb > 0
+            ? Math.round((extended.swap_used_mb / extended.swap_total_mb) * 100)
+            : 0}% użycia
+        </span>
+      </div>
+    </section>
+
+    {#if extended.disk_mounts.length > 0}
+      <section class="mounts-panel glass">
+        <h3>Partycje dyskowe</h3>
+        <div class="mounts-table">
+          <div class="mount-row head">
+            <span>Montowanie</span><span>Użycie</span><span>Inode</span>
+          </div>
+          {#each extended.disk_mounts as m}
+            <div class="mount-row">
+              <span class="mono-val">{m.mount}</span>
+              <span class="mono-val {m.use_pct >= 85 ? 'warn' : ''}">{m.use_pct}% ({Math.round(m.used_mb / 1024)}G/{Math.round(m.total_mb / 1024)}G)</span>
+              <span class="mono-val {m.inode_use_pct >= 85 ? 'warn' : ''}">{m.inode_use_pct}%</span>
+            </div>
+          {/each}
+        </div>
+      </section>
+    {/if}
+
+    {#if extended.top_processes.length > 0}
+      <section class="procs-panel glass">
+        <h3>Top procesy (RAM)</h3>
+        <div class="procs-table">
+          <div class="proc-row head">
+            <span>PID</span><span>Użytk.</span><span>CPU</span><span>RAM</span><span>Komenda</span>
+          </div>
+          {#each extended.top_processes as p}
+            <div class="proc-row">
+              <span class="mono-val">{p.pid}</span>
+              <span>{p.user}</span>
+              <span class="mono-val">{p.cpu}%</span>
+              <span class="mono-val">{p.mem}%</span>
+              <span class="cmd" title={p.command}>{p.command}</span>
+            </div>
+          {/each}
+        </div>
+      </section>
+    {/if}
+  {/if}
+
+  <section class="alerts-panel glass">
+    <div class="alerts-header">
+      <h3>Alerty desktopowe</h3>
+      <label class="toggle-row">
+        <input type="checkbox" bind:checked={alertConfig.enabled} onchange={saveAlertConfig} />
+        Włączone
+      </label>
+    </div>
+    {#if alertConfig.enabled}
+      <div class="alert-thresholds">
+        <label>CPU (%)
+          <input type="number" min="50" max="100" bind:value={alertConfig.cpu_pct} onchange={saveAlertConfig} />
+        </label>
+        <label>RAM (%)
+          <input type="number" min="50" max="100" bind:value={alertConfig.ram_pct} onchange={saveAlertConfig} />
+        </label>
+        <label>Dysk (%)
+          <input type="number" min="50" max="100" bind:value={alertConfig.disk_pct} onchange={saveAlertConfig} />
+        </label>
+      </div>
+    {/if}
   </section>
 
   <!-- Pangolin Proxy Stats -->
@@ -782,5 +916,131 @@
   .country-count {
     font-weight: 600;
     font-variant-numeric: tabular-nums;
+  }
+
+  .extended-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .ext-card {
+    padding: 14px;
+    border-radius: var(--radius-sm);
+  }
+
+  .ext-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+
+  .load-vals, .ext-val {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: white;
+  }
+
+  .load-vals .sep { color: var(--text-muted); margin: 0 4px; }
+
+  .ext-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+    display: block;
+  }
+
+  .mounts-panel, .procs-panel {
+    padding: 14px;
+    border-radius: var(--radius-sm);
+  }
+
+  .mounts-panel h3, .procs-panel h3 {
+    font-size: 0.9rem;
+    color: white;
+    margin-bottom: 10px;
+  }
+
+  .mounts-table, .procs-table {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.78rem;
+  }
+
+  .mount-row, .proc-row {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr 0.5fr;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: var(--radius-sm);
+    background: rgba(0, 0, 0, 0.15);
+  }
+
+  .proc-row {
+    grid-template-columns: 60px 80px 50px 50px 1fr;
+  }
+
+  .mount-row.head, .proc-row.head {
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+  }
+
+  .warn { color: var(--accent-red); }
+
+  .cmd {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-secondary);
+  }
+
+  .alerts-panel {
+    padding: 14px;
+    border-radius: var(--radius-sm);
+  }
+
+  .alerts-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .alerts-header h3 {
+    font-size: 0.9rem;
+    color: white;
+  }
+
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+  }
+
+  .alert-thresholds {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .alert-thresholds label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .alert-thresholds input {
+    padding: 6px 10px;
+    font-size: 0.85rem;
   }
 </style>
