@@ -5,8 +5,16 @@
   import SortableTh from './ui/SortableTh.svelte';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
 
+  let firewallMode = $state<'ufw' | 'iptables'>('ufw');
+
+  // UFW state
   let ufwActive = $state(false);
   let rules = $state<any[]>([]);
+  
+  // iptables state
+  let iptablesChains = $state<{name: string, policy: string, rules: any[]}[]>([]);
+  let activeChain = $state('INPUT');
+
   type RuleSortCol = 'num' | 'to' | 'action' | 'from';
   let ruleSort = $state<SortState<RuleSortCol>>({ column: 'num', direction: 'asc' });
 
@@ -16,12 +24,13 @@
       to: (r) => r.to || '',
       action: (r) => r.action || '',
       from: (r) => r.from || '',
-    }),
+    })
   );
 
   function setRuleSort(column: string) {
     ruleSort = nextSort(ruleSort, column as RuleSortCol);
   }
+
   let isLoading = $state(false);
   let errorMsg = $state('');
 
@@ -42,7 +51,6 @@
     isLoading = true;
     errorMsg = '';
     try {
-      // UFW wymaga sudo do statusu
       const statusOut: string = await invoke('exec_custom_command', {
         cmd: 'ufw status numbered',
         useSudo: true
@@ -54,8 +62,6 @@
       } else {
         ufwActive = true;
         
-        // Parsowanie reguł ufw status numbered
-        // Przykład: [ 1] 22/tcp                     ALLOW IN    Anywhere
         const lines = statusOut.trim().split('\n');
         let parsedRules = [];
         
@@ -71,15 +77,76 @@
             });
           }
         }
-        
         rules = parsedRules;
       }
     } catch (err: any) {
-      if (err.toString() === 'SUDO_PASSWORD_REQUIRED') {
+      const errStr = err.toString().toLowerCase();
+      if (errStr === 'sudo_password_required') {
         pendingAction = loadUfwStatus;
         showSudoModal = true;
+      } else if (errStr.includes('not found') || errStr.includes('nie znaleziono')) {
+        ufwActive = false;
+        rules = [];
+        if (firewallMode === 'ufw') {
+          errorMsg = 'UFW nie jest zainstalowane na tym serwerze. Możesz przełączyć się na iptables.';
+        }
       } else {
-        errorMsg = 'Błąd wczytywania zapory UFW: ' + err.toString() + '. Upewnij się, że pakiet `ufw` jest zainstalowany na serwerze.';
+        errorMsg = 'Błąd wczytywania zapory UFW: ' + err.toString();
+      }
+    } finally {
+      isLoading = false;
+    }
+  }
+
+  async function loadIptablesStatus() {
+    isLoading = true;
+    errorMsg = '';
+    try {
+      const out: string = await invoke('exec_custom_command', {
+        cmd: 'iptables -L -n --line-numbers',
+        useSudo: true
+      });
+      
+      const lines = out.trim().split('\n');
+      let currentChain: any = null;
+      let chains: any[] = [];
+      
+      for (const line of lines) {
+        if (line.startsWith('Chain ')) {
+          const chainMatch = line.match(/^Chain\s+(\S+)\s+\(policy\s+(\S+)\)/);
+          if (chainMatch) {
+            currentChain = { name: chainMatch[1], policy: chainMatch[2], rules: [] };
+            chains.push(currentChain);
+          } else {
+            const noPolicyMatch = line.match(/^Chain\s+(\S+)/);
+            if (noPolicyMatch) {
+              currentChain = { name: noPolicyMatch[1], policy: '-', rules: [] };
+              chains.push(currentChain);
+            }
+          }
+        } else if (line.match(/^\d+\s+/) && currentChain) {
+          const parts = line.trim().split(/\s+/);
+          const num = parts[0];
+          const target = parts[1];
+          const prot = parts[2];
+          const opt = parts[3];
+          const source = parts[4];
+          const destination = parts[5];
+          const extra = parts.slice(6).join(' ');
+          
+          currentChain.rules.push({ num, target, prot, opt, source, destination, extra });
+        }
+      }
+      iptablesChains = chains;
+      if (!chains.find(c => c.name === activeChain) && chains.length > 0) {
+        activeChain = chains[0].name;
+      }
+    } catch (err: any) {
+      if (err.toString() === 'SUDO_PASSWORD_REQUIRED') {
+        pendingAction = loadIptablesStatus;
+        showSudoModal = true;
+      } else {
+        errorMsg = 'Błąd wczytywania reguł iptables: ' + err.toString();
       }
     } finally {
       isLoading = false;
@@ -130,126 +197,275 @@
   }
 
   async function addRule() {
-    if (!rulePort) return;
-    
-    const action = async () => {
-      isLoading = true;
-      errorMsg = '';
-      
-      // Konstruowanie komendy ufw
-      // ufw allow proto tcp from 192.168.1.1 to any port 80
-      let cmd = `ufw ${ruleAction}`;
-      if (ruleProto !== 'any') {
-        cmd += ` proto ${ruleProto}`;
-      }
-      if (ruleSource !== 'Anywhere' && ruleSource !== '') {
-        cmd += ` from ${ruleSource}`;
-      }
-      cmd += ` to any port ${rulePort}`;
-      
-      await invoke('exec_custom_command', { cmd, useSudo: true });
-      showAddModal = false;
-      rulePort = '';
-      ruleSource = 'Anywhere';
-      ruleProto = 'any';
-      await loadUfwStatus();
-    };
-    
-    await handleActionWithSudo(action);
+    if (firewallMode === 'ufw') {
+      if (!rulePort) return;
+      const action = async () => {
+        isLoading = true;
+        errorMsg = '';
+        let cmd = `ufw ${ruleAction}`;
+        if (ruleProto !== 'any') cmd += ` proto ${ruleProto}`;
+        if (ruleSource !== 'Anywhere' && ruleSource !== '') cmd += ` from ${ruleSource}`;
+        cmd += ` to any port ${rulePort}`;
+        await invoke('exec_custom_command', { cmd, useSudo: true });
+        closeAddModal();
+        await loadUfwStatus();
+      };
+      await handleActionWithSudo(action);
+    } else {
+      const action = async () => {
+        isLoading = true;
+        errorMsg = '';
+        let prot = ruleProto;
+        if (rulePort && prot === 'any') {
+          prot = 'tcp';
+        }
+        let target = ruleAction.toUpperCase() === 'ALLOW' ? 'ACCEPT' : 'DROP';
+        if (ruleAction.toLowerCase() === 'deny') target = 'DROP';
+        else if (ruleAction.toLowerCase() === 'reject') target = 'REJECT';
+
+        let cmd = `iptables -A ${activeChain}`;
+        if (prot !== 'any') {
+          cmd += ` -p ${prot}`;
+          if (rulePort && rulePort !== 'any') cmd += ` --dport ${rulePort}`;
+        }
+        if (ruleSource && ruleSource !== 'Anywhere') cmd += ` -s ${ruleSource}`;
+        cmd += ` -j ${target}`;
+
+        await invoke('exec_custom_command', { cmd, useSudo: true });
+        closeAddModal();
+        await loadIptablesStatus();
+      };
+      await handleActionWithSudo(action);
+    }
+  }
+
+  function closeAddModal() {
+    showAddModal = false;
+    rulePort = '';
+    ruleSource = 'Anywhere';
+    ruleProto = 'any';
   }
 
   async function deleteRule(num: number) {
-    if (confirm(`Czy na pewno chcesz usunąć regułę o numerze ${num}?`)) {
+    if (firewallMode === 'ufw') {
+      if (confirm(`Czy na pewno chcesz usunąć regułę o numerze ${num}?`)) {
+        const action = async () => {
+          isLoading = true;
+          errorMsg = '';
+          await invoke('exec_custom_command', {
+            cmd: `ufw --force delete ${num}`,
+            useSudo: true
+          });
+          await loadUfwStatus();
+        };
+        await handleActionWithSudo(action);
+      }
+    } else {
+      if (confirm(`Czy na pewno chcesz usunąć regułę nr ${num} z łańcucha ${activeChain}?`)) {
+        const action = async () => {
+          isLoading = true;
+          errorMsg = '';
+          await invoke('exec_custom_command', {
+            cmd: `iptables -D ${activeChain} ${num}`,
+            useSudo: true
+          });
+          await loadIptablesStatus();
+        };
+        await handleActionWithSudo(action);
+      }
+    }
+  }
+
+  async function setIptablesPolicy(policy: string) {
+    if (confirm(`Zmienić domyślną politykę łańcucha ${activeChain} na ${policy}?`)) {
       const action = async () => {
         isLoading = true;
         errorMsg = '';
         await invoke('exec_custom_command', {
-          cmd: `ufw --force delete ${num}`,
+          cmd: `iptables -P ${activeChain} ${policy}`,
           useSudo: true
         });
-        await loadUfwStatus();
+        await loadIptablesStatus();
       };
       await handleActionWithSudo(action);
+    }
+  }
+
+  function switchMode(mode: 'ufw' | 'iptables') {
+    firewallMode = mode;
+    errorMsg = '';
+    if (mode === 'ufw') {
+      loadUfwStatus();
+    } else {
+      loadIptablesStatus();
     }
   }
 
   onMount(() => {
     loadUfwStatus();
   });
+
+  let activeChainData = $derived(iptablesChains.find(c => c.name === activeChain));
 </script>
 
 <div class="firewall-manager manager-shell fade-in">
   <header class="manager-header">
-    <h1 class="page-title">Zapora Sieciowa (UFW)</h1>
+    <div class="header-content">
+      <h1 class="page-title">Zapora Sieciowa</h1>
+      <div class="mode-selector">
+        <button class="mode-btn {firewallMode === 'ufw' ? 'active' : ''}" onclick={() => switchMode('ufw')}>UFW</button>
+        <button class="mode-btn {firewallMode === 'iptables' ? 'active' : ''}" onclick={() => switchMode('iptables')}>iptables</button>
+      </div>
+    </div>
     {#if errorMsg}
       <div class="error-badge">{errorMsg}</div>
     {/if}
   </header>
 
-  <!-- Pasek stanu zapory -->
-  <div class="status-bar glass">
-    <div class="status-indicator">
-      {#if ufwActive}
-        <Shield size={16} class="shield-icon active" />
-        <span class="status-title">Zapora AKTYWNA</span>
-      {:else}
-        <ShieldOff size={16} class="shield-icon inactive" />
-        <span class="status-title">Zapora NIEAKTYWNA</span>
-      {/if}
+  {#if firewallMode === 'ufw'}
+    <!-- Pasek stanu zapory UFW -->
+    <div class="status-bar glass">
+      <div class="status-indicator">
+        {#if ufwActive}
+          <Shield size={16} class="shield-icon active" />
+          <span class="status-title">UFW AKTYWNE</span>
+        {:else}
+          <ShieldOff size={16} class="shield-icon inactive" />
+          <span class="status-title">UFW NIEAKTYWNE</span>
+        {/if}
+      </div>
+      <div class="status-actions">
+        <button class="secondary" onclick={loadUfwStatus} disabled={isLoading}>
+          <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> Odśwież
+        </button>
+        <button class={ufwActive ? 'danger' : 'primary'} onclick={toggleUfw} disabled={isLoading}>
+          {ufwActive ? 'Wyłącz UFW' : 'Włącz UFW'}
+        </button>
+      </div>
     </div>
 
-    <div class="status-actions">
-      <button class="secondary" onclick={loadUfwStatus} disabled={isLoading}>
-        <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> Odśwież
-      </button>
-      <button class={ufwActive ? 'danger' : 'primary'} onclick={toggleUfw} disabled={isLoading}>
-        {ufwActive ? 'Wyłącz zaporę' : 'Włącz zaporę'}
-      </button>
-    </div>
-  </div>
+    {#if ufwActive}
+      <!-- Sekcja operacyjna dla reguł UFW -->
+      <div class="rules-header">
+        <h2>Aktywne Reguły UFW</h2>
+        <button class="primary" onclick={() => showAddModal = true}>
+          <Plus size={16} /> Dodaj Regułę
+        </button>
+      </div>
 
-  {#if ufwActive}
-    <!-- Sekcja operacyjna dla reguł -->
+      <div class="table-container glass">
+        <table class="rules-table">
+          <thead>
+            <tr>
+              <SortableTh label="Nr" column="num" activeColumn={ruleSort.column} direction={ruleSort.direction} onsort={setRuleSort} width="10%" />
+              <SortableTh label="Port / Usługa" column="to" activeColumn={ruleSort.column} direction={ruleSort.direction} onsort={setRuleSort} width="25%" />
+              <SortableTh label="Akcja" column="action" activeColumn={ruleSort.column} direction={ruleSort.direction} onsort={setRuleSort} width="20%" />
+              <SortableTh label="Z adresu IP" column="from" activeColumn={ruleSort.column} direction={ruleSort.direction} onsort={setRuleSort} width="25%" />
+              <th style="width: 20%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Usuń</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each sortedRules as rule}
+              <tr>
+                <td><span class="badge warning mono-val">{rule.num}</span></td>
+                <td class="mono-val"><strong>{rule.to}</strong></td>
+                <td>
+                  <span class="badge {rule.action.toUpperCase() === 'ALLOW' ? 'success' : 'danger'}">
+                    {rule.action}
+                  </span>
+                </td>
+                <td class="mono-val"><code>{rule.from}</code></td>
+                <td class="actions-cell">
+                  <button class="btn-table danger-text" onclick={() => deleteRule(rule.num)} title="Usuń regułę">
+                    <Trash2 size={14} />
+                  </button>
+                </td>
+              </tr>
+            {/each}
+
+            {#if sortedRules.length === 0}
+              <tr>
+                <td colspan="5" class="empty-state">Brak skonfigurowanych reguł. UFW blokuje domyślnie ruch wejściowy.</td>
+              </tr>
+            {/if}
+          </tbody>
+        </table>
+      </div>
+    {/if}
+
+  {:else}
+    <!-- IPTABLES MODE -->
+    <div class="status-bar glass iptables-header">
+      <div class="iptables-chain-selector">
+        <label for="chain-select" class="status-title">Wybierz Łańcuch:</label>
+        <select id="chain-select" class="form-select" bind:value={activeChain}>
+          {#each iptablesChains as chain}
+            <option value={chain.name}>{chain.name} (Polityka: {chain.policy})</option>
+          {/each}
+        </select>
+      </div>
+
+      <div class="status-actions">
+        <button class="secondary" onclick={loadIptablesStatus} disabled={isLoading}>
+          <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> Odśwież
+        </button>
+      </div>
+    </div>
+
+    {#if activeChainData && activeChainData.policy !== '-'}
+      <div class="policy-bar">
+        <span>Domyślna polityka: <strong>{activeChainData.policy}</strong></span>
+        <div class="policy-actions">
+          <button class="btn-sm {activeChainData.policy === 'ACCEPT' ? 'active-policy success' : 'secondary'}" onclick={() => setIptablesPolicy('ACCEPT')}>ACCEPT</button>
+          <button class="btn-sm {activeChainData.policy === 'DROP' ? 'active-policy danger' : 'secondary'}" onclick={() => setIptablesPolicy('DROP')}>DROP</button>
+        </div>
+      </div>
+    {/if}
+
     <div class="rules-header">
-      <h2>Aktywne Reguły Zapory</h2>
+      <h2>Reguły iptables: {activeChain}</h2>
       <button class="primary" onclick={() => showAddModal = true}>
         <Plus size={16} /> Dodaj Regułę
       </button>
     </div>
 
     <div class="table-container glass">
-      <table class="rules-table">
+      <table class="rules-table iptables-table">
         <thead>
           <tr>
-            <SortableTh label="Nr" column="num" activeColumn={ruleSort.column} direction={ruleSort.direction} onsort={setRuleSort} width="10%" />
-            <SortableTh label="Port / Usługa" column="to" activeColumn={ruleSort.column} direction={ruleSort.direction} onsort={setRuleSort} width="25%" />
-            <SortableTh label="Akcja" column="action" activeColumn={ruleSort.column} direction={ruleSort.direction} onsort={setRuleSort} width="20%" />
-            <SortableTh label="Z adresu IP" column="from" activeColumn={ruleSort.column} direction={ruleSort.direction} onsort={setRuleSort} width="25%" />
-            <th style="width: 20%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Usuń</th>
+            <th style="width: 5%">Nr</th>
+            <th style="width: 15%">Cel (Target)</th>
+            <th style="width: 10%">Protokół</th>
+            <th style="width: 20%">Źródło</th>
+            <th style="width: 20%">Cel (IP)</th>
+            <th style="width: 20%">Dodatkowe (Porty itp.)</th>
+            <th style="width: 10%; text-align: right;">Usuń</th>
           </tr>
         </thead>
         <tbody>
-          {#each sortedRules as rule}
+          {#if activeChainData && activeChainData.rules.length > 0}
+            {#each activeChainData.rules as rule}
+              <tr>
+                <td><span class="badge warning mono-val">{rule.num}</span></td>
+                <td>
+                  <span class="badge {rule.target === 'ACCEPT' ? 'success' : (rule.target === 'DROP' || rule.target === 'REJECT' ? 'danger' : 'neutral')}">
+                    {rule.target}
+                  </span>
+                </td>
+                <td class="mono-val">{rule.prot}</td>
+                <td class="mono-val"><code>{rule.source}</code></td>
+                <td class="mono-val"><code>{rule.destination}</code></td>
+                <td class="mono-val small-text">{rule.extra}</td>
+                <td class="actions-cell">
+                  <button class="btn-table danger-text" onclick={() => deleteRule(parseInt(rule.num))} title="Usuń regułę">
+                    <Trash2 size={14} />
+                  </button>
+                </td>
+              </tr>
+            {/each}
+          {:else}
             <tr>
-              <td><span class="badge warning mono-val">{rule.num}</span></td>
-              <td class="mono-val"><strong>{rule.to}</strong></td>
-              <td>
-                <span class="badge {rule.action.toUpperCase() === 'ALLOW' ? 'success' : 'danger'}">
-                  {rule.action}
-                </span>
-              </td>
-              <td class="mono-val"><code>{rule.from}</code></td>
-              <td class="actions-cell">
-                <button class="btn-table danger-text" onclick={() => deleteRule(rule.num)} title="Usuń regułę">
-                  <Trash2 size={14} />
-                </button>
-              </td>
-            </tr>
-          {/each}
-
-          {#if sortedRules.length === 0}
-            <tr>
-              <td colspan="5" class="empty-state">Brak skonfigurowanych reguł. UFW blokuje domyślnie ruch wejściowy.</td>
+              <td colspan="7" class="empty-state">Brak reguł w tym łańcuchu.</td>
             </tr>
           {/if}
         </tbody>
@@ -287,18 +503,21 @@
   {#if showAddModal}
     <div class="modal-overlay">
       <div class="modal-content glass">
-        <h3>Dodaj regułę do zapory</h3>
+        <h3>Dodaj regułę ({firewallMode === 'ufw' ? 'UFW' : 'iptables'})</h3>
         
         <div class="form-group">
           <label for="rule-action">Działanie (Action)</label>
           <select id="rule-action" bind:value={ruleAction}>
-            <option value="allow">ALLOW (Zezwól)</option>
-            <option value="deny">DENY (Blokuj)</option>
+            <option value="allow">{firewallMode === 'ufw' ? 'ALLOW (Zezwól)' : 'ACCEPT (Zezwól)'}</option>
+            <option value="deny">{firewallMode === 'ufw' ? 'DENY (Blokuj)' : 'DROP (Odrzuć)'}</option>
+            {#if firewallMode === 'iptables'}
+              <option value="reject">REJECT (Odrzuć z info)</option>
+            {/if}
           </select>
         </div>
 
         <div class="form-group">
-          <label for="rule-port">Port lub porty (np. 80, 443, 3000:3005)</label>
+          <label for="rule-port">Port lub porty (np. 80, 443){firewallMode === 'iptables' ? ' - opcjonalnie' : ''}</label>
           <input id="rule-port" type="text" placeholder="8080" bind:value={rulePort} />
         </div>
 
@@ -317,8 +536,8 @@
         </div>
 
         <div class="modal-actions">
-          <button class="primary" onclick={addRule} disabled={!rulePort}>Dodaj regułę</button>
-          <button class="secondary" onclick={() => { showAddModal = false; rulePort = ''; }}>Anuluj</button>
+          <button class="primary" onclick={addRule} disabled={firewallMode === 'ufw' && !rulePort}>Dodaj regułę</button>
+          <button class="secondary" onclick={closeAddModal}>Anuluj</button>
         </div>
       </div>
     </div>
@@ -327,7 +546,51 @@
 
 <style>
   .firewall-manager {
-    /* uses .manager-shell */
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    gap: 16px;
+  }
+
+  .manager-header {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .mode-selector {
+    display: flex;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    padding: 4px;
+  }
+
+  .mode-btn {
+    background: transparent;
+    border: none;
+    padding: 6px 16px;
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition-fast);
+  }
+
+  .mode-btn:hover {
+    color: var(--text-primary);
+  }
+
+  .mode-btn.active {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
   }
 
   .error-badge {
@@ -347,6 +610,65 @@
     padding: 8px 12px;
     border-radius: var(--radius-md);
     flex-shrink: 0;
+  }
+
+  .iptables-header {
+    background: rgba(40, 44, 52, 0.5);
+  }
+
+  .iptables-chain-selector {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .form-select {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    outline: none;
+    font-size: 0.9rem;
+  }
+
+  .policy-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: var(--radius-sm);
+    border-left: 3px solid var(--accent-blue);
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+  }
+
+  .policy-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .btn-sm {
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    border-radius: 4px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: var(--transition-fast);
+  }
+
+  .active-policy.success {
+    background: var(--accent-green-glow);
+    color: var(--accent-green);
+    border-color: rgba(34, 197, 94, 0.3);
+  }
+
+  .active-policy.danger {
+    background: var(--accent-red-glow);
+    color: var(--accent-red);
+    border-color: rgba(244, 63, 94, 0.3);
   }
 
   .status-indicator {
@@ -422,6 +744,11 @@
     z-index: 1;
   }
 
+  .iptables-table th, .iptables-table td {
+    padding: 12px 16px;
+    font-size: 0.9rem;
+  }
+
   .rules-table tr {
     transition: var(--transition-fast);
   }
@@ -457,16 +784,6 @@
     background: var(--accent-red-glow) !important;
   }
 
-  .loading-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    gap: 16px;
-    color: var(--text-secondary);
-  }
-
   .spin {
     animation: spin 1s linear infinite;
   }
@@ -481,6 +798,16 @@
     color: var(--text-muted);
     font-size: 0.9rem;
     padding: 40px !important;
+  }
+
+  .small-text {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+  }
+
+  .badge.neutral {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
   }
 
   /* Modals */
@@ -540,5 +867,23 @@
     font-size: 0.8rem;
     color: var(--text-secondary);
     font-weight: 500;
+  }
+
+  input, select {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    padding: 8px 12px;
+    border-radius: 4px;
+    color: var(--text-primary);
+    outline: none;
+  }
+
+  select option {
+    background-color: #0d0e12;
+    color: var(--text-primary);
+  }
+
+  input:focus, select:focus {
+    border-color: var(--accent-blue);
   }
 </style>

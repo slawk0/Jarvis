@@ -46,7 +46,7 @@
     { id: 'docker', label: 'Docker', icon: Box },
     { id: 'cron', label: 'Zadania (Cron)', icon: Calendar },
     { id: 'users', label: 'Użytkownicy', icon: Users },
-    { id: 'firewall', label: 'Zapora (UFW)', icon: Shield },
+    { id: 'firewall', label: 'Zapora', icon: Shield },
     { id: 'crowdsec', label: 'CrowdSec', icon: ShieldAlert },
     { id: 'pangolin', label: 'Pangolin Proxy', icon: Globe },
     { id: 'logs', label: 'Logi', icon: FileText },

@@ -113,6 +113,11 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 2px var(--accent-amber-glow);
 }
 
+select option {
+  background-color: #0d0e12;
+  color: var(--text-primary);
+}
+
 button {
   font-family: var(--font-sans);
   font-weight: 500;
