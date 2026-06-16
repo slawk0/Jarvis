@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { Play, Square, RotateCw, Plus, RefreshCw, Eye, ShieldAlert, KeyRound } from 'lucide-svelte';
+  import { Play, Square, RotateCw, Plus, RefreshCw, Eye, KeyRound, Search, X } from 'lucide-svelte';
   import SortableTh from './ui/SortableTh.svelte';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
+  import { stickToBottom } from '$lib/stickToBottom';
 
   let services = $state<any[]>([]);
   let filteredServices = $state<any[]>([]);
@@ -39,6 +40,61 @@
   let serviceExec = $state('');
   let serviceUser = $state('root');
   let serviceRestart = $state('always');
+
+  // Modal statusu / logów usługi
+  let showStatusModal = $state(false);
+  let statusServiceName = $state('');
+  let statusTab = $state<'status' | 'logs'>('status');
+  let statusContent = $state('');
+  let statusLoading = $state(false);
+  let statusSearch = $state('');
+
+  const filteredStatusContent = $derived.by(() => {
+    if (!statusSearch) return statusContent;
+    const q = statusSearch.toLowerCase();
+    return statusContent
+      .split('\n')
+      .filter((line) => line.toLowerCase().includes(q))
+      .join('\n');
+  });
+
+  async function loadStatusContent() {
+    if (!statusServiceName) return;
+    statusLoading = true;
+    try {
+      const cmd =
+        statusTab === 'status'
+          ? `systemctl status ${statusServiceName}.service -l --no-pager`
+          : `journalctl -u ${statusServiceName}.service -n 200 --no-pager`;
+      statusContent = await invoke<string>('exec_custom_command', { cmd, useSudo: false });
+    } catch (err: any) {
+      statusContent = 'Błąd pobierania danych: ' + err.toString();
+    } finally {
+      statusLoading = false;
+    }
+  }
+
+  async function openServiceStatus(name: string) {
+    statusServiceName = name;
+    statusTab = 'status';
+    statusSearch = '';
+    statusContent = '';
+    showStatusModal = true;
+    await loadStatusContent();
+  }
+
+  async function switchStatusTab(tab: 'status' | 'logs') {
+    statusTab = tab;
+    statusSearch = '';
+    await loadStatusContent();
+  }
+
+  function closeStatusModal() {
+    showStatusModal = false;
+    statusServiceName = '';
+    statusContent = '';
+    statusSearch = '';
+  }
 
   async function loadServices() {
     isLoading = true;
@@ -257,6 +313,9 @@ WantedBy=multi-user.target
               </td>
               <td class="desc-cell" title={service.desc}>{service.desc || '(brak opisu)'}</td>
               <td class="actions-cell">
+                <button class="btn-action" onclick={() => openServiceStatus(service.name)} title="Status i logi">
+                  <Eye size={14} />
+                </button>
                 {#if service.active === 'active'}
                   <button class="btn-action danger-text" onclick={() => executeServiceAction('stop', service.name)} title="Zatrzymaj">
                     <Square size={14} />
@@ -282,6 +341,55 @@ WantedBy=multi-user.target
       </table>
     {/if}
   </div>
+
+  <!-- Modal statusu / logów usługi -->
+  {#if showStatusModal}
+    <div class="modal-overlay status-overlay">
+      <div class="modal-content glass status-modal">
+        <div class="status-header">
+          <h3>{statusServiceName}.service</h3>
+          <div class="status-controls">
+            <div class="status-tabs">
+              <button
+                class="status-tab"
+                class:active={statusTab === 'status'}
+                onclick={() => switchStatusTab('status')}
+              >
+                Status
+              </button>
+              <button
+                class="status-tab"
+                class:active={statusTab === 'logs'}
+                onclick={() => switchStatusTab('logs')}
+              >
+                Logi
+              </button>
+            </div>
+            <div class="search-bar search-bar-sm">
+              <Search size={14} class="search-icon" />
+              <input type="text" placeholder="Filtruj..." bind:value={statusSearch} />
+            </div>
+            <button class="secondary btn-sm" onclick={loadStatusContent} disabled={statusLoading}>
+              <RefreshCw size={14} class={statusLoading ? 'spin' : ''} />
+            </button>
+            <button class="secondary btn-sm" onclick={closeStatusModal}>
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+        <div class="status-display" use:stickToBottom>
+          {#if statusLoading && !statusContent}
+            <div class="status-loading">
+              <RefreshCw class="spin" size={24} />
+              <span>Wczytywanie...</span>
+            </div>
+          {:else}
+            <pre class="status-text">{filteredStatusContent || '(brak danych)'}</pre>
+          {/if}
+        </div>
+      </div>
+    </div>
+  {/if}
 
   <!-- Sudo Password Prompt Modal -->
   {#if showSudoModal}
@@ -565,5 +673,120 @@ WantedBy=multi-user.target
 
   select {
     width: 100%;
+  }
+
+  /* Status / logs modal */
+  .status-overlay {
+    z-index: 110;
+  }
+
+  .status-modal {
+    width: 85vw;
+    max-width: 1100px;
+    height: 75vh;
+    max-height: 700px;
+  }
+
+  .status-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .status-header h3 {
+    font-size: 1rem;
+    font-family: var(--font-mono);
+    white-space: nowrap;
+  }
+
+  .status-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .status-tabs {
+    display: flex;
+    gap: 2px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 2px;
+  }
+
+  .status-tab {
+    background: transparent;
+    border: none;
+    padding: 5px 12px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: var(--transition-fast);
+  }
+
+  .status-tab:hover {
+    color: var(--text-primary);
+  }
+
+  .status-tab.active {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  .search-bar-sm {
+    position: relative;
+    min-width: 160px;
+    max-width: 200px;
+  }
+
+  .search-bar-sm input {
+    width: 100%;
+    padding: 6px 10px 6px 32px;
+    font-size: 0.8rem;
+  }
+
+  .search-bar-sm .search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    pointer-events: none;
+  }
+
+  .status-display {
+    flex: 1;
+    overflow: auto;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    min-height: 0;
+  }
+
+  .status-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    height: 100%;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+  }
+
+  .status-text {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    line-height: 1.55;
+    color: #d1d4db;
+    white-space: pre-wrap;
+    word-break: break-all;
+    user-select: text;
   }
 </style>

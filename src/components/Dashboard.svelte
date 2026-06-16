@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { Cpu, HardDrive, Info, Activity, ArrowDown, ArrowUp } from 'lucide-svelte';
+  import { Cpu, HardDrive, Info, Activity, ArrowDown, ArrowUp, Globe, Shield } from 'lucide-svelte';
+  import { formatCompact, getCountryName, type CountryTraffic } from '$lib/geo/countryUtils';
 
   // Props in Svelte 5
   let { initialStats } = $props();
@@ -17,7 +18,67 @@
   let downSpeed = $state('0 B/s');
   let upSpeed = $state('0 B/s');
 
+  let proxyStats = $state({
+    configured: false,
+    loading: false,
+    totalRequests: 0,
+    totalBlocked: 0,
+    topCountries: [] as CountryTraffic[],
+    error: ''
+  });
+
   let intervalId: any;
+
+  async function loadProxyStats() {
+    proxyStats.loading = true;
+    proxyStats.error = '';
+    try {
+      const config: any = await invoke('get_pangolin_config');
+      if (!config?.has_api_key || !config?.org_id) {
+        proxyStats = { ...proxyStats, configured: false, loading: false };
+        return;
+      }
+
+      const end = new Date();
+      const start = new Date();
+      start.setDate(start.getDate() - 7);
+
+      const res: any = await invoke('pangolin_api_request', {
+        method: 'GET',
+        path: `/v1/org/${config.org_id}/logs/analytics`,
+        queryParams: {
+          timeStart: start.toISOString(),
+          timeEnd: end.toISOString()
+        },
+        body: null
+      });
+
+      const data = res?.data || {};
+      const countries = (data.requestsPerCountry || []) as CountryTraffic[];
+      proxyStats = {
+        configured: true,
+        loading: false,
+        totalRequests: data.totalRequests || 0,
+        totalBlocked: data.totalBlocked || 0,
+        topCountries: [...countries].sort((a, b) => (b.count || 0) - (a.count || 0)).slice(0, 3),
+        error: ''
+      };
+    } catch (err: any) {
+      proxyStats = {
+        ...proxyStats,
+        configured: false,
+        loading: false,
+        error: err.toString()
+      };
+    }
+  }
+
+  const proxyAllowed = $derived(Math.max(proxyStats.totalRequests - proxyStats.totalBlocked, 0));
+  const proxyBlockRate = $derived(
+    proxyStats.totalRequests > 0
+      ? ((proxyStats.totalBlocked / proxyStats.totalRequests) * 100).toFixed(1)
+      : '0'
+  );
 
   function formatBytes(bytes: number, decimals = 1) {
     if (bytes === 0) return '0 B';
@@ -85,6 +146,8 @@
     cpuHistory = Array(15).fill(stats.cpu_usage);
     const initialRamPct = (stats.ram_used / stats.ram_total) * 100;
     ramHistory = Array(15).fill(initialRamPct);
+
+    loadProxyStats();
 
     // Odpytywanie co 2 sekundy
     intervalId = setInterval(updateStats, 2000);
@@ -266,6 +329,59 @@
         </div>
       </div>
     </div>
+  </section>
+
+  <!-- Pangolin Proxy Stats -->
+  <section class="proxy-section glass">
+    <div class="proxy-header">
+      <h3><Globe size={18} class="accent-amber-text" /> Pangolin Proxy (7 dni)</h3>
+      {#if proxyStats.configured}
+        <span class="proxy-badge">Połączono</span>
+      {/if}
+    </div>
+
+    {#if proxyStats.loading}
+      <p class="proxy-muted">Wczytywanie statystyk proxy...</p>
+    {:else if !proxyStats.configured}
+      <p class="proxy-muted">
+        Skonfiguruj Pangolin w zakładce „Pangolin Proxy”, aby zobaczyć statystyki ruchu.
+      </p>
+    {:else}
+      <div class="proxy-grid">
+        <div class="proxy-stat">
+          <span class="proxy-label">Zapytania</span>
+          <span class="proxy-val mono-val">{formatCompact(proxyStats.totalRequests)}</span>
+        </div>
+        <div class="proxy-stat">
+          <span class="proxy-label">Dozwolone</span>
+          <span class="proxy-val mono-val text-green">{formatCompact(proxyAllowed)}</span>
+        </div>
+        <div class="proxy-stat">
+          <span class="proxy-label">Zablokowane</span>
+          <span class="proxy-val mono-val text-red">{formatCompact(proxyStats.totalBlocked)}</span>
+        </div>
+        <div class="proxy-stat">
+          <span class="proxy-label">Współcz. blokad</span>
+          <span class="proxy-val mono-val">{proxyBlockRate}%</span>
+        </div>
+      </div>
+
+      {#if proxyStats.topCountries.length > 0}
+        <div class="proxy-countries">
+          <span class="proxy-label">Top kraje</span>
+          <div class="proxy-country-list">
+            {#each proxyStats.topCountries as country}
+              <div class="proxy-country-item">
+                <Shield size={14} class="accent-amber-text" />
+                <span class="country-code">{country.code}</span>
+                <span class="country-name">{getCountryName(country)}</span>
+                <span class="country-count mono-val">{formatCompact(country.count || 0)}</span>
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
+    {/if}
   </section>
 </div>
 
@@ -545,5 +661,126 @@
     font-weight: 700;
     color: white;
     margin-top: 2px;
+  }
+
+  /* Pangolin Proxy section */
+  .proxy-section {
+    border-radius: var(--radius-sm);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .proxy-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .proxy-header h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin: 0;
+  }
+
+  .proxy-badge {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--accent-green);
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.25);
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+  }
+
+  .proxy-muted {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin: 0;
+  }
+
+  .proxy-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  @media (max-width: 900px) {
+    .proxy-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  .proxy-stat {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .proxy-label {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .proxy-val {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: white;
+  }
+
+  .text-green { color: var(--accent-green); }
+  .text-red { color: var(--accent-red); }
+
+  .proxy-countries {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .proxy-country-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .proxy-country-item {
+    display: grid;
+    grid-template-columns: auto 28px 1fr auto;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: var(--radius-sm);
+    font-size: 0.82rem;
+  }
+
+  .country-code {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: var(--accent-amber);
+    font-size: 0.75rem;
+  }
+
+  .country-name {
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .country-count {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
   }
 </style>

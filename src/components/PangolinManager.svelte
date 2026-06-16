@@ -8,6 +8,14 @@
     X, MapPin, Search, ChevronRight, ChevronLeft, Calendar, User, 
     Link, Radio, Laptop, Users
   } from 'lucide-svelte';
+  import PangolinWorldMap from './PangolinWorldMap.svelte';
+  import {
+    formatCompact,
+    getCountryName,
+    trafficBarGradient,
+    trafficIntensity,
+    type CountryTraffic
+  } from '$lib/geo/countryUtils';
 
   // Navigation state
   let activeSubTab = $state('dashboard'); // 'dashboard', 'logs', 'tunnels', 'priv_resources', 'pub_resources', 'access', 'clients', 'settings'
@@ -355,12 +363,80 @@
     }
   }
 
-  // Helper for requests per day SVG rendering
-  let maxDayCount = $derived(
-    dashboardStats.requestsPerDay.length > 0 
-      ? Math.max(...dashboardStats.requestsPerDay.map(d => d.totalCount || 1))
+  // Skala wykresu oparta na szczytach serii (bez pustej przestrzeni u góry)
+  let maxChartValue = $derived.by(() => {
+    const days = dashboardStats.requestsPerDay;
+    if (days.length === 0) return 1;
+    const peak = Math.max(
+      ...days.flatMap(d => [d.allowedCount || 0, d.blockedCount || 0]),
+      1
+    );
+    return Math.ceil(peak * 1.1);
+  });
+
+  let hoveredMapCode = $state<string | null>(null);
+  let hoveredCountryRow = $state<string | null>(null);
+
+  const sortedCountries = $derived(
+    [...(dashboardStats.requestsPerCountry as CountryTraffic[])].sort(
+      (a, b) => (b.count || 0) - (a.count || 0)
+    )
+  );
+
+  const maxCountryCount = $derived(
+    sortedCountries.length > 0
+      ? Math.max(...sortedCountries.map(c => c.count || 0), 1)
       : 1
   );
+
+  const chartYTicks = $derived.by(() => {
+    const max = maxChartValue;
+    if (max <= 4) return [max, Math.max(1, Math.ceil(max * 0.66)), Math.max(0, Math.ceil(max * 0.33)), 0];
+    return [max, Math.round(max * 0.66), Math.round(max * 0.33), 0];
+  });
+
+  const chartLayout = {
+    width: 800,
+    height: 220,
+    pad: { top: 12, bottom: 32, left: 16, right: 16 }
+  };
+
+  function formatDayLabel(day: string): string {
+    if (!day) return '';
+    const d = new Date(day);
+    if (Number.isNaN(d.getTime())) return day.slice(-5);
+    return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
+  }
+
+  function buildLinePath(
+    days: any[],
+    key: 'allowedCount' | 'blockedCount',
+    width: number,
+    height: number,
+    padding: { top: number; bottom: number; left: number; right: number }
+  ): string {
+    if (days.length === 0) return '';
+    const chartW = width - padding.left - padding.right;
+    const chartH = height - padding.top - padding.bottom;
+    const step = days.length > 1 ? chartW / (days.length - 1) : 0;
+
+    return days.map((day, idx) => {
+      const val = day[key] || 0;
+      const x = padding.left + idx * step;
+      const y = padding.top + chartH - (val / maxChartValue) * chartH;
+      return `${idx === 0 ? 'M' : 'L'} ${x} ${y}`;
+    }).join(' ');
+  }
+
+  function getCountryTooltip(geo: CountryTraffic) {
+    const total = geo.count || 0;
+    const pct = dashboardStats.totalRequests > 0
+      ? ((total / dashboardStats.totalRequests) * 100).toFixed(1)
+      : '0';
+    const allowed = geo.allowedCount ?? (total - (geo.blockedCount || 0));
+    const blocked = geo.blockedCount ?? 0;
+    return `${getCountryName(geo)}: ${formatCompact(total)} zapytań (${pct}%) · dozwolone: ${formatCompact(allowed)}, zablokowane: ${formatCompact(blocked)}`;
+  }
 
   // 2. Logs Tab Functions
   async function loadLogsData() {
@@ -976,46 +1052,42 @@
         <div class="dashboard-view">
           <div class="stats-row">
             <div class="stat-card glass glow-amber">
-              <span class="card-label">ŁĄCZNIE ZAPYTANIA</span>
-              <span class="card-val">{dashboardStats.totalRequests}</span>
-              <span class="card-indicator">Ostatnie {timeRange === '24h' ? '24 godziny' : timeRange === '7d' ? '7 dni' : '30 dni'}</span>
+              <span class="card-label">Łącznie</span>
+              <span class="card-val tabular-nums">{formatCompact(dashboardStats.totalRequests)}</span>
             </div>
             <div class="stat-card glass glow-red">
-              <span class="card-label">ZABLOKOWANE</span>
-              <span class="card-val text-red">{dashboardStats.totalBlocked}</span>
-              <span class="card-indicator">Próby nieautoryzowane</span>
+              <span class="card-label">Zablokowane</span>
+              <span class="card-val tabular-nums text-red">{formatCompact(dashboardStats.totalBlocked)}</span>
             </div>
             <div class="stat-card glass glow-green">
-              <span class="card-label">ZAAKCEPTOWANE</span>
-              <span class="card-val text-green">{dashboardStats.totalRequests - dashboardStats.totalBlocked}</span>
-              <span class="card-indicator">Pomyślne autoryzacje</span>
+              <span class="card-label">Zaakceptowane</span>
+              <span class="card-val tabular-nums text-green">{formatCompact(dashboardStats.totalRequests - dashboardStats.totalBlocked)}</span>
             </div>
             <div class="stat-card glass glow-orange">
-              <span class="card-label">WSPÓŁCZYNNIK BLOKAD</span>
-              <span class="card-val text-orange">
+              <span class="card-label">Blokady</span>
+              <span class="card-val tabular-nums text-orange">
                 {dashboardStats.totalRequests > 0 
                   ? ((dashboardStats.totalBlocked / dashboardStats.totalRequests) * 100).toFixed(1) + '%' 
                   : '0%'}
               </span>
-              <span class="card-indicator">Współczynnik odmów</span>
             </div>
-          </div>
-
-          <div class="filter-controls">
-            <label for="time-range-select">Przedział czasowy:</label>
-            <select id="time-range-select" bind:value={timeRange} onchange={loadDashboardData}>
-              <option value="24h">Ostatnie 24h</option>
-              <option value="7d">Ostatnie 7 dni</option>
-              <option value="30d">Ostatnie 30 dni</option>
-            </select>
-            <button class="secondary btn-icon-compact" onclick={loadDashboardData} disabled={isDashboardLoading}>
-              <RefreshCw class={isDashboardLoading ? 'spin' : ''} size={16} />
-            </button>
           </div>
 
           <!-- Chart Area -->
           <div class="chart-section glass">
-            <h3>Ruch na Stronie (Zapytania / Dzień)</h3>
+            <div class="chart-section-header">
+              <h3>Ruch w czasie</h3>
+              <div class="filter-controls">
+                <select id="time-range-select" bind:value={timeRange} onchange={loadDashboardData} aria-label="Przedział czasowy">
+                  <option value="24h">24h</option>
+                  <option value="7d">7 dni</option>
+                  <option value="30d">30 dni</option>
+                </select>
+                <button class="secondary btn-icon-compact" onclick={loadDashboardData} disabled={isDashboardLoading} aria-label="Odśwież wykres">
+                  <RefreshCw class={isDashboardLoading ? 'spin' : ''} size={14} />
+                </button>
+              </div>
+            </div>
             {#if isDashboardLoading}
               <div class="loading-state">
                 <RefreshCw class="spin" size={24} />
@@ -1027,90 +1099,127 @@
               </div>
             {:else}
               <div class="svg-chart-wrapper">
-                <svg viewBox="0 0 800 250" class="svg-chart">
-                  <!-- Grid Lines -->
-                  <line x1="40" y1="30" x2="780" y2="30" stroke="rgba(255,255,255,0.05)" />
-                  <line x1="40" y1="80" x2="780" y2="80" stroke="rgba(255,255,255,0.05)" />
-                  <line x1="40" y1="130" x2="780" y2="130" stroke="rgba(255,255,255,0.05)" />
-                  <line x1="40" y1="180" x2="780" y2="180" stroke="rgba(255,255,255,0.05)" />
-                  <line x1="40" y1="210" x2="780" y2="210" stroke="rgba(255,255,255,0.1)" />
+                <div class="chart-y-axis-container">
+                  <div class="chart-y-axis" aria-hidden="true">
+                    {#each chartYTicks as tick, i}
+                      <span class="chart-axis-label" style="top: {(i / 3) * 100}%">
+                        {formatCompact(tick)}
+                      </span>
+                    {/each}
+                  </div>
+                </div>
+                <div class="chart-main-container">
+                  <svg
+                    viewBox="0 0 800 220"
+                    preserveAspectRatio="none"
+                    class="svg-chart line-chart"
+                    style="width: 100%; height: calc(100% - 24px); display: block; overflow: hidden; min-width: 0;"
+                  >
+                    {#each chartYTicks as tick, i}
+                      {@const y = chartLayout.pad.top + (i / 3) * (chartLayout.height - chartLayout.pad.top - chartLayout.pad.bottom)}
+                      <line
+                        x1="0"
+                        y1={y}
+                        x2={chartLayout.width}
+                        y2={y}
+                        stroke="rgba(255,255,255,0.05)"
+                      />
+                    {/each}
 
-                  {#each dashboardStats.requestsPerDay as day, idx}
-                    {@const x = 50 + idx * ((700) / Math.max(dashboardStats.requestsPerDay.length, 1))}
-                    {@const allowedH = (day.allowedCount / maxDayCount) * 160}
-                    {@const blockedH = (day.blockedCount / maxDayCount) * 160}
-                    
-                    <!-- Allowed requests bar -->
-                    <rect 
-                      x={x} 
-                      y={210 - allowedH} 
-                      width="18" 
-                      height={allowedH} 
-                      fill="url(#greenGlow)"
-                      rx="2"
+                    <path
+                      d={buildLinePath(dashboardStats.requestsPerDay, 'allowedCount', chartLayout.width, chartLayout.height, chartLayout.pad)}
+                      fill="none"
+                      stroke="var(--accent-green)"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      vector-effect="non-scaling-stroke"
                     />
-                    <!-- Blocked requests bar stacked -->
-                    <rect 
-                      x={x} 
-                      y={210 - allowedH - blockedH} 
-                      width="18" 
-                      height={blockedH} 
-                      fill="url(#redGlow)"
-                      rx="2"
+                    <path
+                      d={buildLinePath(dashboardStats.requestsPerDay, 'blockedCount', chartLayout.width, chartLayout.height, chartLayout.pad)}
+                      fill="none"
+                      stroke="#f472b6"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      vector-effect="non-scaling-stroke"
                     />
-
-                    <!-- Day Label -->
-                    <text 
-                      x={x + 9} 
-                      y="230" 
-                      fill="var(--text-secondary)" 
-                      font-size="9" 
-                      text-anchor="middle"
-                    >
-                      {day.day ? day.day.slice(-5) : ''}
-                    </text>
-                  {/each}
-
-                  <!-- Gradients -->
-                  <defs>
-                    <linearGradient id="greenGlow" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stop-color="var(--accent-green)" />
-                      <stop offset="100%" stop-color="var(--accent-green)" stop-opacity="0.3" />
-                    </linearGradient>
-                    <linearGradient id="redGlow" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stop-color="var(--accent-red)" />
-                      <stop offset="100%" stop-color="var(--accent-red)" stop-opacity="0.3" />
-                    </linearGradient>
-                  </defs>
-                </svg>
+                  </svg>
+                  <div class="chart-x-axis">
+                    {#each dashboardStats.requestsPerDay as day, idx}
+                      {@const pct = dashboardStats.requestsPerDay.length > 1 ? (idx / (dashboardStats.requestsPerDay.length - 1)) * 100 : 0}
+                      <span class="chart-axis-label chart-x-label" style="left: {pct}%">
+                        {formatDayLabel(day.day)}
+                      </span>
+                    {/each}
+                  </div>
+                </div>
               </div>
               <div class="chart-legend">
                 <span class="legend-item"><span class="legend-dot green"></span> Dozwolone</span>
-                <span class="legend-item"><span class="legend-dot red"></span> Zablokowane</span>
+                <span class="legend-item"><span class="legend-dot pink"></span> Zablokowane</span>
               </div>
             {/if}
           </div>
 
           <div class="stats-grids">
-            <!-- Geo Analytics -->
-            <div class="stats-panel glass">
-              <h3>Geografia Ruchu (Top Kraje)</h3>
+            <div class="stats-panel glass geo-map-panel">
+              <h3>Żądania według kraju</h3>
               {#if isDashboardLoading}
                 <div class="loading-state"><RefreshCw class="spin" size={20} /></div>
-              {:else if dashboardStats.requestsPerCountry.length === 0}
+              {:else}
+                <PangolinWorldMap
+                  countries={sortedCountries}
+                  totalRequests={dashboardStats.totalRequests}
+                  bind:hoveredCode={hoveredMapCode}
+                />
+              {/if}
+            </div>
+
+            <div class="stats-panel glass top-countries-panel">
+              <h3>Top kraje</h3>
+              {#if isDashboardLoading}
+                <div class="loading-state"><RefreshCw class="spin" size={20} /></div>
+              {:else if sortedCountries.length === 0}
                 <p class="empty-msg">Brak danych geograficznych.</p>
               {:else}
-                <div class="geo-list">
-                  {#each dashboardStats.requestsPerCountry as geo}
-                    <div class="geo-item">
-                      <div class="geo-country">
-                        <MapPin size={14} class="text-orange" />
-                        <span>{geo.code || 'Nieznany'}</span>
+                <div class="top-countries-header">
+                  <span>Kraj</span>
+                  <span>Łącznie</span>
+                  <span>%</span>
+                </div>
+                <div class="top-countries-list">
+                  {#each sortedCountries as geo}
+                    {@const intensity = trafficIntensity(geo.count || 0, maxCountryCount)}
+                    {@const pct = dashboardStats.totalRequests > 0
+                      ? ((geo.count / dashboardStats.totalRequests) * 100).toFixed(0)
+                      : '0'}
+                    {@const isHovered = hoveredCountryRow === geo.code || hoveredMapCode === geo.code?.toUpperCase()}
+                    <div
+                      class="country-row"
+                      class:hovered={isHovered}
+                      style="background: {trafficBarGradient(intensity)}"
+                      title={getCountryTooltip(geo)}
+                      onmouseenter={() => { hoveredCountryRow = geo.code; hoveredMapCode = geo.code?.toUpperCase() || null; }}
+                      onmouseleave={() => { hoveredCountryRow = null; hoveredMapCode = null; }}
+                      role="listitem"
+                    >
+                      <div class="country-label">
+                        <span class="country-code">{geo.code || '??'}</span>
+                        <span class="country-name">{getCountryName(geo)}</span>
                       </div>
-                      <div class="geo-bar-wrapper">
-                        <div class="geo-bar" style="width: {Math.min((geo.count / (dashboardStats.totalRequests || 1)) * 100, 100)}%"></div>
-                      </div>
-                      <span class="geo-count mono-stats">{geo.count}</span>
+                      <span class="country-total mono-stats">{formatCompact(geo.count || 0)}</span>
+                      <span class="country-pct mono-stats">{pct}%</span>
+                      {#if isHovered}
+                        <div class="country-tooltip">
+                          <strong>{getCountryName(geo)}</strong>
+                          <span>{formatCompact(geo.count || 0)} zapytań · {pct}% ruchu</span>
+                          <span class="tooltip-detail">
+                            Dozwolone: {formatCompact(geo.allowedCount ?? ((geo.count || 0) - (geo.blockedCount || 0)))}
+                            · Zablokowane: {formatCompact(geo.blockedCount ?? 0)}
+                          </span>
+                        </div>
+                      {/if}
                     </div>
                   {/each}
                 </div>
@@ -2335,80 +2444,181 @@
     100% { transform: rotate(360deg); }
   }
 
+  .tab-content {
+    flex: 1;
+    padding: 16px;
+    overflow-y: auto;
+  }
+
   /* Dashboard CSS */
+  .dashboard-view {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
   .stats-row {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 16px;
-    margin-bottom: 24px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 720px) {
+    .stats-row {
+      grid-template-columns: repeat(2, 1fr);
+    }
   }
 
   .stat-card {
-    padding: 16px 20px;
-    border-radius: var(--radius-md);
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
     display: flex;
-    flex-direction: column;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
   }
 
-  .glow-amber { border-left: 3px solid var(--accent-amber); }
-  .glow-red { border-left: 3px solid var(--accent-red); }
-  .glow-green { border-left: 3px solid var(--accent-green); }
-  .glow-orange { border-left: 3px solid var(--accent-orange); }
+  .glow-amber { border-left: 2px solid var(--accent-amber); }
+  .glow-red { border-left: 2px solid var(--accent-red); }
+  .glow-green { border-left: 2px solid var(--accent-green); }
+  .glow-orange { border-left: 2px solid var(--accent-orange); }
 
   .card-label {
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     color: var(--text-secondary);
-    letter-spacing: 0.05em;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
   }
 
   .card-val {
     font-family: var(--font-mono);
-    font-size: 2rem;
+    font-size: 1.15rem;
     font-weight: 700;
-    margin: 8px 0;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
   }
 
-  .card-indicator {
-    font-size: 0.75rem;
-    color: var(--text-muted);
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
 
   .filter-controls {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 16px;
-    font-size: 0.85rem;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .filter-controls select {
+    height: 28px;
+    padding: 2px 8px;
+    font-size: 0.75rem;
   }
 
   .chart-section {
-    padding: 20px;
+    padding: 14px 12px;
     border-radius: var(--radius-md);
-    margin-bottom: 24px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .chart-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
   }
 
   .chart-section h3 {
-    font-size: 0.95rem;
+    font-size: 0.88rem;
     font-weight: 600;
-    margin-bottom: 16px;
+    margin: 0;
+    text-wrap: balance;
   }
 
   .svg-chart-wrapper {
-    height: 250px;
+    position: relative;
+    height: 180px;
     width: 100%;
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 8px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .chart-y-axis-container {
+    height: calc(100% - 24px);
+    position: relative;
+  }
+
+  .chart-y-axis {
+    position: relative;
+    height: 80%;
+    top: 5.45%;
+  }
+
+  .chart-y-axis .chart-axis-label {
+    position: absolute;
+    right: 0;
+    transform: translateY(-50%);
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+    line-height: 1;
+  }
+
+  .chart-main-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-width: 0;
+    position: relative;
   }
 
   .svg-chart {
     width: 100%;
     height: 100%;
+    display: block;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  .chart-x-axis {
+    position: relative;
+    height: 20px;
+    margin-top: 4px;
+    width: 96%;
+    margin-left: 2%;
+  }
+
+  .chart-x-axis .chart-x-label {
+    position: absolute;
+    transform: translateX(-50%);
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+    white-space: nowrap;
   }
 
   .chart-legend {
     display: flex;
-    gap: 16px;
+    gap: 14px;
     justify-content: center;
-    font-size: 0.8rem;
-    margin-top: 12px;
+    font-size: 0.72rem;
+    margin-top: 8px;
+  }
+
+  .chart-section .loading-state,
+  .chart-section .empty-state {
+    height: 180px;
+    padding: 24px;
   }
 
   .legend-item {
@@ -2425,11 +2635,23 @@
 
   .legend-dot.green { background-color: var(--accent-green); }
   .legend-dot.red { background-color: var(--accent-red); }
+  .legend-dot.pink { background-color: #f472b6; }
+
+  .line-chart .chart-axis-label {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
 
   .stats-grids {
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 24px;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 20px;
+  }
+
+  @media (max-width: 960px) {
+    .stats-grids {
+      grid-template-columns: 1fr;
+    }
   }
 
   .stats-panel {
@@ -2440,46 +2662,114 @@
   .stats-panel h3 {
     font-size: 0.95rem;
     margin-bottom: 16px;
+    font-weight: 600;
+    text-wrap: balance;
   }
 
-  .geo-list {
+  .geo-map-panel {
     display: flex;
     flex-direction: column;
-    gap: 12px;
   }
 
-  .geo-item {
+  .top-countries-header {
+    display: grid;
+    grid-template-columns: 1fr 64px 40px;
+    gap: 8px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    padding: 0 12px 8px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 4px;
+  }
+
+  .top-countries-list {
     display: flex;
+    flex-direction: column;
+    max-height: 340px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  .country-row {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 64px 40px;
+    gap: 8px;
     align-items: center;
-    gap: 12px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
     font-size: 0.85rem;
+    transition: background 0.15s ease, transform 0.15s ease;
+    cursor: default;
   }
 
-  .geo-country {
-    width: 80px;
+  .country-row.hovered {
+    transform: translateX(2px);
+    box-shadow: inset 0 0 0 1px rgba(251, 146, 60, 0.25);
+  }
+
+  .country-label {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
+    min-width: 0;
   }
 
-  .geo-bar-wrapper {
-    flex: 1;
-    height: 6px;
-    background: rgba(255,255,255,0.05);
-    border-radius: 3px;
+  .country-code {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--accent-amber);
+    width: 24px;
+    flex-shrink: 0;
+  }
+
+  .country-name {
+    color: var(--text-primary);
+    white-space: nowrap;
     overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  .geo-bar {
-    height: 100%;
-    background: var(--accent-amber);
-    border-radius: 3px;
-  }
-
-  .geo-count {
-    width: 50px;
+  .country-total,
+  .country-pct {
     text-align: right;
     font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .country-pct {
+    color: var(--text-secondary);
+  }
+
+  .country-tooltip {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: calc(100% + 6px);
+    background: rgba(15, 15, 18, 0.96);
+    border: 1px solid rgba(251, 146, 60, 0.3);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.75rem;
+    z-index: 5;
+    pointer-events: none;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+
+  .country-tooltip strong {
+    color: var(--text-primary);
+    font-size: 0.8rem;
+  }
+
+  .tooltip-detail {
+    color: var(--text-muted);
+    font-size: 0.72rem;
   }
 
   /* Logs view CSS */

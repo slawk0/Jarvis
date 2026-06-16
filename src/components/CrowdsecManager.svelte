@@ -66,6 +66,7 @@
   let sudoPassword = $state('');
   let pendingAction: (() => Promise<void>) | null = null;
   let sudoError = $state('');
+  let isSudoAuthorized = $state(false);
 
   // Wyszukiwanie i sortowanie
   let searchDecisionQuery = $state('');
@@ -154,6 +155,7 @@
       await invoke('set_sudo_password', { password: sudoPassword });
       showSudoModal = false;
       sudoPassword = '';
+      isSudoAuthorized = true;
       if (pendingAction) {
         const action = pendingAction;
         pendingAction = null;
@@ -162,6 +164,41 @@
     } catch (err: any) {
       sudoError = err.toString();
     }
+  }
+
+  function requestSudoAuth() {
+    pendingAction = async () => {
+      isSudoAuthorized = true;
+      await detectEnvironment();
+    };
+    showSudoModal = true;
+  }
+
+  function cancelSudoModal() {
+    showSudoModal = false;
+    sudoPassword = '';
+    pendingAction = null;
+    isSudoAuthorized = false;
+    isInstalled = null;
+    isServiceActive = null;
+    isLoading = false;
+    errorMsg = '';
+  }
+
+  async function initCrowdsec() {
+    try {
+      isSudoAuthorized = await invoke<boolean>('has_sudo_password');
+    } catch {
+      isSudoAuthorized = false;
+    }
+
+    if (!isSudoAuthorized) {
+      isInstalled = null;
+      isLoading = false;
+      return;
+    }
+
+    await detectEnvironment();
   }
 
   // Wyszukiwanie instalacji i autodetekcja
@@ -1185,7 +1222,7 @@
   );
 
   onMount(() => {
-    detectEnvironment();
+    initCrowdsec();
   });
 </script>
 
@@ -1193,7 +1230,7 @@
   <header class="manager-header">
     <div class="header-title-section">
       <h1 class="page-title">Bezpieczeństwo (CrowdSec)</h1>
-      {#if isInstalled}
+      {#if isSudoAuthorized && isInstalled}
         <span class="status-pill {isServiceActive === null ? 'unknown' : (isServiceActive ? 'active' : 'inactive')}">
           <span class="status-dot"></span>
           {#if isServiceActive === null}
@@ -1221,7 +1258,23 @@
     </div>
   </header>
 
-  {#if isInstalled === null}
+  {#if !isSudoAuthorized}
+    <div class="auth-gate fade-in">
+      <div class="auth-gate-card glass">
+        <div class="auth-gate-icon">
+          <KeyRound size={40} class="accent-amber-text" />
+        </div>
+        <h2>Wymagane uwierzytelnienie Sudo</h2>
+        <p>
+          Zakładka CrowdSec wymaga hasła sudo do komunikacji z serwerem.
+          Dopóki go nie podasz, nie będą wykonywane żadne operacje w tle.
+        </p>
+        <button class="primary" onclick={requestSudoAuth}>
+          <KeyRound size={16} /> Podaj hasło sudo
+        </button>
+      </div>
+    </div>
+  {:else if isInstalled === null}
     <!-- Stan ładowania / detekcji -->
     <div class="loading-state">
       <RefreshCw size={36} class="spin muted-icon" />
@@ -1925,7 +1978,7 @@ services:
       {/if}
       <div class="modal-actions">
         <button class="primary" onclick={submitSudoPassword}>Zatwierdź</button>
-        <button class="secondary" onclick={() => { showSudoModal = false; sudoPassword = ''; pendingAction = null; }}>Anuluj</button>
+        <button class="secondary" onclick={cancelSudoModal}>Anuluj</button>
       </div>
     </div>
   </div>
@@ -2065,6 +2118,54 @@ services:
     padding: 6px 12px;
     border-radius: var(--radius-sm);
     font-size: 0.8rem;
+  }
+
+  /* Auth gate */
+  .auth-gate {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 420px;
+    padding: 24px;
+  }
+
+  .auth-gate-card {
+    max-width: 440px;
+    padding: 36px 32px;
+    border-radius: var(--radius-md);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .auth-gate-icon {
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    border-radius: 50%;
+    padding: 16px;
+    margin-bottom: 4px;
+  }
+
+  .auth-gate-card h2 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .auth-gate-card p {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    line-height: 1.55;
+    margin: 0;
+  }
+
+  .auth-gate-card button {
+    margin-top: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
   }
 
   /* Loading state */
