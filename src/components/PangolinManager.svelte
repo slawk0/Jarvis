@@ -363,19 +363,28 @@
     }
   }
 
-  // Skala wykresu oparta na szczytach serii (bez pustej przestrzeni u góry)
+  // Skala wykresu oparta na sumie serii na dany dzień (dla wykresu skumulowanego)
   let maxChartValue = $derived.by(() => {
     const days = dashboardStats.requestsPerDay;
     if (days.length === 0) return 1;
     const peak = Math.max(
-      ...days.flatMap(d => [d.allowedCount || 0, d.blockedCount || 0]),
+      ...days.map(d => (d.allowedCount || 0) + (d.blockedCount || 0)),
       1
     );
-    return Math.ceil(peak * 1.1);
+    return Math.ceil(peak * 1.15); // 15% zapasu na górze
   });
 
   let hoveredMapCode = $state<string | null>(null);
   let hoveredCountryRow = $state<string | null>(null);
+  let activeTooltip = $state<{
+    geo: any;
+    pct: string;
+    rect: DOMRect;
+  } | null>(null);
+  let activeChartTooltip = $state<{
+    day: any;
+    rect: DOMRect;
+  } | null>(null);
 
   const sortedCountries = $derived(
     [...(dashboardStats.requestsPerCountry as CountryTraffic[])].sort(
@@ -395,37 +404,31 @@
     return [max, Math.round(max * 0.66), Math.round(max * 0.33), 0];
   });
 
+  const CHART_PLOT_HEIGHT = 168;
+  const CHART_SLOT_VB = 44;
+  const CHART_BAR_RATIO = 0.42;
+
   const chartLayout = {
-    width: 800,
-    height: 220,
-    pad: { top: 12, bottom: 32, left: 16, right: 16 }
+    plotHeight: CHART_PLOT_HEIGHT,
+    pad: { top: 8, bottom: 4, left: 16, right: 16 }
   };
+
+  const chartViewWidth = $derived.by(() => {
+    const days = Math.max(dashboardStats.requestsPerDay.length, 1);
+    return chartLayout.pad.left + chartLayout.pad.right + days * CHART_SLOT_VB;
+  });
+
+  const chartDisplayMaxWidth = $derived.by(() => {
+    const days = dashboardStats.requestsPerDay.length;
+    if (days === 0) return undefined;
+    return Math.min(days * 46 + 52, 680);
+  });
 
   function formatDayLabel(day: string): string {
     if (!day) return '';
     const d = new Date(day);
     if (Number.isNaN(d.getTime())) return day.slice(-5);
     return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
-  }
-
-  function buildLinePath(
-    days: any[],
-    key: 'allowedCount' | 'blockedCount',
-    width: number,
-    height: number,
-    padding: { top: number; bottom: number; left: number; right: number }
-  ): string {
-    if (days.length === 0) return '';
-    const chartW = width - padding.left - padding.right;
-    const chartH = height - padding.top - padding.bottom;
-    const step = days.length > 1 ? chartW / (days.length - 1) : 0;
-
-    return days.map((day, idx) => {
-      const val = day[key] || 0;
-      const x = padding.left + idx * step;
-      const y = padding.top + chartH - (val / maxChartValue) * chartH;
-      return `${idx === 0 ? 'M' : 'L'} ${x} ${y}`;
-    }).join(' ');
   }
 
   function getCountryTooltip(geo: CountryTraffic) {
@@ -1098,7 +1101,10 @@
                 <p>Brak danych analitycznych dla wybranego okresu.</p>
               </div>
             {:else}
-              <div class="svg-chart-wrapper">
+              <div
+                class="svg-chart-wrapper"
+                style="--chart-plot-height: {CHART_PLOT_HEIGHT}px; max-width: {chartDisplayMaxWidth}px"
+              >
                 <div class="chart-y-axis-container">
                   <div class="chart-y-axis" aria-hidden="true">
                     {#each chartYTicks as tick, i}
@@ -1110,45 +1116,113 @@
                 </div>
                 <div class="chart-main-container">
                   <svg
-                    viewBox="0 0 800 220"
+                    viewBox="0 0 {chartViewWidth} {chartLayout.plotHeight}"
                     preserveAspectRatio="none"
-                    class="svg-chart line-chart"
-                    style="width: 100%; height: calc(100% - 24px); display: block; overflow: hidden; min-width: 0;"
+                    class="svg-chart bar-chart chart-plot"
                   >
+                    <defs>
+                      <linearGradient id="allowedGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#34d399" />
+                        <stop offset="100%" stop-color="#059669" />
+                      </linearGradient>
+                      <linearGradient id="blockedGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#f472b6" />
+                        <stop offset="100%" stop-color="#db2777" />
+                      </linearGradient>
+                    </defs>
+
+                    <!-- Linie pomocnicze siatki (oś Y) -->
                     {#each chartYTicks as tick, i}
-                      {@const y = chartLayout.pad.top + (i / 3) * (chartLayout.height - chartLayout.pad.top - chartLayout.pad.bottom)}
+                      {@const y = chartLayout.pad.top + (i / 3) * (chartLayout.plotHeight - chartLayout.pad.top - chartLayout.pad.bottom)}
                       <line
                         x1="0"
                         y1={y}
-                        x2={chartLayout.width}
+                        x2={chartViewWidth}
                         y2={y}
                         stroke="rgba(255,255,255,0.05)"
                       />
                     {/each}
 
-                    <path
-                      d={buildLinePath(dashboardStats.requestsPerDay, 'allowedCount', chartLayout.width, chartLayout.height, chartLayout.pad)}
-                      fill="none"
-                      stroke="var(--accent-green)"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      vector-effect="non-scaling-stroke"
-                    />
-                    <path
-                      d={buildLinePath(dashboardStats.requestsPerDay, 'blockedCount', chartLayout.width, chartLayout.height, chartLayout.pad)}
-                      fill="none"
-                      stroke="#f472b6"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      vector-effect="non-scaling-stroke"
-                    />
+                    <!-- Słupki danych -->
+                    {#if dashboardStats.requestsPerDay.length > 0}
+                      {@const chartW = chartViewWidth - chartLayout.pad.left - chartLayout.pad.right}
+                      {@const chartH = chartLayout.plotHeight - chartLayout.pad.top - chartLayout.pad.bottom}
+                      {@const step = chartW / dashboardStats.requestsPerDay.length}
+                      {@const barW = Math.max(4, Math.min(step * CHART_BAR_RATIO, CHART_SLOT_VB * CHART_BAR_RATIO))}
+                      {@const gap = step - barW}
+
+                      {#each dashboardStats.requestsPerDay as day, idx}
+                        {@const x = chartLayout.pad.left + idx * step + gap / 2}
+                        {@const allowedCount = day.allowedCount || 0}
+                        {@const blockedCount = day.blockedCount || 0}
+                        {@const allowedH = (allowedCount / maxChartValue) * chartH}
+                        {@const blockedH = (blockedCount / maxChartValue) * chartH}
+                        {@const totalH = allowedH + blockedH}
+                        {@const isHovered = activeChartTooltip?.day.day === day.day}
+
+                        <!-- Podświetlenie kolumny przy hoverze -->
+                        {#if isHovered}
+                          <rect
+                            x={chartLayout.pad.left + idx * step}
+                            y={chartLayout.pad.top - 4}
+                            width={step}
+                            height={chartH + 8}
+                            fill="rgba(255, 255, 255, 0.03)"
+                            rx="4"
+                          />
+                        {/if}
+
+                        <!-- Skumulowane segmenty słupków -->
+                        {#if totalH > 0}
+                          <!-- Segment Dozwolone (Dół) -->
+                          {#if allowedH > 0}
+                            <rect
+                              x={x}
+                              y={chartLayout.pad.top + chartH - allowedH}
+                              width={barW}
+                              height={allowedH}
+                              fill="url(#allowedGrad)"
+                              rx={blockedH > 0 ? 0 : 3}
+                            />
+                          {/if}
+
+                          <!-- Segment Zablokowane (Góra) -->
+                          {#if blockedH > 0}
+                            <rect
+                              x={x}
+                              y={chartLayout.pad.top + chartH - totalH}
+                              width={barW}
+                              height={blockedH}
+                              fill="url(#blockedGrad)"
+                              rx="3"
+                            />
+                          {/if}
+                        {/if}
+
+                        <!-- Niewidzialny obszar do łatwego najechania myszką -->
+                        <rect
+                          x={chartLayout.pad.left + idx * step}
+                          y={chartLayout.pad.top}
+                          width={step}
+                          height={chartH}
+                          fill="transparent"
+                          style="cursor: pointer;"
+                          onmouseenter={(e) => {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            activeChartTooltip = { day, rect };
+                          }}
+                          onmouseleave={() => {
+                            activeChartTooltip = null;
+                          }}
+                        />
+                      {/each}
+                    {/if}
                   </svg>
                   <div class="chart-x-axis">
                     {#each dashboardStats.requestsPerDay as day, idx}
-                      {@const pct = dashboardStats.requestsPerDay.length > 1 ? (idx / (dashboardStats.requestsPerDay.length - 1)) * 100 : 0}
-                      <span class="chart-axis-label chart-x-label" style="left: {pct}%">
+                      {@const stepPct = 100 / dashboardStats.requestsPerDay.length}
+                      {@const leftPct = (idx + 0.5) * stepPct}
+                      <span class="chart-axis-label chart-x-label" style="left: {leftPct}%">
                         {formatDayLabel(day.day)}
                       </span>
                     {/each}
@@ -1200,8 +1274,17 @@
                       class:hovered={isHovered}
                       style="background: {trafficBarGradient(intensity)}"
                       title={getCountryTooltip(geo)}
-                      onmouseenter={() => { hoveredCountryRow = geo.code; hoveredMapCode = geo.code?.toUpperCase() || null; }}
-                      onmouseleave={() => { hoveredCountryRow = null; hoveredMapCode = null; }}
+                      onmouseenter={(e) => {
+                        hoveredCountryRow = geo.code;
+                        hoveredMapCode = geo.code?.toUpperCase() || null;
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        activeTooltip = { geo, pct, rect };
+                      }}
+                      onmouseleave={() => {
+                        hoveredCountryRow = null;
+                        hoveredMapCode = null;
+                        activeTooltip = null;
+                      }}
                       role="listitem"
                     >
                       <div class="country-label">
@@ -1210,22 +1293,63 @@
                       </div>
                       <span class="country-total mono-stats">{formatCompact(geo.count || 0)}</span>
                       <span class="country-pct mono-stats">{pct}%</span>
-                      {#if isHovered}
-                        <div class="country-tooltip">
-                          <strong>{getCountryName(geo)}</strong>
-                          <span>{formatCompact(geo.count || 0)} zapytań · {pct}% ruchu</span>
-                          <span class="tooltip-detail">
-                            Dozwolone: {formatCompact(geo.allowedCount ?? ((geo.count || 0) - (geo.blockedCount || 0)))}
-                            · Zablokowane: {formatCompact(geo.blockedCount ?? 0)}
-                          </span>
-                        </div>
-                      {/if}
                     </div>
                   {/each}
                 </div>
               {/if}
             </div>
           </div>
+          {#if activeTooltip}
+            {@const showOnLeft = activeTooltip.rect.right + 250 > window.innerWidth}
+            <div
+              class="country-tooltip-fixed"
+              style="
+                left: {showOnLeft ? (activeTooltip.rect.left - 250) : (activeTooltip.rect.right + 10)}px;
+                top: {activeTooltip.rect.top + activeTooltip.rect.height / 2}px;
+                transform: translateY(-50%);
+              "
+            >
+              <strong>{getCountryName(activeTooltip.geo)}</strong>
+              <span>{formatCompact(activeTooltip.geo.count || 0)} zapytań · {activeTooltip.pct}% ruchu</span>
+              <span class="tooltip-detail">
+                Dozwolone: {formatCompact(activeTooltip.geo.allowedCount ?? ((activeTooltip.geo.count || 0) - (activeTooltip.geo.blockedCount || 0)))}
+                · Zablokowane: {formatCompact(activeTooltip.geo.blockedCount ?? 0)}
+              </span>
+            </div>
+          {/if}
+
+          {#if activeChartTooltip}
+            {@const total = (activeChartTooltip.day.allowedCount || 0) + (activeChartTooltip.day.blockedCount || 0)}
+            {@const blockedPct = total > 0 ? ((activeChartTooltip.day.blockedCount / total) * 100).toFixed(1) : '0.0'}
+            {@const showOnLeft = activeChartTooltip.rect.right + 230 > window.innerWidth}
+            <div
+              class="chart-tooltip-fixed"
+              style="
+                left: {showOnLeft ? (activeChartTooltip.rect.left - 240) : (activeChartTooltip.rect.right + 10)}px;
+                top: {activeChartTooltip.rect.top + activeChartTooltip.rect.height / 2}px;
+                transform: translateY(-50%);
+              "
+            >
+              <div class="tooltip-header">{formatDayLabel(activeChartTooltip.day.day)}</div>
+              <div class="tooltip-body">
+                <div class="tooltip-row">
+                  <span class="dot total"></span>
+                  <span class="label">Łącznie:</span>
+                  <span class="val">{formatCompact(total)}</span>
+                </div>
+                <div class="tooltip-row">
+                  <span class="dot green"></span>
+                  <span class="label">Dozwolone:</span>
+                  <span class="val">{formatCompact(activeChartTooltip.day.allowedCount || 0)}</span>
+                </div>
+                <div class="tooltip-row">
+                  <span class="dot pink"></span>
+                  <span class="label">Zablokowane:</span>
+                  <span class="val text-pink">{formatCompact(activeChartTooltip.day.blockedCount || 0)} ({blockedPct}%)</span>
+                </div>
+              </div>
+            </div>
+          {/if}
         </div>
       {/if}
 
@@ -2521,7 +2645,7 @@
     border-radius: var(--radius-md);
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: visible;
     flex-shrink: 0;
   }
 
@@ -2542,24 +2666,24 @@
 
   .svg-chart-wrapper {
     position: relative;
-    height: 180px;
     width: 100%;
+    margin-inline: auto;
     display: grid;
     grid-template-columns: 36px minmax(0, 1fr);
     gap: 8px;
-    overflow: hidden;
+    align-items: start;
     flex-shrink: 0;
   }
 
   .chart-y-axis-container {
-    height: calc(100% - 24px);
     position: relative;
+    height: var(--chart-plot-height, 168px);
+    min-height: 0;
   }
 
   .chart-y-axis {
     position: relative;
-    height: 80%;
-    top: 5.45%;
+    height: 100%;
   }
 
   .chart-y-axis .chart-axis-label {
@@ -2576,25 +2700,33 @@
   .chart-main-container {
     display: flex;
     flex-direction: column;
-    height: 100%;
     min-width: 0;
-    position: relative;
+    min-height: 0;
+  }
+
+  .chart-plot {
+    width: 100%;
+    height: var(--chart-plot-height, 168px);
+    display: block;
+    flex-shrink: 0;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .svg-chart {
     width: 100%;
-    height: 100%;
     display: block;
-    overflow: hidden;
     min-width: 0;
   }
 
   .chart-x-axis {
     position: relative;
-    height: 20px;
-    margin-top: 4px;
+    left: 2%;
     width: 96%;
-    margin-left: 2%;
+    height: 22px;
+    margin-top: 4px;
+    flex-shrink: 0;
+    pointer-events: none;
   }
 
   .chart-x-axis .chart-x-label {
@@ -2613,11 +2745,14 @@
     justify-content: center;
     font-size: 0.72rem;
     margin-top: 8px;
+    max-width: 680px;
+    margin-inline: auto;
+    width: 100%;
   }
 
   .chart-section .loading-state,
   .chart-section .empty-state {
-    height: 180px;
+    height: 194px;
     padding: 24px;
   }
 
@@ -2637,9 +2772,8 @@
   .legend-dot.red { background-color: var(--accent-red); }
   .legend-dot.pink { background-color: #f472b6; }
 
-  .line-chart .chart-axis-label {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
+  .bar-chart {
+    overflow: visible;
   }
 
   .stats-grids {
@@ -2744,11 +2878,8 @@
     color: var(--text-secondary);
   }
 
-  .country-tooltip {
-    position: absolute;
-    left: 12px;
-    right: 12px;
-    bottom: calc(100% + 6px);
+  .country-tooltip-fixed {
+    position: fixed;
     background: rgba(15, 15, 18, 0.96);
     border: 1px solid rgba(251, 146, 60, 0.3);
     border-radius: var(--radius-sm);
@@ -2757,12 +2888,13 @@
     flex-direction: column;
     gap: 2px;
     font-size: 0.75rem;
-    z-index: 5;
+    z-index: 9999;
     pointer-events: none;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    width: 240px;
   }
 
-  .country-tooltip strong {
+  .country-tooltip-fixed strong {
     color: var(--text-primary);
     font-size: 0.8rem;
   }
@@ -2770,6 +2902,70 @@
   .tooltip-detail {
     color: var(--text-muted);
     font-size: 0.72rem;
+  }
+
+  /* Custom Chart Tooltip */
+  .chart-tooltip-fixed {
+    position: fixed;
+    background: rgba(15, 15, 18, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-md);
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.75rem;
+    z-index: 9999;
+    pointer-events: none;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    width: 220px;
+    backdrop-filter: blur(8px);
+  }
+
+  .tooltip-header {
+    font-weight: 700;
+    color: var(--text-primary);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 4px;
+    margin-bottom: 2px;
+  }
+
+  .tooltip-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .tooltip-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .tooltip-row .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .tooltip-row .dot.total { background-color: var(--text-muted); }
+  .tooltip-row .dot.green { background-color: var(--accent-green); }
+  .tooltip-row .dot.pink { background-color: #f472b6; }
+
+  .tooltip-row .label {
+    color: var(--text-secondary);
+    flex-grow: 1;
+  }
+
+  .tooltip-row .val {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .tooltip-row .val.text-pink {
+    color: #f472b6;
   }
 
   /* Logs view CSS */
