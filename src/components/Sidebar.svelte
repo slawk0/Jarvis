@@ -19,11 +19,14 @@
     ChevronDown,
     Loader2,
     Server,
+    PanelLeftClose,
+    PanelLeftOpen,
   } from 'lucide-svelte';
   import type { ServerProfile } from '$lib/admin/types';
 
   let {
-    activeTab = $bindable(),
+    activeTab = '',
+    collapsed = $bindable(false),
     onDisconnect,
     hostname = 'Serwer',
     onTabSelect = (_tab: string) => {},
@@ -31,6 +34,7 @@
     currentProfileId = '',
     onSwitchProfile = (_id: string) => {},
     isSwitching = false,
+    onCustomDragStart,
   } = $props();
 
   let showProfileMenu = $state(false);
@@ -63,38 +67,50 @@
     if (id !== currentProfileId) onSwitchProfile(id);
   }
 
+  function toggleCollapse() {
+    collapsed = !collapsed;
+  }
+
+  function handlePointerDown(e: PointerEvent, tabId: string) {
+    if (onCustomDragStart) {
+      onCustomDragStart(e, 'tab', tabId);
+    }
+  }
+
   const currentProfile = $derived(profiles.find((p) => p.id === currentProfileId));
 </script>
 
 <svelte:window onclick={() => (showProfileMenu = false)} />
 
-<aside class="sidebar glass">
+<aside class="sidebar glass" class:collapsed>
   <div class="brand">
-    <div class="logo-circle">J</div>
-    <div class="brand-info">
-      <span class="brand-name">JARVIS</span>
-      <button
-        class="server-switcher"
-        class:clickable={profiles.length > 1}
-        onclick={(e) => { e.stopPropagation(); toggleProfileMenu(); }}
-        title={profiles.length > 1 ? 'Przełącz serwer' : hostname}
-      >
-        {#if isSwitching}
-          <Loader2 size={12} class="spin" />
-        {:else}
-          <span class="status-dot"></span>
-        {/if}
-        <span class="switcher-label">
-          {currentProfile?.label || hostname}
-        </span>
-        {#if profiles.length > 1}
-          <ChevronDown size={12} class="chev" />
-        {/if}
-      </button>
-    </div>
+    <button class="logo-circle" onclick={toggleCollapse} title={collapsed ? 'Rozwiń pasek' : 'Zwiń pasek'}>J</button>
+    {#if !collapsed}
+      <div class="brand-info">
+        <span class="brand-name">JARVIS</span>
+        <button
+          class="server-switcher"
+          class:clickable={profiles.length > 1}
+          onclick={(e) => { e.stopPropagation(); toggleProfileMenu(); }}
+          title={profiles.length > 1 ? 'Przełącz serwer' : hostname}
+        >
+          {#if isSwitching}
+            <Loader2 size={12} class="spin" />
+          {:else}
+            <span class="status-dot"></span>
+          {/if}
+          <span class="switcher-label">
+            {currentProfile?.label || hostname}
+          </span>
+          {#if profiles.length > 1}
+            <ChevronDown size={12} class="chev" />
+          {/if}
+        </button>
+      </div>
+    {/if}
   </div>
 
-  {#if showProfileMenu && profiles.length > 1}
+  {#if showProfileMenu && profiles.length > 1 && !collapsed}
     <div class="profile-dropdown" onclick={(e) => e.stopPropagation()}>
       {#each profiles as p}
         <button
@@ -113,37 +129,57 @@
 
   <nav class="nav-menu">
     {#each menuItems as item}
-      <button 
+      <div 
         class="nav-item {activeTab === item.id ? 'active' : ''}" 
         onclick={() => onTabSelect(item.id)}
+        onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTabSelect(item.id); } }}
+        onpointerdown={(e: PointerEvent) => handlePointerDown(e, item.id)}
+        role="button"
+        tabindex="0"
+        title={collapsed ? item.label : ''}
       >
         <item.icon size={18} class="nav-icon" />
-        <span class="nav-label">{item.label}</span>
-      </button>
+        {#if !collapsed}
+          <span class="nav-label">{item.label}</span>
+        {/if}
+      </div>
     {/each}
   </nav>
 
   <div class="sidebar-footer">
-    <div class="telemetry-hud">
-      <div class="hud-row">
-        <span class="hud-label">HOST:</span>
-        <span class="hud-val" title={hostname}>{hostname.length > 14 ? hostname.slice(0, 14) + '...' : hostname}</span>
+    {#if !collapsed}
+      <div class="telemetry-hud">
+        <div class="hud-row">
+          <span class="hud-label">HOST:</span>
+          <span class="hud-val" title={hostname}>{hostname.length > 14 ? hostname.slice(0, 14) + '...' : hostname}</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-label">STATUS:</span>
+          <span class="hud-status nominal">
+            <span class="heartbeat"></span> {isSwitching ? 'PRZEŁĄCZANIE' : 'ONLINE'}
+          </span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-label">TUNNEL:</span>
+          <span class="hud-val secure">SSH/SFTP</span>
+        </div>
       </div>
-      <div class="hud-row">
-        <span class="hud-label">STATUS:</span>
-        <span class="hud-status nominal">
-          <span class="heartbeat"></span> {isSwitching ? 'PRZEŁĄCZANIE' : 'ONLINE'}
-        </span>
-      </div>
-      <div class="hud-row">
-        <span class="hud-label">TUNNEL:</span>
-        <span class="hud-val secure">SSH/SFTP</span>
-      </div>
-    </div>
+    {/if}
 
-    <button class="nav-item logout" onclick={onDisconnect}>
+    <button class="nav-item collapse-toggle" onclick={toggleCollapse} title={collapsed ? 'Rozwiń pasek boczny' : 'Zwiń pasek boczny'}>
+      {#if collapsed}
+        <PanelLeftOpen size={16} class="nav-icon" />
+      {:else}
+        <PanelLeftClose size={16} class="nav-icon" />
+        <span class="nav-label">Zwiń</span>
+      {/if}
+    </button>
+
+    <button class="nav-item logout" onclick={onDisconnect} title={collapsed ? 'Rozłącz' : ''}>
       <LogOut size={16} class="nav-icon" />
-      <span class="nav-label">Rozłącz</span>
+      {#if !collapsed}
+        <span class="nav-label">Rozłącz</span>
+      {/if}
     </button>
   </div>
 </aside>
@@ -158,6 +194,12 @@
     background: var(--bg-primary);
     flex-shrink: 0;
     position: relative;
+    transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+  }
+
+  .sidebar.collapsed {
+    width: 56px;
   }
 
   .brand {
@@ -166,11 +208,18 @@
     align-items: center;
     gap: 12px;
     border-bottom: 1px solid var(--border-color);
+    min-height: 72px;
+  }
+
+  .sidebar.collapsed .brand {
+    padding: 14px;
+    justify-content: center;
   }
 
   .logo-circle {
     width: 30px;
     height: 30px;
+    min-width: 30px;
     border-radius: var(--radius-sm);
     background: linear-gradient(135deg, var(--accent-amber), var(--accent-rust));
     color: #0c0d12;
@@ -182,6 +231,19 @@
     justify-content: center;
     box-shadow: 0 0 12px rgba(245, 158, 11, 0.25);
     flex-shrink: 0;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+  }
+
+  .logo-circle:hover {
+    transform: scale(1.06);
+    box-shadow: 0 0 18px rgba(245, 158, 11, 0.4);
+  }
+
+  .logo-circle:active {
+    transform: scale(0.96);
   }
 
   .brand-info {
@@ -189,6 +251,8 @@
     flex-direction: column;
     min-width: 0;
     flex: 1;
+    opacity: 1;
+    transition: opacity 0.15s ease;
   }
 
   .brand-name {
@@ -197,6 +261,7 @@
     font-weight: 800;
     letter-spacing: 0.08em;
     color: white;
+    white-space: nowrap;
   }
 
   .server-switcher {
@@ -212,6 +277,7 @@
     cursor: default;
     text-align: left;
     width: 100%;
+    white-space: nowrap;
   }
 
   .server-switcher.clickable {
@@ -285,6 +351,11 @@
     overflow-y: auto;
   }
 
+  .sidebar.collapsed .nav-menu {
+    padding: 10px 6px;
+    align-items: center;
+  }
+
   .nav-item {
     background: transparent;
     border: none;
@@ -297,7 +368,17 @@
     gap: 10px;
     cursor: pointer;
     text-align: left;
-    transition: var(--transition-fast);
+    transition: background 0.1s ease, color 0.1s ease, border-color 0.1s ease;
+    white-space: nowrap;
+    -webkit-user-drag: element;
+    user-select: none;
+  }
+
+  .sidebar.collapsed .nav-item {
+    padding: 10px;
+    justify-content: center;
+    width: 40px;
+    min-height: 40px;
   }
 
   .nav-item:hover {
@@ -312,6 +393,15 @@
     font-weight: 600;
   }
 
+  /* Draggable cursor hint */
+  .nav-menu .nav-item {
+    cursor: grab;
+  }
+
+  .nav-menu .nav-item:active {
+    cursor: grabbing;
+  }
+
   .nav-icon { flex-shrink: 0; }
   .nav-label { font-size: 0.85rem; }
 
@@ -319,6 +409,14 @@
     padding: 16px 12px;
     border-top: 1px solid var(--border-color);
     background: rgba(0, 0, 0, 0.15);
+  }
+
+  .sidebar.collapsed .sidebar-footer {
+    padding: 10px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
   }
 
   .telemetry-hud {
@@ -366,6 +464,16 @@
     0% { transform: scale(0.9); opacity: 0.6; }
     50% { transform: scale(1.1); opacity: 1; }
     100% { transform: scale(0.9); opacity: 0.6; }
+  }
+
+  .collapse-toggle {
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+
+  .collapse-toggle:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
   }
 
   .logout { color: var(--text-secondary); }

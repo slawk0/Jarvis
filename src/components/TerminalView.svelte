@@ -19,10 +19,12 @@
     profileId,
     containerSession = null,
     onExitContainer = () => {},
+    sessionId = crypto.randomUUID(),
   }: {
     profileId: string;
     containerSession?: ContainerSession | null;
     onExitContainer?: () => void;
+    sessionId?: string;
   } = $props();
 
   let terminalContainer = $state<HTMLDivElement | null>(null);
@@ -32,6 +34,7 @@
   let isLoading = $state(false);
   let errorMsg = $state('');
   let activeContainer = $state<ContainerSession | null>(null);
+  let resizeObserver: ResizeObserver | null = null;
 
   $effect(() => {
     activeContainer = containerSession ?? null;
@@ -42,7 +45,7 @@
     errorMsg = '';
 
     try {
-      await invoke('stop_terminal').catch(() => {});
+      await invoke('stop_terminal', { sessionId }).catch(() => {});
 
       if (unsubscribeStdout) {
         unsubscribeStdout();
@@ -78,16 +81,18 @@
       fitAddon.fit();
 
       term.onData((data: string) => {
-        invoke('send_terminal_input', { input: data });
+        invoke('send_terminal_input', { sessionId, input: data });
       });
 
-      unsubscribeStdout = await listen<string>('terminal-stdout', (event) => {
+      const eventName = `terminal-stdout-${sessionId}`;
+      unsubscribeStdout = await listen<string>(eventName, (event) => {
         if (term) {
           term.write(event.payload);
         }
       });
 
       await invoke('start_terminal', {
+        sessionId,
         containerId: activeContainer?.containerId ?? null,
         useSudo: activeContainer?.useSudo ?? false,
         shell: activeContainer?.shell ?? null,
@@ -99,7 +104,8 @@
         term.writeln('\x1b[1;33m[Jarvis SSH Terminal — Inicjalizacja...]\x1b[0m');
       }
 
-      window.addEventListener('resize', handleResize);
+      // Use ResizeObserver instead of window resize for split-panel support
+      setupResizeObserver();
     } catch (err: any) {
       const errText = err.toString();
       if (errText.includes('SUDO_PASSWORD_REQUIRED')) {
@@ -112,9 +118,23 @@
     }
   }
 
-  function handleResize() {
-    if (fitAddon) {
-      fitAddon.fit();
+  function setupResizeObserver() {
+    if (resizeObserver) {
+      resizeObserver.disconnect();
+    }
+    if (terminalContainer) {
+      resizeObserver = new ResizeObserver(() => {
+        if (fitAddon) {
+          requestAnimationFrame(() => {
+            try {
+              fitAddon.fit();
+            } catch (_) {
+              // ignore fit errors during rapid resizing
+            }
+          });
+        }
+      });
+      resizeObserver.observe(terminalContainer);
     }
   }
 
@@ -146,7 +166,7 @@
     activeContainer = containerSession ?? null;
     initTerminal();
     return registerBackHandler({
-      id: 'terminal-container',
+      id: `terminal-container-${sessionId}`,
       priority: 75,
       canGoBack: () => !!activeContainer,
       goBack: () => {
@@ -160,11 +180,13 @@
     if (unsubscribeStdout) {
       unsubscribeStdout();
     }
+    if (resizeObserver) {
+      resizeObserver.disconnect();
+    }
     if (term) {
       term.dispose();
     }
-    window.removeEventListener('resize', handleResize);
-    invoke('stop_terminal').catch(() => {});
+    invoke('stop_terminal', { sessionId }).catch(() => {});
   });
 </script>
 

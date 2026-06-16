@@ -8,6 +8,7 @@ mod profile_extras;
 
 use parking_lot::Mutex;
 use std::sync::Arc;
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use tauri::{Manager, Emitter, State, AppHandle};
@@ -47,8 +48,8 @@ pub struct AppState {
     pub connection: Arc<Mutex<Option<SshConnection>>>,
     pub sudo_password: Arc<Mutex<Option<String>>>,
     pub ssh_creds: Arc<Mutex<Option<SshCreds>>>,
-    pub terminal_tx: Arc<Mutex<Option<mpsc::Sender<String>>>>,
-    pub terminal_cancel: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
+    pub terminal_txs: Arc<Mutex<HashMap<String, mpsc::Sender<String>>>>,
+    pub terminal_cancels: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<()>>>>,
     pub docker_log_cancel: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
     pub docker_compose_cancel: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
     pub sftp_transfer_cancel: Arc<AtomicBool>,
@@ -56,8 +57,17 @@ pub struct AppState {
 }
 
 fn stop_terminal_sessions(state: &AppState) {
-    if state.terminal_tx.lock().take().is_some() {}
-    if let Some(cancel) = state.terminal_cancel.lock().take() {
+    let txs: Vec<_> = state.terminal_txs.lock().drain().collect();
+    drop(txs);
+    let cancels: Vec<(String, _)> = state.terminal_cancels.lock().drain().collect();
+    for (_, cancel) in cancels {
+        cancel.send(()).ok();
+    }
+}
+
+fn stop_terminal_session(state: &AppState, session_id: &str) {
+    state.terminal_txs.lock().remove(session_id);
+    if let Some(cancel) = state.terminal_cancels.lock().remove(session_id) {
         cancel.send(()).ok();
     }
 }
@@ -422,6 +432,7 @@ fn validate_container_id(id: &str) -> Result<(), String> {
 async fn start_terminal(
     state: State<'_, AppState>,
     app_handle: AppHandle,
+    session_id: String,
     container_id: Option<String>,
     use_sudo: Option<bool>,
     shell: Option<String>,
@@ -440,18 +451,19 @@ async fn start_terminal(
         validate_shell(&shell)?;
     }
 
-    stop_terminal_sessions(&state);
+    stop_terminal_session(&state, &session_id);
 
     let creds_guard = state.ssh_creds.lock();
     let creds = creds_guard.as_ref().ok_or("Brak aktywnego połączenia SSH")?.clone();
 
     let (cancel_tx, mut cancel_rx) = tokio::sync::oneshot::channel::<()>();
-    *state.terminal_cancel.lock() = Some(cancel_tx);
+    state.terminal_cancels.lock().insert(session_id.clone(), cancel_tx);
 
     let (tx, mut rx) = mpsc::channel::<String>(100);
-    *state.terminal_tx.lock() = Some(tx);
+    state.terminal_txs.lock().insert(session_id.clone(), tx);
 
     let app_handle_clone = app_handle.clone();
+    let session_id_clone = session_id.clone();
     
     tokio::spawn(async move {
         let run_terminal = async {
@@ -515,24 +527,24 @@ async fn start_terminal(
                         match msg {
                             Some(russh::ChannelMsg::Data { data }) => {
                                 let stdout_str = String::from_utf8_lossy(&data).to_string();
-                                app_handle_read.emit("terminal-stdout", stdout_str).ok();
+                                app_handle_read.emit(&format!("terminal-stdout-{}", session_id_clone), stdout_str).ok();
                             }
                             Some(russh::ChannelMsg::ExtendedData { data, ext }) => {
                                 if ext == 1 {
                                     let stderr_str = String::from_utf8_lossy(&data).to_string();
-                                    app_handle_read.emit("terminal-stdout", stderr_str).ok();
+                                    app_handle_read.emit(&format!("terminal-stdout-{}", session_id_clone), stderr_str).ok();
                                 }
                             }
                             Some(russh::ChannelMsg::ExitStatus { exit_status }) => {
                                 app_handle_read.emit(
-                                    "terminal-stdout",
+                                    &format!("terminal-stdout-{}", session_id_clone),
                                     format!("\r\n[Połączenie terminala zamknięte, kod: {}]\r\n", exit_status),
                                 ).ok();
                                 break;
                             }
                             Some(russh::ChannelMsg::Eof) => {
                                 app_handle_read.emit(
-                                    "terminal-stdout",
+                                    &format!("terminal-stdout-{}", session_id_clone),
                                     "\r\n[Połączenie terminala zamknięte]\r\n".to_string(),
                                 ).ok();
                                 break;
@@ -546,7 +558,7 @@ async fn start_terminal(
                             Some(input_data) => {
                                 if let Err(e) = channel.data(input_data.as_bytes()).await {
                                     app_handle_read.emit(
-                                        "terminal-stdout",
+                                        &format!("terminal-stdout-{}", session_id_clone),
                                         format!("\r\n[Błąd zapisu do terminala: {}]\r\n", e),
                                     ).ok();
                                     break;
@@ -565,7 +577,7 @@ async fn start_terminal(
         };
 
         if let Err(e) = run_terminal.await {
-            app_handle_clone.emit("terminal-stdout", format!("\r\n[Błąd sesji SSH terminala: {}]\r\n", e)).ok();
+            app_handle_clone.emit(&format!("terminal-stdout-{}", session_id_clone), format!("\r\n[Błąd sesji SSH terminala: {}]\r\n", e)).ok();
         }
     });
 
@@ -573,15 +585,15 @@ async fn start_terminal(
 }
 
 #[tauri::command]
-async fn stop_terminal(state: State<'_, AppState>) -> Result<(), String> {
-    stop_terminal_sessions(&state);
+async fn stop_terminal(state: State<'_, AppState>, session_id: String) -> Result<(), String> {
+    stop_terminal_session(&state, &session_id);
     Ok(())
 }
 
 #[tauri::command]
-fn send_terminal_input(state: State<'_, AppState>, input: String) -> Result<(), String> {
-    let tx_guard = state.terminal_tx.lock();
-    if let Some(ref tx) = *tx_guard {
+fn send_terminal_input(state: State<'_, AppState>, session_id: String, input: String) -> Result<(), String> {
+    let txs_guard = state.terminal_txs.lock();
+    if let Some(tx) = txs_guard.get(&session_id) {
         tx.try_send(input)
             .map_err(|e| format!("Nie można wysłać danych do terminala: {}", e))?;
         Ok(())
@@ -1076,8 +1088,8 @@ pub fn run() {
             connection: Arc::new(Mutex::new(None)),
             sudo_password: Arc::new(Mutex::new(None)),
             ssh_creds: Arc::new(Mutex::new(None)),
-            terminal_tx: Arc::new(Mutex::new(None)),
-            terminal_cancel: Arc::new(Mutex::new(None)),
+            terminal_txs: Arc::new(Mutex::new(HashMap::new())),
+            terminal_cancels: Arc::new(Mutex::new(HashMap::new())),
             docker_log_cancel: Arc::new(Mutex::new(None)),
             docker_compose_cancel: Arc::new(Mutex::new(None)),
             sftp_transfer_cancel: Arc::new(AtomicBool::new(false)),

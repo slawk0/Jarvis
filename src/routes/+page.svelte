@@ -14,7 +14,16 @@
     Loader2, 
     AlertCircle,
     Activity,
-    ArrowLeft
+    ArrowLeft,
+    Columns2,
+    Rows2,
+    Grid2x2,
+    Maximize2,
+    X,
+    SplitSquareHorizontal,
+    SplitSquareVertical,
+    ChevronDown,
+    GripVertical,
   } from 'lucide-svelte';
   import {
     canNavigateBack,
@@ -42,23 +51,25 @@
   import { resetAlertCooldowns } from '$lib/alerts/monitor';
   import type { ServerProfile } from '$lib/admin/types';
 
-  // Stany logowania i połączenia
-  let isConnected = $state(false);
-  let isConnecting = $state(false);
-  let connectError = $state('');
-  let serverStats = $state<any>(null);
-  let activeTab = $state('dashboard');
-  let currentHostname = $state('Serwer');
-  let currentProfileId = $state('');
-  let currentProfileLabel = $state('Serwer');
-  let isSwitching = $state(false);
-  let terminalContainerSession = $state<{ containerId: string; containerName: string; useSudo: boolean; shell: string } | null>(null);
-  let tabHistory = $state<string[]>([]);
-  let visitedTabs = $state<Record<string, boolean>>({ dashboard: true });
+  // ────────────── Types ──────────────
 
-  $effect(() => {
-    visitedTabs[activeTab] = true;
-  });
+  type ContainerSession = { containerId: string; containerName: string; useSudo: boolean; shell: string };
+
+  interface Pane {
+    id: string;
+    activeTab: string;
+    terminalContainerSession: ContainerSession | null;
+    terminalSessionId: string;
+    visitedTabs: Record<string, boolean>;
+    r1: number;
+    c1: number;
+    r2: number;
+    c2: number;
+  }
+
+  type DropZone = 'center' | 'top' | 'bottom' | 'left' | 'right';
+
+  // ────────────── Sidebar Tab Metadata ──────────────
 
   const TAB_LABELS: Record<string, string> = {
     dashboard: 'Dashboard',
@@ -78,12 +89,490 @@
     terminal: 'Terminal',
   };
 
-  function selectTab(tab: string) {
-    if (tab === activeTab) return;
-    tabHistory = [...tabHistory, activeTab];
-    if (tab === 'terminal') terminalContainerSession = null;
-    activeTab = tab;
+  // ────────────── Connection State ──────────────
+
+  let isConnected = $state(false);
+  let isConnecting = $state(false);
+  let connectError = $state('');
+  let serverStats = $state<any>(null);
+  let currentHostname = $state('Serwer');
+  let currentProfileId = $state('');
+  let currentProfileLabel = $state('Serwer');
+  let isSwitching = $state(false);
+
+  // ────────────── Sidebar State ──────────────
+
+  let sidebarCollapsed = $state(false);
+
+  // Load collapsed state from localStorage
+  onMount(() => {
+    loadProfiles();
+    const saved = localStorage.getItem('jarvis-sidebar-collapsed');
+    if (saved === 'true') sidebarCollapsed = true;
+  });
+
+  $effect(() => {
+    localStorage.setItem('jarvis-sidebar-collapsed', String(sidebarCollapsed));
+  });
+
+  // ────────────── Pane / Workspace State ──────────────
+
+  function createPane(tab: string = 'dashboard'): Pane {
+    return {
+      id: crypto.randomUUID(),
+      activeTab: tab,
+      terminalContainerSession: null,
+      terminalSessionId: crypto.randomUUID(),
+      visitedTabs: { [tab]: true },
+      r1: 1, c1: 1, r2: 121, c2: 121,
+    };
   }
+
+  let panes = $state<Pane[]>([createPane()]);
+  let activePaneId = $state(panes[0].id);
+
+  // Derived: the focused pane's activeTab (used by sidebar highlighting)
+  let activeTab = $derived(panes.find(p => p.id === activePaneId)?.activeTab ?? 'dashboard');
+
+  // History for back navigation
+  let tabHistory = $state<string[]>([]);
+
+  // ────────────── Drag & Drop State ──────────────
+
+  let dragOverPaneId = $state<string | null>(null);
+  let dragOverZone = $state<DropZone | null>(null);
+  let isDraggingTab = $state(false);
+
+  // ────────────── Custom Pointer Drag State ──────────────
+  let customDragState = $state<{
+    type: 'tab' | 'pane';
+    id: string;
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+    active: boolean;
+  } | null>(null);
+
+  // ────────────── Resizing State ──────────────
+  let resizeState = $state<{
+    type: 'v' | 'h';
+    line: number;
+    lastLine: number;
+    startClientXY: number;
+  } | null>(null);
+
+  let vResizers = $derived.by(() => {
+    let cols = new Set<number>();
+    panes.forEach(p => { if (p.c2 > 1 && p.c2 < 121) cols.add(p.c2); });
+    return Array.from(cols).map(c => {
+      let minR = 121, maxR = 1;
+      panes.forEach(p => {
+        if (p.c2 === c || p.c1 === c) {
+          if (p.r1 < minR) minR = p.r1;
+          if (p.r2 > maxR) maxR = p.r2;
+        }
+      });
+      return { c, minR, maxR };
+    });
+  });
+
+  let hResizers = $derived.by(() => {
+    let rows = new Set<number>();
+    panes.forEach(p => { if (p.r2 > 1 && p.r2 < 121) rows.add(p.r2); });
+    return Array.from(rows).map(r => {
+      let minC = 121, maxC = 1;
+      panes.forEach(p => {
+        if (p.r2 === r || p.r1 === r) {
+          if (p.c1 < minC) minC = p.c1;
+          if (p.c2 > maxC) maxC = p.c2;
+        }
+      });
+      return { r, minC, maxC };
+    });
+  });
+
+  // Layout mode controls the current preset logic
+  type LayoutMode = 'single' | 'split-h' | 'split-v' | 'grid';
+  let layoutMode = $state<LayoutMode>('single');
+
+  // ────────────── Tab Navigation ──────────────
+
+  function selectTab(tab: string) {
+    const pane = panes.find(p => p.id === activePaneId);
+    if (!pane) return;
+    if (tab === pane.activeTab) return;
+    tabHistory = [...tabHistory, pane.activeTab];
+    if (tab === 'terminal') {
+      pane.terminalContainerSession = null;
+      pane.terminalSessionId = crypto.randomUUID();
+    }
+    pane.activeTab = tab;
+    pane.visitedTabs[tab] = true;
+  }
+
+  function focusPane(paneId: string) {
+    activePaneId = paneId;
+  }
+
+  // ────────────── Pane Operations ──────────────
+
+  function splitPane(paneId: string, direction: 'h' | 'v', newTab?: string) {
+    if (panes.length >= 4) return;
+    const sourcePane = panes.find(p => p.id === paneId);
+    if (!sourcePane) return;
+    
+    const tab = newTab || sourcePane.activeTab;
+    const newPane = createPane(tab);
+    
+    if (direction === 'h') {
+      const mid = Math.floor((sourcePane.c1 + sourcePane.c2) / 2);
+      newPane.r1 = sourcePane.r1;
+      newPane.r2 = sourcePane.r2;
+      newPane.c1 = mid;
+      newPane.c2 = sourcePane.c2;
+      sourcePane.c2 = mid;
+    } else {
+      const mid = Math.floor((sourcePane.r1 + sourcePane.r2) / 2);
+      newPane.c1 = sourcePane.c1;
+      newPane.c2 = sourcePane.c2;
+      newPane.r1 = mid;
+      newPane.r2 = sourcePane.r2;
+      sourcePane.r2 = mid;
+    }
+    
+    panes = [...panes, newPane];
+    activePaneId = newPane.id;
+    layoutMode = panes.length === 2 ? (direction === 'v' ? 'split-v' : 'split-h') : 'grid';
+  }
+
+  function closePaneSpace(p: Pane) {
+    let neighbor = panes.find(n => n.id !== p.id && n.c1 === p.c1 && n.c2 === p.c2 && (n.r1 === p.r2 || n.r2 === p.r1));
+    if (!neighbor) {
+      neighbor = panes.find(n => n.id !== p.id && n.r1 === p.r1 && n.r2 === p.r2 && (n.c1 === p.c2 || n.c2 === p.c1));
+    }
+    if (neighbor) {
+      neighbor.r1 = Math.min(neighbor.r1, p.r1);
+      neighbor.c1 = Math.min(neighbor.c1, p.c1);
+      neighbor.r2 = Math.max(neighbor.r2, p.r2);
+      neighbor.c2 = Math.max(neighbor.c2, p.c2);
+    } else {
+      const touching = panes.find(n => n.id !== p.id && 
+        ((n.r2 === p.r1 || n.r1 === p.r2) && (n.c1 < p.c2 && n.c2 > p.c1)) ||
+        ((n.c2 === p.c1 || n.c1 === p.c2) && (n.r1 < p.r2 && n.r2 > p.r1))
+      );
+      if (touching) {
+        if (touching.r2 === p.r1) touching.r2 = p.r2;
+        else if (touching.r1 === p.r2) touching.r1 = p.r1;
+        else if (touching.c2 === p.c1) touching.c2 = p.c2;
+        else if (touching.c1 === p.c2) touching.c1 = p.c1;
+      }
+    }
+  }
+
+  function closePane(paneId: string) {
+    if (panes.length <= 1) return;
+    const p = panes.find(p => p.id === paneId);
+    if (!p) return;
+    
+    closePaneSpace(p);
+    
+    panes = panes.filter(x => x.id !== paneId);
+    if (activePaneId === paneId) {
+      activePaneId = panes[0].id;
+    }
+    if (panes.length === 1) layoutMode = 'single';
+  }
+
+  function setLayoutPreset(mode: LayoutMode) {
+    if (mode === 'single') {
+      const activePane = panes.find(p => p.id === activePaneId) || panes[0];
+      activePane.r1 = 1; activePane.c1 = 1; activePane.r2 = 121; activePane.c2 = 121;
+      panes = [activePane];
+      activePaneId = activePane.id;
+    } else if (mode === 'split-h') {
+      const p1 = panes.find(p => p.id === activePaneId) || panes[0];
+      p1.r1 = 1; p1.r2 = 121; p1.c1 = 1; p1.c2 = 61;
+      let p2 = panes.find(p => p.id !== p1.id);
+      if (!p2) p2 = createPane();
+      p2.r1 = 1; p2.r2 = 121; p2.c1 = 61; p2.c2 = 121;
+      panes = [p1, p2];
+    } else if (mode === 'split-v') {
+      const p1 = panes.find(p => p.id === activePaneId) || panes[0];
+      p1.r1 = 1; p1.r2 = 61; p1.c1 = 1; p1.c2 = 121;
+      let p2 = panes.find(p => p.id !== p1.id);
+      if (!p2) p2 = createPane();
+      p2.r1 = 61; p2.r2 = 121; p2.c1 = 1; p2.c2 = 121;
+      panes = [p1, p2];
+    } else if (mode === 'grid') {
+      while (panes.length < 4) panes.push(createPane());
+      panes = panes.slice(0, 4);
+      panes[0].r1 = 1; panes[0].r2 = 61; panes[0].c1 = 1; panes[0].c2 = 61;
+      panes[1].r1 = 1; panes[1].r2 = 61; panes[1].c1 = 61; panes[1].c2 = 121;
+      panes[2].r1 = 61; panes[2].r2 = 121; panes[2].c1 = 1; panes[2].c2 = 61;
+      panes[3].r1 = 61; panes[3].r2 = 121; panes[3].c1 = 61; panes[3].c2 = 121;
+      if (!panes.find(p => p.id === activePaneId)) activePaneId = panes[0].id;
+    }
+    layoutMode = mode;
+  }
+
+  // ────────────── Drag & Drop Handlers ──────────────
+
+  function startCustomDrag(e: PointerEvent, type: 'tab' | 'pane', id: string) {
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('.pane-action-btn') || target.closest('.pane-tab-selector')) return;
+    
+    try {
+      if (target.hasPointerCapture(e.pointerId)) {
+        target.releasePointerCapture(e.pointerId);
+      }
+    } catch (err) {}
+    
+    customDragState = {
+      type,
+      id,
+      startX: e.clientX,
+      startY: e.clientY,
+      currentX: e.clientX,
+      currentY: e.clientY,
+      active: false
+    };
+    e.preventDefault();
+  }
+
+  function handleGlobalPointerMove(e: PointerEvent) {
+    if (resizeState) {
+      e.preventDefault();
+      const rs = resizeState;
+      const container = document.querySelector('.panes-grid') as HTMLElement;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      
+      if (rs.type === 'v') {
+        let minAllowed = 2;
+        let maxAllowed = 120;
+        panes.forEach(p => {
+          if (p.c2 === rs.lastLine && p.c1 + 15 > minAllowed) minAllowed = p.c1 + 15;
+          if (p.c1 === rs.lastLine && p.c2 - 15 < maxAllowed) maxAllowed = p.c2 - 15;
+        });
+        
+        let newPct = (e.clientX - rect.left) / rect.width;
+        let newLine = Math.round(newPct * 120) + 1;
+        newLine = Math.max(minAllowed, Math.min(newLine, maxAllowed));
+        
+        if (newLine !== rs.lastLine) {
+          const oldLine = rs.lastLine;
+          panes.forEach(p => {
+            if (p.c2 === oldLine) p.c2 = newLine;
+            if (p.c1 === oldLine) p.c1 = newLine;
+          });
+          resizeState.lastLine = newLine;
+        }
+      } else {
+        let minAllowed = 2;
+        let maxAllowed = 120;
+        panes.forEach(p => {
+          if (p.r2 === rs.lastLine && p.r1 + 15 > minAllowed) minAllowed = p.r1 + 15;
+          if (p.r1 === rs.lastLine && p.r2 - 15 < maxAllowed) maxAllowed = p.r2 - 15;
+        });
+        
+        let newPct = (e.clientY - rect.top) / rect.height;
+        let newLine = Math.round(newPct * 120) + 1;
+        newLine = Math.max(minAllowed, Math.min(newLine, maxAllowed));
+        
+        if (newLine !== rs.lastLine) {
+          const oldLine = rs.lastLine;
+          panes.forEach(p => {
+            if (p.r2 === oldLine) p.r2 = newLine;
+            if (p.r1 === oldLine) p.r1 = newLine;
+          });
+          resizeState.lastLine = newLine;
+        }
+      }
+      return;
+    }
+
+    if (!customDragState) return;
+    
+    if (!customDragState.active) {
+      const dist = Math.hypot(e.clientX - customDragState.startX, e.clientY - customDragState.startY);
+      if (dist > 5) {
+        customDragState.active = true;
+        isDraggingTab = true;
+      }
+      return;
+    }
+    
+    customDragState.currentX = e.clientX;
+    customDragState.currentY = e.clientY;
+    
+    const target = e.target as HTMLElement;
+    const paneEl = target.closest('.pane-container');
+    
+    if (paneEl) {
+      const paneId = paneEl.getAttribute('data-pane-id');
+      if (paneId) {
+        dragOverPaneId = paneId;
+        const dropZoneEl = target.closest('.drop-zone');
+        if (dropZoneEl) {
+          if (dropZoneEl.classList.contains('drop-zone-top')) dragOverZone = 'top';
+          else if (dropZoneEl.classList.contains('drop-zone-bottom')) dragOverZone = 'bottom';
+          else if (dropZoneEl.classList.contains('drop-zone-left')) dragOverZone = 'left';
+          else if (dropZoneEl.classList.contains('drop-zone-right')) dragOverZone = 'right';
+          else if (dropZoneEl.classList.contains('drop-zone-center')) dragOverZone = 'center';
+        } else {
+          dragOverZone = null;
+        }
+      }
+    } else {
+      dragOverPaneId = null;
+      dragOverZone = null;
+    }
+  }
+
+  function handleGlobalPointerUp(e: PointerEvent) {
+    if (resizeState) {
+      resizeState = null;
+      return;
+    }
+    if (!customDragState) return;
+    
+    if (customDragState.active && dragOverPaneId && dragOverZone) {
+      handleCustomDrop(dragOverPaneId, customDragState.type, customDragState.id, dragOverZone);
+    }
+    
+    customDragState = null;
+    dragOverPaneId = null;
+    dragOverZone = null;
+    isDraggingTab = false;
+  }
+
+  function handleCustomDrop(targetPaneId: string, type: 'tab' | 'pane', sourceId: string, zone: DropZone | null) {
+    if (type === 'pane') {
+      const sourcePaneId = sourceId;
+      if (sourcePaneId === targetPaneId) return;
+      
+      const sourcePane = panes.find(p => p.id === sourcePaneId);
+      const targetPane = panes.find(p => p.id === targetPaneId);
+      if (!sourcePane || !targetPane) return;
+
+      if (zone === 'center') {
+        const sr1 = sourcePane.r1, sc1 = sourcePane.c1, sr2 = sourcePane.r2, sc2 = sourcePane.c2;
+        sourcePane.r1 = targetPane.r1; sourcePane.c1 = targetPane.c1;
+        sourcePane.r2 = targetPane.r2; sourcePane.c2 = targetPane.c2;
+        targetPane.r1 = sr1; targetPane.c1 = sc1;
+        targetPane.r2 = sr2; targetPane.c2 = sc2;
+        
+        activePaneId = targetPane.id;
+        panes = [...panes];
+      } else {
+        const direction = (zone === 'left' || zone === 'right') ? 'h' : 'v';
+        closePaneSpace(sourcePane);
+        
+        if (direction === 'h') {
+          const mid = Math.floor((targetPane.c1 + targetPane.c2) / 2);
+          sourcePane.r1 = targetPane.r1;
+          sourcePane.r2 = targetPane.r2;
+          if (zone === 'left') {
+            sourcePane.c1 = targetPane.c1;
+            sourcePane.c2 = mid;
+            targetPane.c1 = mid;
+          } else {
+            sourcePane.c1 = mid;
+            sourcePane.c2 = targetPane.c2;
+            targetPane.c2 = mid;
+          }
+        } else {
+          const mid = Math.floor((targetPane.r1 + targetPane.r2) / 2);
+          sourcePane.c1 = targetPane.c1;
+          sourcePane.c2 = targetPane.c2;
+          if (zone === 'top') {
+            sourcePane.r1 = targetPane.r1;
+            sourcePane.r2 = mid;
+            targetPane.r1 = mid;
+          } else {
+            sourcePane.r1 = mid;
+            sourcePane.r2 = targetPane.r2;
+            targetPane.r2 = mid;
+          }
+        }
+        panes = [...panes];
+        activePaneId = sourcePane.id;
+      }
+    } else if (type === 'tab') {
+      const tabId = sourceId;
+      const targetPane = panes.find(p => p.id === targetPaneId);
+      if (!targetPane) return;
+      
+      if (zone === 'center') {
+        if (tabId === 'terminal') {
+          targetPane.terminalContainerSession = null;
+          targetPane.terminalSessionId = crypto.randomUUID();
+        }
+        targetPane.activeTab = tabId;
+        targetPane.visitedTabs[tabId] = true;
+        activePaneId = targetPaneId;
+      } else if (zone) {
+        if (panes.length >= 4) return;
+        const direction = (zone === 'left' || zone === 'right') ? 'h' : 'v';
+        const newPane = createPane(tabId);
+        
+        if (direction === 'h') {
+          const mid = Math.floor((targetPane.c1 + targetPane.c2) / 2);
+          newPane.r1 = targetPane.r1;
+          newPane.r2 = targetPane.r2;
+          if (zone === 'left') {
+            newPane.c1 = targetPane.c1;
+            newPane.c2 = mid;
+            targetPane.c1 = mid;
+          } else {
+            newPane.c1 = mid;
+            newPane.c2 = targetPane.c2;
+            targetPane.c2 = mid;
+          }
+        } else {
+          const mid = Math.floor((targetPane.r1 + targetPane.r2) / 2);
+          newPane.c1 = targetPane.c1;
+          newPane.c2 = targetPane.c2;
+          if (zone === 'top') {
+            newPane.r1 = targetPane.r1;
+            newPane.r2 = mid;
+            targetPane.r1 = mid;
+          } else {
+            newPane.r1 = mid;
+            newPane.r2 = targetPane.r2;
+            targetPane.r2 = mid;
+          }
+        }
+        panes = [...panes, newPane];
+        activePaneId = newPane.id;
+      }
+    }
+  }
+
+  // ────────────── Pane Tab Dropdown ──────────────
+  
+  let paneSelectorOpen = $state<string | null>(null);
+
+  function togglePaneSelector(paneId: string) {
+    paneSelectorOpen = paneSelectorOpen === paneId ? null : paneId;
+  }
+
+  function selectPaneTab(paneId: string, tabId: string) {
+    const pane = panes.find(p => p.id === paneId);
+    if (!pane) return;
+    if (tabId === 'terminal') {
+      pane.terminalContainerSession = null;
+      pane.terminalSessionId = crypto.randomUUID();
+    }
+    pane.activeTab = tabId;
+    pane.visitedTabs[tabId] = true;
+    paneSelectorOpen = null;
+    activePaneId = paneId;
+  }
+
+  // ────────────── Back Navigation ──────────────
 
   function canGoBackGlobal(): boolean {
     if (!isConnected) return showCreateProfile;
@@ -121,8 +610,15 @@
     if (tabHistory.length > 0) {
       const prev = tabHistory[tabHistory.length - 1];
       tabHistory = tabHistory.slice(0, -1);
-      activeTab = prev;
-      if (prev === 'terminal') terminalContainerSession = null;
+      const pane = panes.find(p => p.id === activePaneId);
+      if (pane) {
+        pane.activeTab = prev;
+        pane.visitedTabs[prev] = true;
+        if (prev === 'terminal') {
+          pane.terminalContainerSession = null;
+          pane.terminalSessionId = crypto.randomUUID();
+        }
+      }
       return true;
     }
 
@@ -143,16 +639,16 @@
     performBack();
   }
 
-  // Profile serwerów
+  // ────────────── Profile State ──────────────
+
   let profiles = $state<ServerProfile[]>([]);
   let showCreateProfile = $state(false);
   
-  // Pola formularza profilu
   let profileLabel = $state('');
   let profileHost = $state('');
   let profilePort = $state(22);
   let profileUsername = $state('root');
-  let profileAuthType = $state('password'); // 'password' | 'key'
+  let profileAuthType = $state('password');
   let profileKeyPath = $state('');
   let profilePassword = $state('');
   let profileKeyPassphrase = $state('');
@@ -188,7 +684,6 @@
         keyPassphrase: profileKeyPassphrase ? profileKeyPassphrase : null
       });
 
-      // Zresetuj formularz
       profileLabel = '';
       profileHost = '';
       profilePort = 22;
@@ -218,10 +713,13 @@
       const prof = profiles.find((p) => p.id === profileId);
       currentProfileLabel = prof?.label || stats.hostname;
       resetAlertCooldowns();
-      visitedTabs = { dashboard: true };
-      isConnected = true;
+      // Reset workspace to a single pane
+      const initialPane = createPane('dashboard');
+      panes = [initialPane];
+      activePaneId = initialPane.id;
+      layoutMode = 'single';
       tabHistory = [];
-      activeTab = 'dashboard';
+      isConnected = true;
     } catch (err: any) {
       connectError = err.toString();
     } finally {
@@ -234,7 +732,6 @@
     isSwitching = true;
     connectError = '';
     try {
-      terminalContainerSession = null;
       const stats = await invoke<any>('switch_ssh', { profileId });
       currentProfileId = profileId;
       serverStats = stats;
@@ -260,12 +757,15 @@
       currentHostname = 'Serwer';
       currentProfileLabel = 'Serwer';
       tabHistory = [];
-      visitedTabs = { dashboard: true };
+      const initialPane = createPane('dashboard');
+      panes = [initialPane];
+      activePaneId = initialPane.id;
+      layoutMode = 'single';
     }
   }
 
   async function handleDeleteProfile(id: string, event: Event) {
-    event.stopPropagation(); // Zapobiegaj kliknięciu w cały wiersz (który łączy)
+    event.stopPropagation();
     if (confirm('Czy na pewno chcesz usunąć ten profil połączenia?')) {
       try {
         await invoke('delete_profile', { id });
@@ -285,17 +785,13 @@
     profileUsername = profile.username;
     profileAuthType = profile.auth_type;
     profileKeyPath = profile.key_path || '';
-    profilePassword = ''; // Hasła nie odczytujemy z powrotem z powodów bezpieczeństwa
+    profilePassword = '';
     profileKeyPassphrase = '';
     showCreateProfile = true;
   }
-
-  onMount(() => {
-    loadProfiles();
-  });
 </script>
 
-<svelte:window onmouseup={handleMouseBack} onauxclick={handleAuxClick} />
+<svelte:window onmouseup={handleMouseBack} onauxclick={handleAuxClick} onpointermove={handleGlobalPointerMove} onpointerup={handleGlobalPointerUp} onclick={() => { paneSelectorOpen = null; }} />
 
 <main class="app-container">
   <button
@@ -310,9 +806,10 @@
   </button>
 
   {#if isConnected}
-    <!-- GŁÓWNY WORKSPACE APILKACJI -->
+    <!-- GŁÓWNY WORKSPACE APLIKACJI -->
     <Sidebar
-      bind:activeTab={activeTab}
+      activeTab={activeTab}
+      bind:collapsed={sidebarCollapsed}
       hostname={currentHostname}
       profiles={profiles}
       currentProfileId={currentProfileId}
@@ -322,6 +819,7 @@
       onTabSelect={(tab: string) => {
         selectTab(tab);
       }}
+      onCustomDragStart={(e: PointerEvent, type: 'tab' | 'pane', id: string) => startCustomDrag(e, type, id)}
     />
     
     <div class="main-content">
@@ -332,106 +830,227 @@
         </div>
       {/if}
 
-      {#if visitedTabs['dashboard']}
-        <div class="tab-wrapper" class:hidden={activeTab !== 'dashboard'}>
-          <Dashboard
-            initialStats={serverStats}
-            profileId={currentProfileId}
-            profileLabel={currentProfileLabel}
-          />
+      <!-- Workspace Control Bar -->
+      <div class="workspace-bar">
+        <div class="workspace-bar-left">
+          <span class="workspace-label">Workspace</span>
+          <span class="workspace-pane-count">{panes.length} {panes.length === 1 ? 'panel' : panes.length < 5 ? 'panele' : 'paneli'}</span>
         </div>
-      {/if}
-
-      {#if visitedTabs['maintenance']}
-        <div class="tab-wrapper" class:hidden={activeTab !== 'maintenance'}>
-          <MaintenanceManager />
+        <div class="workspace-bar-right">
+          <button
+            class="layout-btn"
+            class:active={layoutMode === 'single'}
+            onclick={() => setLayoutPreset('single')}
+            title="Jeden panel"
+          >
+            <Maximize2 size={14} />
+          </button>
+          <button
+            class="layout-btn"
+            class:active={layoutMode === 'split-h'}
+            onclick={() => setLayoutPreset('split-h')}
+            title="Podział pionowy (obok siebie)"
+          >
+            <Columns2 size={14} />
+          </button>
+          <button
+            class="layout-btn"
+            class:active={layoutMode === 'split-v'}
+            onclick={() => setLayoutPreset('split-v')}
+            title="Podział poziomy (jedno nad drugim)"
+          >
+            <Rows2 size={14} />
+          </button>
+          <button
+            class="layout-btn"
+            class:active={layoutMode === 'grid'}
+            onclick={() => setLayoutPreset('grid')}
+            title="Siatka 2×2"
+          >
+            <Grid2x2 size={14} />
+          </button>
         </div>
-      {/if}
+      </div>
 
-      {#if visitedTabs['backups']}
-        <div class="tab-wrapper" class:hidden={activeTab !== 'backups'}>
-          <BackupManager profileId={currentProfileId} />
-        </div>
-      {/if}
+      <!-- Panes Grid -->
+      <div
+        class="panes-grid"
+        class:multi={panes.length > 1}
+      >
+        {#each vResizers as r}
+          <div class="resizer resizer-v"
+               style="position: absolute; left: {((r.c - 1) / 120) * 100}%; top: {((r.minR - 1) / 120) * 100}%; height: {((r.maxR - r.minR) / 120) * 100}%; width: 10px; margin-left: -5px; cursor: col-resize; z-index: 50;"
+               onpointerdown={(e) => { e.preventDefault(); e.stopPropagation(); resizeState = { type: 'v', line: r.c, lastLine: r.c, startClientXY: e.clientX }; }}
+               aria-label="Zmień szerokość paneli"
+               role="separator"
+          ></div>
+        {/each}
+        {#each hResizers as r}
+          <div class="resizer resizer-h"
+               style="position: absolute; top: {((r.r - 1) / 120) * 100}%; left: {((r.minC - 1) / 120) * 100}%; width: {((r.maxC - r.minC) / 120) * 100}%; height: 10px; margin-top: -5px; cursor: row-resize; z-index: 50;"
+               onpointerdown={(e) => { e.preventDefault(); e.stopPropagation(); resizeState = { type: 'h', line: r.r, lastLine: r.r, startClientXY: e.clientY }; }}
+               aria-label="Zmień wysokość paneli"
+               role="separator"
+          ></div>
+        {/each}
 
-      {#if visitedTabs['network']}
-        <div class="tab-wrapper" class:hidden={activeTab !== 'network'}>
-          <NetworkManager />
-        </div>
-      {/if}
+        {#each panes as pane (pane.id)}
+          {@const isActive = pane.id === activePaneId}
+          {@const showDropOverlay = customDragState?.active && !(customDragState.type === 'pane' && customDragState.id === pane.id)}
+          <div
+            class="pane-container"
+            class:pane-focused={isActive}
+            style={panes.length > 1 ? `grid-area: ${pane.r1} / ${pane.c1} / ${pane.r2} / ${pane.c2};` : ''}
+            data-pane-id={pane.id}
+            onclick={() => focusPane(pane.id)}
+            role="region"
+            aria-label={TAB_LABELS[pane.activeTab] ?? pane.activeTab}
+          >
+            <!-- Pane Header (only visible when multiple panes) -->
+            {#if panes.length > 1}
+              <div 
+                class="pane-header"
+                role="none"
+                onpointerdown={(e: PointerEvent) => startCustomDrag(e, 'pane', pane.id)}
+              >
+                <div 
+                  class="pane-tab-selector" 
+                  role="button"
+                  tabindex="0"
+                  onclick={(e: MouseEvent) => { e.stopPropagation(); togglePaneSelector(pane.id); }}
+                  onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); togglePaneSelector(pane.id); } }}
+                >
+                  <GripVertical size={12} class="drag-handle" />
+                  <span class="pane-tab-name">{TAB_LABELS[pane.activeTab] ?? pane.activeTab}</span>
+                  <ChevronDown size={12} />
+                </div>
 
-      {#if visitedTabs['runbooks']}
-        <div class="tab-wrapper" class:hidden={activeTab !== 'runbooks'}>
-          <RunbookManager profileId={currentProfileId} />
-        </div>
-      {/if}
+                <div class="pane-actions">
+                  {#if panes.length < 4}
+                    <button
+                      class="pane-action-btn"
+                      onclick={(e: MouseEvent) => { e.stopPropagation(); splitPane(pane.id, 'h'); }}
+                      title="Podziel pionowo"
+                    >
+                      <SplitSquareVertical size={13} />
+                    </button>
+                    <button
+                      class="pane-action-btn"
+                      onclick={(e: MouseEvent) => { e.stopPropagation(); splitPane(pane.id, 'v'); }}
+                      title="Podziel poziomo"
+                    >
+                      <SplitSquareHorizontal size={13} />
+                    </button>
+                  {/if}
+                  <button
+                    class="pane-action-btn pane-close"
+                    onclick={(e: MouseEvent) => { e.stopPropagation(); closePane(pane.id); }}
+                    title="Zamknij panel"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
 
-      {#if visitedTabs['files']}
-        <div class="tab-wrapper" class:hidden={activeTab !== 'files'}>
-          <FileManager />
-        </div>
-      {/if}
+                <!-- Pane Tab Dropdown -->
+                {#if paneSelectorOpen === pane.id}
+                  <div class="pane-dropdown" role="none" onclick={(e: MouseEvent) => e.stopPropagation()}>
+                    {#each Object.entries(TAB_LABELS) as [tabId, tabLabel]}
+                      <button
+                        class="pane-dropdown-item"
+                        class:active={pane.activeTab === tabId}
+                        onclick={() => selectPaneTab(pane.id, tabId)}
+                      >
+                        {tabLabel}
+                      </button>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+            {/if}
 
-      {#if visitedTabs['services']}
-        <div class="tab-wrapper" class:hidden={activeTab !== 'services'}>
-          <ServicesManager />
-        </div>
-      {/if}
+            <!-- Drop Zone Overlay -->
+            {#if showDropOverlay}
+              <div class="drop-overlay">
+                <div class="drop-zone drop-zone-top" class:active={dragOverPaneId === pane.id && dragOverZone === 'top'}>
+                  <Rows2 size={16} />
+                </div>
+                <div class="drop-zone drop-zone-bottom" class:active={dragOverPaneId === pane.id && dragOverZone === 'bottom'}>
+                  <Rows2 size={16} />
+                </div>
+                <div class="drop-zone drop-zone-left" class:active={dragOverPaneId === pane.id && dragOverZone === 'left'}>
+                  <Columns2 size={16} />
+                </div>
+                <div class="drop-zone drop-zone-right" class:active={dragOverPaneId === pane.id && dragOverZone === 'right'}>
+                  <Columns2 size={16} />
+                </div>
+                <div class="drop-zone drop-zone-center" class:active={dragOverPaneId === pane.id && dragOverZone === 'center'}>
+                  <span>{customDragState?.type === 'pane' ? 'Zamień' : 'Zmień zakładkę'}</span>
+                </div>
+              </div>
+            {/if}
 
-      {#if visitedTabs['docker']}
-        <div class="tab-wrapper" class:hidden={activeTab !== 'docker'}>
-          <DockerManager onRequestTerminalExec={(session: { containerId: string; containerName: string; useSudo: boolean; shell: string }) => {
-            terminalContainerSession = session;
-            selectTab('terminal');
-          }} />
-        </div>
-      {/if}
+            <!-- Pane Content -->
+            <div class="pane-content" style={customDragState?.active || resizeState ? 'pointer-events: none;' : ''}>
+              {#if pane.activeTab === 'dashboard'}
+                <Dashboard
+                  initialStats={serverStats}
+                  profileId={currentProfileId}
+                  profileLabel={currentProfileLabel}
+                />
+              {:else if pane.activeTab === 'maintenance'}
+                <MaintenanceManager />
+              {:else if pane.activeTab === 'backups'}
+                <BackupManager profileId={currentProfileId} />
+              {:else if pane.activeTab === 'network'}
+                <NetworkManager />
+              {:else if pane.activeTab === 'runbooks'}
+                <RunbookManager profileId={currentProfileId} />
+              {:else if pane.activeTab === 'files'}
+                <FileManager />
+              {:else if pane.activeTab === 'services'}
+                <ServicesManager />
+              {:else if pane.activeTab === 'docker'}
+                <DockerManager onRequestTerminalExec={(session: ContainerSession) => {
+                  pane.terminalContainerSession = session;
+                  pane.terminalSessionId = crypto.randomUUID();
+                  pane.activeTab = 'terminal';
+                  pane.visitedTabs['terminal'] = true;
+                  activePaneId = pane.id;
+                }} />
+              {:else if pane.activeTab === 'cron'}
+                <CronManager />
+              {:else if pane.activeTab === 'users'}
+                <UserManager />
+              {:else if pane.activeTab === 'firewall'}
+                <FirewallManager />
+              {:else if pane.activeTab === 'crowdsec'}
+                <CrowdsecManager profileId={currentProfileId} />
+              {:else if pane.activeTab === 'pangolin'}
+                <PangolinManager />
+              {:else if pane.activeTab === 'logs'}
+                <LogViewer />
+              {:else if pane.activeTab === 'terminal'}
+                {#key pane.terminalSessionId}
+                  <TerminalView
+                    profileId={currentProfileId}
+                    containerSession={pane.terminalContainerSession}
+                    sessionId={pane.terminalSessionId}
+                    onExitContainer={() => { pane.terminalContainerSession = null; }}
+                  />
+                {/key}
+              {/if}
+            </div>
+          </div>
+        {/each}
+      </div>
 
-      {#if visitedTabs['cron']}
-        <div class="tab-wrapper" class:hidden={activeTab !== 'cron'}>
-          <CronManager />
-        </div>
-      {/if}
-
-      {#if visitedTabs['users']}
-        <div class="tab-wrapper" class:hidden={activeTab !== 'users'}>
-          <UserManager />
-        </div>
-      {/if}
-
-      {#if visitedTabs['firewall']}
-        <div class="tab-wrapper" class:hidden={activeTab !== 'firewall'}>
-          <FirewallManager />
-        </div>
-      {/if}
-
-      {#if visitedTabs['crowdsec']}
-        <div class="tab-wrapper" class:hidden={activeTab !== 'crowdsec'}>
-          <CrowdsecManager profileId={currentProfileId} />
-        </div>
-      {/if}
-
-      {#if visitedTabs['pangolin']}
-        <div class="tab-wrapper" class:hidden={activeTab !== 'pangolin'}>
-          <PangolinManager />
-        </div>
-      {/if}
-
-      {#if visitedTabs['logs']}
-        <div class="tab-wrapper" class:hidden={activeTab !== 'logs'}>
-          <LogViewer />
-        </div>
-      {/if}
-
-      {#if visitedTabs['terminal']}
-        <div class="tab-wrapper" class:hidden={activeTab !== 'terminal'}>
-          {#key terminalContainerSession}
-            <TerminalView
-              profileId={currentProfileId}
-              containerSession={terminalContainerSession}
-              onExitContainer={() => { terminalContainerSession = null; }}
-            />
-          {/key}
+      <!-- Custom Drag Ghost -->
+      {#if customDragState?.active}
+        <div 
+          class="custom-drag-ghost"
+          style="left: {customDragState.currentX + 15}px; top: {customDragState.currentY + 15}px;"
+        >
+          {customDragState.type === 'pane' ? 'Przenoszenie panelu' : 'Otwieranie zakładki'}
         </div>
       {/if}
     </div>
@@ -570,6 +1189,7 @@
   {/if}
 </main>
 
+
 <style>
   .app-container {
     position: relative;
@@ -623,16 +1243,6 @@
     transform: translateY(0);
   }
 
-  .tab-wrapper {
-    height: 100%;
-    width: 100%;
-    overflow: hidden;
-  }
-
-  .tab-wrapper.hidden {
-    display: none !important;
-  }
-
   .connect-error-bar {
     display: flex;
     align-items: center;
@@ -645,7 +1255,318 @@
     flex-shrink: 0;
   }
 
-  /* Login screen styles */
+  /* ────────────── Workspace Control Bar ────────────── */
+
+  .workspace-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--border-color);
+    background: rgba(0, 0, 0, 0.2);
+    flex-shrink: 0;
+    min-height: 36px;
+  }
+
+  .workspace-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .workspace-label {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .workspace-pane-count {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.03);
+    padding: 2px 8px;
+    border-radius: 2px;
+    border: 1px solid var(--border-color);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .workspace-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .layout-btn {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    min-height: 28px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.1s ease, color 0.1s ease, border-color 0.1s ease;
+  }
+
+  .layout-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .layout-btn.active {
+    background: var(--bg-active);
+    color: var(--accent-amber);
+    border-color: rgba(245, 158, 11, 0.2);
+  }
+
+  /* ────────────── Panes Grid ────────────── */
+
+  .panes-grid {
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .panes-grid.multi {
+    display: grid;
+    grid-template-columns: repeat(120, 1fr);
+    grid-template-rows: repeat(120, 1fr);
+    gap: 1px;
+    background: var(--border-color);
+  }
+
+  .pane-container {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    background: var(--bg-secondary);
+    border: 2px solid transparent;
+    transition: border-color 0.12s ease;
+  }
+
+  .panes-grid:not(.multi) .pane-container {
+    height: 100%;
+  }
+
+  .pane-container.pane-focused {
+    border-color: rgba(245, 158, 11, 0.15);
+  }
+
+  .panes-grid.multi .pane-container.pane-focused {
+    border-color: rgba(245, 158, 11, 0.35);
+  }
+
+  /* ────────────── Pane Header ────────────── */
+
+  .pane-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--border-color);
+    background: rgba(0, 0, 0, 0.25);
+    flex-shrink: 0;
+    min-height: 30px;
+    position: relative;
+    cursor: grab;
+    -webkit-user-drag: element;
+    user-select: none;
+  }
+  
+  .pane-header:active {
+    cursor: grabbing;
+  }
+
+  .pane-tab-selector {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: none;
+    padding: 3px 8px;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.1s ease, color 0.1s ease;
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+  
+  .drag-handle {
+    opacity: 0.4;
+  }
+
+  .pane-tab-selector:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .pane-tab-name {
+    white-space: nowrap;
+  }
+
+  .pane-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .pane-action-btn {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.1s ease, color 0.1s ease;
+  }
+
+  .pane-action-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .pane-close:hover {
+    background: var(--accent-red-glow);
+    color: var(--accent-red);
+  }
+
+  /* ────────────── Pane Tab Dropdown ────────────── */
+
+  .pane-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 4px;
+    z-index: 100;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    max-height: 320px;
+    overflow-y: auto;
+    min-width: 180px;
+  }
+
+  .pane-dropdown-item {
+    width: 100%;
+    background: transparent;
+    border: none;
+    padding: 7px 12px;
+    text-align: left;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: background 0.08s ease, color 0.08s ease;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+    border-radius: 0;
+  }
+
+  .pane-dropdown-item:last-child {
+    border-bottom: none;
+  }
+
+  .pane-dropdown-item:hover {
+    background: var(--bg-hover);
+    color: white;
+  }
+
+  .pane-dropdown-item.active {
+    color: var(--accent-amber);
+    background: var(--bg-active);
+  }
+
+  /* ────────────── Pane Content ────────────── */
+
+  .pane-content {
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ────────────── Drop Zone Overlay ────────────── */
+
+  .drop-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    pointer-events: none;
+  }
+
+  .drop-zone {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    background: rgba(245, 158, 11, 0.03);
+    border: 2px dashed rgba(245, 158, 11, 0.12);
+    color: rgba(245, 158, 11, 0.3);
+    transition: background 0.1s ease, border-color 0.1s ease, color 0.1s ease;
+    font-size: 0.72rem;
+    font-weight: 600;
+    pointer-events: auto;
+  }
+
+  .drop-zone.active {
+    background: rgba(245, 158, 11, 0.1);
+    border-color: rgba(245, 158, 11, 0.5);
+    color: var(--accent-amber);
+    box-shadow: inset 0 0 20px rgba(245, 158, 11, 0.08);
+  }
+
+  .drop-zone-top {
+    top: 4px;
+    left: 25%;
+    right: 25%;
+    height: 22%;
+  }
+
+  .drop-zone-bottom {
+    bottom: 4px;
+    left: 25%;
+    right: 25%;
+    height: 22%;
+  }
+
+  .drop-zone-left {
+    top: 25%;
+    bottom: 25%;
+    left: 4px;
+    width: 22%;
+  }
+
+  .drop-zone-right {
+    top: 25%;
+    bottom: 25%;
+    right: 4px;
+    width: 22%;
+  }
+
+  .drop-zone-center {
+    top: 30%;
+    bottom: 30%;
+    left: 30%;
+    right: 30%;
+  }
+
+  /* ────────────── Login Screen ────────────── */
+
   .login-screen {
     position: relative;
     width: 100vw;
@@ -768,7 +1689,7 @@
     justify-content: space-between;
     cursor: pointer;
     text-align: left;
-    transition: var(--transition-fast);
+    transition: background 0.1s ease, border-color 0.1s ease, transform 0.1s ease;
   }
 
   .profile-card:hover {
@@ -837,7 +1758,7 @@
     border-radius: 4px;
     color: var(--text-muted);
     cursor: pointer;
-    transition: var(--transition-fast);
+    transition: background 0.1s ease, color 0.1s ease;
   }
 
   .icon-btn-card:hover {
@@ -852,7 +1773,7 @@
 
   .chevron-icon {
     color: var(--text-muted);
-    transition: var(--transition-fast);
+    transition: color 0.1s ease, transform 0.1s ease;
   }
 
   .profile-card:hover .chevron-icon {
@@ -919,5 +1840,35 @@
   @keyframes spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
+  }
+
+  .custom-drag-ghost {
+    position: fixed;
+    background: var(--surface-2);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    padding: 8px 12px;
+    border-radius: 6px;
+    pointer-events: none;
+    z-index: 9999;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .resizer {
+    background: transparent;
+    transition: background 0.2s;
+  }
+  .resizer:hover, .resizer:active {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  .resizer-v {
+    border-left: 1px solid transparent;
+    border-right: 1px solid transparent;
+  }
+  .resizer-h {
+    border-top: 1px solid transparent;
+    border-bottom: 1px solid transparent;
   }
 </style>
