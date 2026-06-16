@@ -1,12 +1,14 @@
 <script lang="ts">
   import { KeyRound } from 'lucide-svelte';
   import { invoke } from '@tauri-apps/api/core';
+  import { LL } from '$lib/i18n/i18n-svelte';
+  import { formatInvokeError } from '$lib/i18n/backendErrors';
 
   let {
     open = $bindable(false),
     onSuccess = () => {},
-    title = 'Wymagane hasło sudo',
-    description = 'Podaj hasło sudo, aby wykonać tę operację.',
+    title = undefined as string | undefined,
+    description = undefined as string | undefined,
   } = $props();
 
   let sudoPassword = $state('');
@@ -21,8 +23,8 @@
       open = false;
       sudoPassword = '';
       onSuccess();
-    } catch (err: any) {
-      sudoError = err.toString();
+    } catch (err: unknown) {
+      sudoError = formatInvokeError(err);
     } finally {
       isSubmitting = false;
     }
@@ -40,12 +42,12 @@
     <div class="modal glass" role="dialog" onclick={(e) => e.stopPropagation()}>
       <div class="modal-header">
         <KeyRound size={18} />
-        <h3>{title}</h3>
+        <h3>{title ?? $LL.sudo.titleRequired()}</h3>
       </div>
-      <p class="modal-desc">{description}</p>
+      <p class="modal-desc">{description ?? $LL.sudo.descRequired()}</p>
       <input
         type="password"
-        placeholder="Hasło sudo"
+        placeholder={$LL.sudo.passwordPlaceholder()}
         bind:value={sudoPassword}
         onkeydown={(e) => e.key === 'Enter' && submit()}
       />
@@ -53,9 +55,9 @@
         <div class="error-msg">{sudoError}</div>
       {/if}
       <div class="modal-actions">
-        <button class="secondary" onclick={close}>Anuluj</button>
+        <button class="secondary" onclick={close}>{$LL.common.cancel()}</button>
         <button class="primary" disabled={isSubmitting || !sudoPassword} onclick={submit}>
-          {isSubmitting ? 'Weryfikacja...' : 'Potwierdź'}
+          {isSubmitting ? $LL.sudo.verifying() : $LL.common.confirm()}
         </button>
       </div>
     </div>

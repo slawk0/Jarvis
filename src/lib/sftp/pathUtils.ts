@@ -1,3 +1,5 @@
+import { getIntlLocale } from '$lib/i18n/formatLocale';
+
 export function joinRemotePath(base: string, name: string): string {
   if (!base || base === '/') {
     return `/${name}`.replace(/\/+/g, '/');
@@ -47,7 +49,7 @@ export function formatSpeed(bps: number): string {
 export function formatModified(timestamp: number): string {
   if (!timestamp) return '--';
   const date = new Date(timestamp * 1000);
-  return date.toLocaleString('pl-PL', {
+  return date.toLocaleString(getIntlLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',

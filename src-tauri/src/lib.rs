@@ -1,3 +1,4 @@
+mod app_error;
 mod ssh;
 mod sftp_transfer;
 mod du_size;
@@ -5,7 +6,7 @@ mod sftp_find;
 mod pangolin;
 mod profile_extras;
 
-
+use app_error::AppError;
 use parking_lot::Mutex;
 use std::sync::Arc;
 use std::collections::HashMap;
@@ -30,7 +31,7 @@ pub struct Profile {
     pub host: String,
     pub port: u16,
     pub username: String,
-    pub auth_type: String, // "password" | "key"
+    pub auth_type: String,
     pub key_path: Option<String>,
 }
 
@@ -72,21 +73,30 @@ fn stop_terminal_session(state: &AppState, session_id: &str) {
     }
 }
 
-// Pomocnicza funkcja do pobierania ścieżki pliku profili
-fn get_profiles_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
-    let mut path = app_handle.path().app_config_dir().map_err(|e| e.to_string())?;
-    fs::create_dir_all(&path).map_err(|e| format!("Nie można utworzyć katalogu konfiguracji: {}", e))?;
+fn no_ssh_connection() -> AppError {
+    AppError::new("NO_SSH_CONNECTION")
+}
+
+fn get_profiles_path(app_handle: &AppHandle) -> Result<PathBuf, AppError> {
+    let mut path = app_handle
+        .path()
+        .app_config_dir()
+        .map_err(|e| AppError::with_details("APP_CONFIG_DIR_FAILED", e.to_string()))?;
+    fs::create_dir_all(&path).map_err(|e| {
+        AppError::with_details("CONFIG_DIR_CREATE_FAILED", e.to_string())
+    })?;
     path.push("profiles.json");
     Ok(path)
 }
 
 #[tauri::command]
-fn get_profiles(app_handle: AppHandle) -> Result<Vec<Profile>, String> {
+fn get_profiles(app_handle: AppHandle) -> Result<Vec<Profile>, AppError> {
     let path = get_profiles_path(&app_handle)?;
     if !path.exists() {
         return Ok(Vec::new());
     }
-    let content = fs::read_to_string(path).map_err(|e| format!("Błąd odczytu profili: {}", e))?;
+    let content = fs::read_to_string(path)
+        .map_err(|e| AppError::with_details("PROFILES_READ_FAILED", e.to_string()))?;
     let profiles: Vec<Profile> = serde_json::from_str(&content).unwrap_or_else(|_| Vec::new());
     Ok(profiles)
 }
@@ -97,44 +107,46 @@ fn save_profile(
     profile: Profile,
     password: Option<String>,
     key_passphrase: Option<String>,
-) -> Result<(), String> {
-    // 1. Zapis poświadczeń do Keyringa
+) -> Result<(), AppError> {
     let keyring_service = "JarvisServerManager";
-    
+
     if let Some(pass) = password {
         let entry = Entry::new(keyring_service, &format!("{}_pass", profile.id))
-            .map_err(|e| format!("Błąd inicjalizacji Keyringa: {}", e))?;
-        entry.set_password(&pass).map_err(|e| format!("Błąd zapisu hasła w Keyringu: {}", e))?;
-    }
-    
-    if let Some(passphrase) = key_passphrase {
-        let entry = Entry::new(keyring_service, &format!("{}_passphrase", profile.id))
-            .map_err(|e| format!("Błąd inicjalizacji Keyringa: {}", e))?;
-        entry.set_password(&passphrase).map_err(|e| format!("Błąd zapisu hasła klucza w Keyringu: {}", e))?;
+            .map_err(|e| AppError::with_details("KEYRING_INIT_FAILED", e.to_string()))?;
+        entry
+            .set_password(&pass)
+            .map_err(|e| AppError::with_details("KEYRING_PASSWORD_SAVE_FAILED", e.to_string()))?;
     }
 
-    // 2. Zapis profilu do pliku JSON
+    if let Some(passphrase) = key_passphrase {
+        let entry = Entry::new(keyring_service, &format!("{}_passphrase", profile.id))
+            .map_err(|e| AppError::with_details("KEYRING_INIT_FAILED", e.to_string()))?;
+        entry
+            .set_password(&passphrase)
+            .map_err(|e| AppError::with_details("KEYRING_PASSPHRASE_SAVE_FAILED", e.to_string()))?;
+    }
+
     let path = get_profiles_path(&app_handle)?;
-    let mut profiles = get_profiles(app_handle)?;
-    
-    // Jeśli profil już istnieje, nadpisujemy go, w przeciwnym razie dodajemy nowy
+    let mut profiles = get_profiles(app_handle.clone())?;
+
     if let Some(pos) = profiles.iter().position(|p| p.id == profile.id) {
         profiles[pos] = profile;
     } else {
         profiles.push(profile);
     }
-    
-    let content = serde_json::to_string_pretty(&profiles).map_err(|e| e.to_string())?;
-    fs::write(path, content).map_err(|e| format!("Błąd zapisu pliku profili: {}", e))?;
-    
+
+    let content = serde_json::to_string_pretty(&profiles)
+        .map_err(|e| AppError::with_details("JSON_SERIALIZE_FAILED", e.to_string()))?;
+    fs::write(path, content)
+        .map_err(|e| AppError::with_details("PROFILES_WRITE_FAILED", e.to_string()))?;
+
     Ok(())
 }
 
 #[tauri::command]
-fn delete_profile(app_handle: AppHandle, id: String) -> Result<(), String> {
+fn delete_profile(app_handle: AppHandle, id: String) -> Result<(), AppError> {
     let keyring_service = "JarvisServerManager";
-    
-    // Usuwanie poświadczeń z Keyringa
+
     if let Ok(entry) = Entry::new(keyring_service, &format!("{}_pass", id)) {
         entry.delete_password().ok();
     }
@@ -142,14 +154,15 @@ fn delete_profile(app_handle: AppHandle, id: String) -> Result<(), String> {
         entry.delete_password().ok();
     }
 
-    // Usuwanie profilu z JSON
     let path = get_profiles_path(&app_handle)?;
-    let mut profiles = get_profiles(app_handle)?;
+    let mut profiles = get_profiles(app_handle.clone())?;
     profiles.retain(|p| p.id != id);
-    
-    let content = serde_json::to_string_pretty(&profiles).map_err(|e| e.to_string())?;
-    fs::write(path, content).map_err(|e| format!("Błąd zapisu pliku profili: {}", e))?;
-    
+
+    let content = serde_json::to_string_pretty(&profiles)
+        .map_err(|e| AppError::with_details("JSON_SERIALIZE_FAILED", e.to_string()))?;
+    fs::write(path, content)
+        .map_err(|e| AppError::with_details("PROFILES_WRITE_FAILED", e.to_string()))?;
+
     Ok(())
 }
 
@@ -158,16 +171,15 @@ async fn connect_ssh(
     state: State<'_, AppState>,
     app_handle: AppHandle,
     profile_id: String,
-) -> Result<ServerStats, String> {
-    // Rozłącz poprzednie połączenie
+) -> Result<ServerStats, AppError> {
     disconnect_ssh(state.clone()).await.ok();
 
-    // 1. Pobierz profil
-    let profiles = get_profiles(app_handle)?;
-    let profile = profiles.iter().find(|p| p.id == profile_id)
-        .ok_or_else(|| "Profil nie istnieje".to_string())?;
+    let profiles = get_profiles(app_handle.clone())?;
+    let profile = profiles
+        .iter()
+        .find(|p| p.id == profile_id)
+        .ok_or_else(|| AppError::new("PROFILE_NOT_FOUND"))?;
 
-    // 2. Pobierz poświadczenia z Keyringa
     let keyring_service = "JarvisServerManager";
     let password = if profile.auth_type == "password" {
         let entry = Entry::new(keyring_service, &format!("{}_pass", profile.id)).ok();
@@ -189,20 +201,18 @@ async fn connect_ssh(
         None
     };
 
-    // 3. Połącz przez SSH
     let conn = SshConnection::connect(
         &profile.host,
         profile.port,
         &profile.username,
         password.as_deref(),
         private_key_path,
-        passphrase.as_deref()
-    ).await?;
+        passphrase.as_deref(),
+    )
+    .await?;
 
-    // 4. Pobierz wstępne statystyki serwera
     let stats = conn.get_stats().await?;
 
-    // Zapisz poświadczenia w RAM do ponownego wykorzystania (np. do terminala)
     let creds = SshCreds {
         host: profile.host.clone(),
         port: profile.port,
@@ -214,40 +224,36 @@ async fn connect_ssh(
 
     *state.ssh_creds.lock() = Some(creds);
     *state.connection.lock() = Some(conn);
-    
-    // Resetuj sudo_password
     *state.sudo_password.lock() = None;
 
     Ok(stats)
 }
 
 #[tauri::command]
-async fn disconnect_ssh(state: State<'_, AppState>) -> Result<(), String> {
-    // Zamknij połączenie SSH
+async fn disconnect_ssh(state: State<'_, AppState>) -> Result<(), AppError> {
     *state.connection.lock() = None;
     *state.ssh_creds.lock() = None;
     *state.sudo_password.lock() = None;
-    
-    // Zamknij terminal
     stop_terminal_sessions(&state);
-
     Ok(())
 }
 
 #[tauri::command]
-async fn get_server_stats(state: State<'_, AppState>) -> Result<ServerStats, String> {
+async fn get_server_stats(state: State<'_, AppState>) -> Result<ServerStats, AppError> {
     let conn = {
         let conn_guard = state.connection.lock();
-        conn_guard.as_ref().ok_or("Brak aktywnego połączenia SSH")?.clone()
+        conn_guard.as_ref().ok_or_else(no_ssh_connection)?.clone()
     };
     conn.get_stats().await
 }
 
 #[tauri::command]
-async fn get_extended_server_stats(state: State<'_, AppState>) -> Result<ExtendedServerStats, String> {
+async fn get_extended_server_stats(
+    state: State<'_, AppState>,
+) -> Result<ExtendedServerStats, AppError> {
     let conn = {
         let conn_guard = state.connection.lock();
-        conn_guard.as_ref().ok_or("Brak aktywnego połączenia SSH")?.clone()
+        conn_guard.as_ref().ok_or_else(no_ssh_connection)?.clone()
     };
     conn.get_extended_stats().await
 }
@@ -257,7 +263,7 @@ async fn switch_ssh(
     state: State<'_, AppState>,
     app_handle: AppHandle,
     profile_id: String,
-) -> Result<ServerStats, String> {
+) -> Result<ServerStats, AppError> {
     connect_ssh(state, app_handle, profile_id).await
 }
 
@@ -266,57 +272,63 @@ async fn exec_custom_command(
     state: State<'_, AppState>,
     cmd: String,
     use_sudo: bool,
-) -> Result<String, String> {
+) -> Result<String, AppError> {
     let conn = {
         let conn_guard = state.connection.lock();
-        conn_guard.as_ref().ok_or("Brak aktywnego połączenia SSH")?.clone()
+        conn_guard.as_ref().ok_or_else(no_ssh_connection)?.clone()
     };
 
     if use_sudo {
         let sudo_pass = {
             let sudo_pass_guard = state.sudo_password.lock();
-            sudo_pass_guard.as_ref().ok_or("SUDO_PASSWORD_REQUIRED")?.clone()
+            sudo_pass_guard
+                .as_ref()
+                .ok_or_else(|| AppError::new("SUDO_PASSWORD_REQUIRED"))?
+                .clone()
         };
-        
-        // Wykonanie komendy przez sudo -S (przekazanie hasła przez stdin)
+
         let formatted_cmd = format!("echo '{}' | sudo -S -- {}", sudo_pass, cmd);
         let (exit_code, stdout, stderr) = conn.exec(&formatted_cmd).await?;
-        
+
         if exit_code != 0 {
-            // Jeśli hasło sudo było niepoprawne
             if stderr.contains("incorrect password attempt") || stderr.contains("złe hasło") {
-                return Err("SUDO_PASSWORD_INCORRECT".to_string());
+                return Err(AppError::new("SUDO_PASSWORD_INCORRECT"));
             }
-            return Err(format!("Błąd [kod {}]: {}\n{}", exit_code, stderr, stdout));
+            return Err(AppError::with_details(
+                "REMOTE_COMMAND_FAILED",
+                format!("exit={}\nstderr={}\nstdout={}", exit_code, stderr, stdout),
+            ));
         }
         Ok(stdout)
     } else {
         let (exit_code, stdout, stderr) = conn.exec(&cmd).await?;
         if exit_code != 0 {
-            return Err(format!("Błąd [kod {}]: {}\n{}", exit_code, stderr, stdout));
+            return Err(AppError::with_details(
+                "REMOTE_COMMAND_FAILED",
+                format!("exit={}\nstderr={}\nstdout={}", exit_code, stderr, stdout),
+            ));
         }
         Ok(stdout)
     }
 }
 
 #[tauri::command]
-async fn set_sudo_password(state: State<'_, AppState>, password: String) -> Result<(), String> {
+async fn set_sudo_password(state: State<'_, AppState>, password: String) -> Result<(), AppError> {
     let conn = {
         let conn_guard = state.connection.lock();
-        conn_guard.as_ref().ok_or("Brak aktywnego połączenia SSH")?.clone()
+        conn_guard.as_ref().ok_or_else(no_ssh_connection)?.clone()
     };
-    
-    // Zweryfikuj hasło sudo wykonując prostą komendę (np. sudo -S id)
+
     let test_cmd = format!("echo '{}' | sudo -S id", password);
     let (exit_code, _stdout, stderr) = conn.exec(&test_cmd).await?;
-    
+
     if exit_code != 0 {
         if stderr.contains("incorrect password attempt") || stderr.contains("złe hasło") {
-            return Err("Niepoprawne hasło sudo".to_string());
+            return Err(AppError::new("SUDO_PASSWORD_INCORRECT"));
         }
-        return Err(format!("Błąd weryfikacji sudo: {}", stderr));
+        return Err(AppError::with_details("SUDO_VERIFICATION_FAILED", stderr));
     }
-    
+
     *state.sudo_password.lock() = Some(password);
     Ok(())
 }
@@ -326,21 +338,20 @@ fn has_sudo_password(state: State<'_, AppState>) -> bool {
     state.sudo_password.lock().is_some()
 }
 
-// SFTP Commands
 #[tauri::command]
-async fn sftp_list(state: State<'_, AppState>, path: String) -> Result<Vec<FileInfo>, String> {
+async fn sftp_list(state: State<'_, AppState>, path: String) -> Result<Vec<FileInfo>, AppError> {
     let conn = {
         let conn_guard = state.connection.lock();
-        conn_guard.as_ref().ok_or("Brak aktywnego połączenia SSH")?.clone()
+        conn_guard.as_ref().ok_or_else(no_ssh_connection)?.clone()
     };
     conn.sftp_list_dir(&path).await
 }
 
 #[tauri::command]
-async fn sftp_dir_size(state: State<'_, AppState>, path: String) -> Result<u64, String> {
+async fn sftp_dir_size(state: State<'_, AppState>, path: String) -> Result<u64, AppError> {
     let conn = {
         let conn_guard = state.connection.lock();
-        conn_guard.as_ref().ok_or("Brak aktywnego połączenia SSH")?.clone()
+        conn_guard.as_ref().ok_or_else(no_ssh_connection)?.clone()
     };
     conn.sftp_dir_size(&path).await
 }
@@ -351,83 +362,91 @@ async fn sftp_find(
     root: String,
     query: String,
     hide_hidden: bool,
-) -> Result<Vec<FileInfo>, String> {
+) -> Result<Vec<FileInfo>, AppError> {
     let conn = {
         let conn_guard = state.connection.lock();
-        conn_guard
-            .as_ref()
-            .ok_or("Brak aktywnego połączenia SSH")?
-            .clone()
+        conn_guard.as_ref().ok_or_else(no_ssh_connection)?.clone()
     };
     conn.sftp_find(&root, &query, hide_hidden).await
 }
 
 #[tauri::command]
-async fn sftp_read(state: State<'_, AppState>, path: String) -> Result<String, String> {
+async fn sftp_read(state: State<'_, AppState>, path: String) -> Result<String, AppError> {
     let conn = {
         let conn_guard = state.connection.lock();
-        conn_guard.as_ref().ok_or("Brak aktywnego połączenia SSH")?.clone()
+        conn_guard.as_ref().ok_or_else(no_ssh_connection)?.clone()
     };
     conn.sftp_read_file(&path).await
 }
 
 #[tauri::command]
-async fn sftp_write(state: State<'_, AppState>, path: String, content: String) -> Result<(), String> {
+async fn sftp_write(
+    state: State<'_, AppState>,
+    path: String,
+    content: String,
+) -> Result<(), AppError> {
     let conn = {
         let conn_guard = state.connection.lock();
-        conn_guard.as_ref().ok_or("Brak aktywnego połączenia SSH")?.clone()
+        conn_guard.as_ref().ok_or_else(no_ssh_connection)?.clone()
     };
     conn.sftp_write_file(&path, &content).await
 }
 
 #[tauri::command]
-async fn sftp_create_dir(state: State<'_, AppState>, path: String) -> Result<(), String> {
+async fn sftp_create_dir(state: State<'_, AppState>, path: String) -> Result<(), AppError> {
     let conn = {
         let conn_guard = state.connection.lock();
-        conn_guard.as_ref().ok_or("Brak aktywnego połączenia SSH")?.clone()
+        conn_guard.as_ref().ok_or_else(no_ssh_connection)?.clone()
     };
     conn.sftp_create_dir(&path).await
 }
 
 #[tauri::command]
-async fn sftp_delete(state: State<'_, AppState>, path: String, is_dir: bool) -> Result<(), String> {
+async fn sftp_delete(
+    state: State<'_, AppState>,
+    path: String,
+    is_dir: bool,
+) -> Result<(), AppError> {
     let conn = {
         let conn_guard = state.connection.lock();
-        conn_guard.as_ref().ok_or("Brak aktywnego połączenia SSH")?.clone()
+        conn_guard.as_ref().ok_or_else(no_ssh_connection)?.clone()
     };
     conn.sftp_delete_file(&path, is_dir).await
 }
 
 #[tauri::command]
-async fn sftp_rename(state: State<'_, AppState>, src: String, dest: String) -> Result<(), String> {
+async fn sftp_rename(
+    state: State<'_, AppState>,
+    src: String,
+    dest: String,
+) -> Result<(), AppError> {
     let conn = {
         let conn_guard = state.connection.lock();
-        conn_guard.as_ref().ok_or("Brak aktywnego połączenia SSH")?.clone()
+        conn_guard.as_ref().ok_or_else(no_ssh_connection)?.clone()
     };
     conn.sftp_rename(&src, &dest).await
 }
 
-fn validate_shell(shell: &str) -> Result<(), String> {
+fn validate_shell(shell: &str) -> Result<(), AppError> {
     if shell.is_empty() || shell.len() > 64 {
-        return Err("Nieprawidłowa powłoka".to_string());
+        return Err(AppError::new("INVALID_SHELL"));
     }
     if !shell.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '/')) {
-        return Err("Nieprawidłowa powłoka".to_string());
+        return Err(AppError::new("INVALID_SHELL"));
     }
     Ok(())
 }
 
-fn validate_container_id(id: &str) -> Result<(), String> {
+fn validate_container_id(id: &str) -> Result<(), AppError> {
     if id.is_empty() || id.len() > 128 {
-        return Err("Nieprawidłowy identyfikator kontenera".to_string());
+        return Err(AppError::new("INVALID_CONTAINER_ID"));
     }
     if !id.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '/')) {
-        return Err("Nieprawidłowy identyfikator kontenera".to_string());
+        return Err(AppError::new("INVALID_CONTAINER_ID"));
     }
     Ok(())
 }
 
-// Terminal Commands
 #[tauri::command]
 async fn start_terminal(
     state: State<'_, AppState>,
@@ -436,12 +455,17 @@ async fn start_terminal(
     container_id: Option<String>,
     use_sudo: Option<bool>,
     shell: Option<String>,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     let use_sudo = use_sudo.unwrap_or(false);
     let shell = shell.unwrap_or_else(|| "/bin/sh".to_string());
     let sudo_pass = if container_id.is_some() && use_sudo {
         let sudo_pass_guard = state.sudo_password.lock();
-        Some(sudo_pass_guard.as_ref().ok_or("SUDO_PASSWORD_REQUIRED")?.clone())
+        Some(
+            sudo_pass_guard
+                .as_ref()
+                .ok_or_else(|| AppError::new("SUDO_PASSWORD_REQUIRED"))?
+                .clone(),
+        )
     } else {
         None
     };
@@ -454,17 +478,20 @@ async fn start_terminal(
     stop_terminal_session(&state, &session_id);
 
     let creds_guard = state.ssh_creds.lock();
-    let creds = creds_guard.as_ref().ok_or("Brak aktywnego połączenia SSH")?.clone();
+    let creds = creds_guard.as_ref().ok_or_else(no_ssh_connection)?.clone();
 
     let (cancel_tx, mut cancel_rx) = tokio::sync::oneshot::channel::<()>();
-    state.terminal_cancels.lock().insert(session_id.clone(), cancel_tx);
+    state
+        .terminal_cancels
+        .lock()
+        .insert(session_id.clone(), cancel_tx);
 
     let (tx, mut rx) = mpsc::channel::<String>(100);
     state.terminal_txs.lock().insert(session_id.clone(), tx);
 
     let app_handle_clone = app_handle.clone();
     let session_id_clone = session_id.clone();
-    
+
     tokio::spawn(async move {
         let run_terminal = async {
             let private_key_path = creds.private_key.as_ref().map(std::path::Path::new);
@@ -483,12 +510,12 @@ async fn start_terminal(
                 let channel = session
                     .channel_open_session()
                     .await
-                    .map_err(|e| format!("Błąd kanału: {}", e))?;
+                    .map_err(|e| AppError::with_details("SSH_CHANNEL_OPEN_FAILED", e.to_string()))?;
 
                 channel
                     .request_pty(true, "xterm-256color", 80, 24, 0, 0, &[])
                     .await
-                    .map_err(|e| format!("Błąd PTY: {}", e))?;
+                    .map_err(|e| AppError::with_details("SSH_PTY_FAILED", e.to_string()))?;
 
                 if let Some(ref id) = container_id {
                     let docker_cmd = format!(
@@ -508,12 +535,14 @@ async fn start_terminal(
                     channel
                         .exec(true, cmd.as_bytes())
                         .await
-                        .map_err(|e| format!("Błąd uruchomienia shella kontenera: {}", e))?;
+                        .map_err(|e| {
+                            AppError::with_details("CONTAINER_SHELL_START_FAILED", e.to_string())
+                        })?;
                 } else {
                     channel
                         .request_shell(true)
                         .await
-                        .map_err(|e| format!("Błąd Shell: {}", e))?;
+                        .map_err(|e| AppError::with_details("SSH_SHELL_FAILED", e.to_string()))?;
                 }
 
                 channel
@@ -573,11 +602,16 @@ async fn start_terminal(
                 }
             }
 
-            Ok::<(), String>(())
+            Ok::<(), AppError>(())
         };
 
         if let Err(e) = run_terminal.await {
-            app_handle_clone.emit(&format!("terminal-stdout-{}", session_id_clone), format!("\r\n[Błąd sesji SSH terminala: {}]\r\n", e)).ok();
+            app_handle_clone
+                .emit(
+                    &format!("terminal-stdout-{}", session_id_clone),
+                    format!("\r\n[Błąd sesji SSH terminala: {}]\r\n", e),
+                )
+                .ok();
         }
     });
 
@@ -585,20 +619,25 @@ async fn start_terminal(
 }
 
 #[tauri::command]
-async fn stop_terminal(state: State<'_, AppState>, session_id: String) -> Result<(), String> {
+async fn stop_terminal(state: State<'_, AppState>, session_id: String) -> Result<(), AppError> {
     stop_terminal_session(&state, &session_id);
     Ok(())
 }
 
 #[tauri::command]
-fn send_terminal_input(state: State<'_, AppState>, session_id: String, input: String) -> Result<(), String> {
+fn send_terminal_input(
+    state: State<'_, AppState>,
+    session_id: String,
+    input: String,
+) -> Result<(), AppError> {
     let txs_guard = state.terminal_txs.lock();
     if let Some(tx) = txs_guard.get(&session_id) {
-        tx.try_send(input)
-            .map_err(|e| format!("Nie można wysłać danych do terminala: {}", e))?;
+        tx.try_send(input).map_err(|e| {
+            AppError::with_details("TERMINAL_SEND_FAILED", e.to_string())
+        })?;
         Ok(())
     } else {
-        Err("Terminal nie jest uruchomiony".to_string())
+        Err(AppError::new("TERMINAL_NOT_RUNNING"))
     }
 }
 
@@ -610,10 +649,12 @@ fn open_external_terminal(
     container_id: Option<String>,
     use_sudo: Option<bool>,
     shell: Option<String>,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     let profiles = get_profiles(app_handle)?;
-    let profile = profiles.iter().find(|p| p.id == profile_id)
-        .ok_or_else(|| "Profil nie istnieje".to_string())?;
+    let profile = profiles
+        .iter()
+        .find(|p| p.id == profile_id)
+        .ok_or_else(|| AppError::new("PROFILE_NOT_FOUND"))?;
 
     let use_sudo = use_sudo.unwrap_or(false);
     let shell = shell.unwrap_or_else(|| "/bin/sh".to_string());
@@ -629,7 +670,9 @@ fn open_external_terminal(
 
         if use_sudo {
             let sudo_pass = state.sudo_password.lock();
-            let pass = sudo_pass.as_ref().ok_or("SUDO_PASSWORD_REQUIRED")?;
+            let pass = sudo_pass
+                .as_ref()
+                .ok_or_else(|| AppError::new("SUDO_PASSWORD_REQUIRED"))?;
             format!("echo '{}' | sudo -S -- {}", pass, docker_cmd)
         } else {
             docker_cmd
@@ -638,14 +681,16 @@ fn open_external_terminal(
         String::new()
     };
 
-    // Sprawdź czy system to Windows
     #[cfg(target_os = "windows")]
     {
         use std::process::Command;
 
-        let mut ssh_args = if profile.auth_type == "key" {
+        let ssh_args = if profile.auth_type == "key" {
             if let Some(ref key_path) = profile.key_path {
-                format!("ssh -i \"{}\" -p {} {}@{}", key_path, profile.port, profile.username, profile.host)
+                format!(
+                    "ssh -i \"{}\" -p {} {}@{}",
+                    key_path, profile.port, profile.username, profile.host
+                )
             } else {
                 format!("ssh -p {} {}@{}", profile.port, profile.username, profile.host)
             }
@@ -653,11 +698,12 @@ fn open_external_terminal(
             format!("ssh -p {} {}@{}", profile.port, profile.username, profile.host)
         };
 
-        if !remote_cmd.is_empty() {
-            ssh_args = format!("{} -t \"{}\"", ssh_args, remote_cmd);
-        }
+        let ssh_args = if !remote_cmd.is_empty() {
+            format!("{} -t \"{}\"", ssh_args, remote_cmd)
+        } else {
+            ssh_args
+        };
 
-        // Próbujemy otworzyć w Windows Terminal, a jeśli nie ma, to w cmd.exe
         let wt_res = Command::new("wt")
             .arg("cmd.exe")
             .arg("/k")
@@ -665,7 +711,6 @@ fn open_external_terminal(
             .spawn();
 
         if wt_res.is_err() {
-            // Fallback do tradycyjnego cmd start
             Command::new("cmd.exe")
                 .arg("/c")
                 .arg("start")
@@ -673,27 +718,29 @@ fn open_external_terminal(
                 .arg("/k")
                 .arg(&ssh_args)
                 .spawn()
-                .map_err(|e| format!("Nie można otworzyć terminala CMD: {}", e))?;
+                .map_err(|e| AppError::with_details("EXTERNAL_TERMINAL_OPEN_FAILED", e.to_string()))?;
         }
     }
 
     #[cfg(not(target_os = "windows"))]
     {
         let _ = (profile, remote_cmd);
-        return Err("Zewnętrzny terminal jest wspierany obecnie na systemie Windows".to_string());
+        return Err(AppError::new("EXTERNAL_TERMINAL_WINDOWS_ONLY"));
     }
 
     Ok(())
 }
 
-#[tauri::command]
 fn spawn_transfer_batch(
     state: &AppState,
     app_handle: AppHandle,
     jobs: Vec<sftp_transfer::InternalJob>,
-) -> Result<(), String> {
-    if state.sftp_transfer_running.load(std::sync::atomic::Ordering::Relaxed) {
-        return Err("Transfer już trwa. Poczekaj lub anuluj bieżącą operację.".to_string());
+) -> Result<(), AppError> {
+    if state
+        .sftp_transfer_running
+        .load(std::sync::atomic::Ordering::Relaxed)
+    {
+        return Err(AppError::new("TRANSFER_ALREADY_RUNNING"));
     }
 
     state
@@ -705,10 +752,7 @@ fn spawn_transfer_batch(
 
     let conn = {
         let conn_guard = state.connection.lock();
-        conn_guard
-            .as_ref()
-            .ok_or("Brak aktywnego połączenia SSH")?
-            .clone()
+        conn_guard.as_ref().ok_or_else(no_ssh_connection)?.clone()
     };
 
     let cancel = state.sftp_transfer_cancel.clone();
@@ -729,9 +773,8 @@ async fn sftp_start_upload_batch(
     app_handle: AppHandle,
     remote_dir: String,
     local_paths: Vec<String>,
-) -> Result<u32, String> {
+) -> Result<u32, AppError> {
     let jobs = if local_paths.iter().any(|p| p.contains("::")) {
-        // Pre-built items: local::remote pairs from frontend flatten
         let items: Vec<UploadItem> = local_paths
             .iter()
             .map(|pair| {
@@ -757,13 +800,10 @@ async fn sftp_start_download_batch(
     app_handle: AppHandle,
     remote_paths: Vec<String>,
     local_dir: Option<String>,
-) -> Result<u32, String> {
+) -> Result<u32, AppError> {
     let conn = {
         let conn_guard = state.connection.lock();
-        conn_guard
-            .as_ref()
-            .ok_or("Brak aktywnego połączenia SSH")?
-            .clone()
+        conn_guard.as_ref().ok_or_else(no_ssh_connection)?.clone()
     };
 
     let base_dir = if let Some(dir) = local_dir {
@@ -775,8 +815,9 @@ async fn sftp_start_download_batch(
             .unwrap_or(0);
         get_downloads_dir().join(format!("Jarvis-SFTP-{}", ts))
     };
-    fs::create_dir_all(&base_dir)
-        .map_err(|e| format!("Nie można utworzyć katalogu docelowego: {}", e))?;
+    fs::create_dir_all(&base_dir).map_err(|e| {
+        AppError::with_details("DOWNLOAD_DIR_CREATE_FAILED", e.to_string())
+    })?;
 
     let sftp = sftp_transfer::open_sftp(&conn).await?;
     let mut jobs = Vec::new();
@@ -802,7 +843,7 @@ async fn sftp_start_move_batch(
     state: State<'_, AppState>,
     app_handle: AppHandle,
     moves: Vec<MoveItem>,
-) -> Result<u32, String> {
+) -> Result<u32, AppError> {
     let jobs = build_move_jobs(moves);
     let count = jobs.len() as u32;
     spawn_transfer_batch(&state, app_handle, jobs)?;
@@ -814,7 +855,7 @@ async fn sftp_start_delete_batch(
     state: State<'_, AppState>,
     app_handle: AppHandle,
     paths: Vec<DeleteItem>,
-) -> Result<u32, String> {
+) -> Result<u32, AppError> {
     let jobs = build_delete_jobs(paths);
     let count = jobs.len() as u32;
     spawn_transfer_batch(&state, app_handle, jobs)?;
@@ -822,7 +863,7 @@ async fn sftp_start_delete_batch(
 }
 
 #[tauri::command]
-async fn sftp_cancel_transfer(state: State<'_, AppState>) -> Result<(), String> {
+async fn sftp_cancel_transfer(state: State<'_, AppState>) -> Result<(), AppError> {
     state
         .sftp_transfer_cancel
         .store(true, std::sync::atomic::Ordering::Relaxed);
@@ -834,11 +875,22 @@ fn sftp_get_downloads_dir() -> String {
     get_downloads_dir().to_string_lossy().to_string()
 }
 
+fn pick_dialog_title(locale: &str, en: &str, pl: &str) -> String {
+    if locale.starts_with("pl") {
+        pl.to_string()
+    } else {
+        en.to_string()
+    }
+}
+
 #[tauri::command]
-fn sftp_pick_files() -> Result<Vec<String>, String> {
-    let files = rfd::FileDialog::new()
-        .set_title("Wybierz pliki do wysłania")
-        .pick_files();
+fn sftp_pick_files(locale: String) -> Result<Vec<String>, AppError> {
+    let title = pick_dialog_title(
+        &locale,
+        "Select files to upload",
+        "Wybierz pliki do wysłania",
+    );
+    let files = rfd::FileDialog::new().set_title(&title).pick_files();
     Ok(files
         .unwrap_or_default()
         .iter()
@@ -847,22 +899,29 @@ fn sftp_pick_files() -> Result<Vec<String>, String> {
 }
 
 #[tauri::command]
-fn sftp_pick_folder() -> Result<Option<String>, String> {
+fn sftp_pick_folder(locale: String) -> Result<Option<String>, AppError> {
+    let title = pick_dialog_title(
+        &locale,
+        "Select folder to upload",
+        "Wybierz folder do wysłania",
+    );
     Ok(rfd::FileDialog::new()
-        .set_title("Wybierz folder do wysłania")
+        .set_title(&title)
         .pick_folder()
         .map(|p| p.to_string_lossy().to_string()))
 }
 
 #[tauri::command]
-async fn sftp_get_home_dir(state: State<'_, AppState>) -> Result<String, String> {
+async fn sftp_get_home_dir(state: State<'_, AppState>) -> Result<String, AppError> {
     let conn = {
         let conn_guard = state.connection.lock();
-        conn_guard.as_ref().ok_or("Brak aktywnego połączenia SSH")?.clone()
+        conn_guard.as_ref().ok_or_else(no_ssh_connection)?.clone()
     };
     let sftp = conn.get_sftp().await?;
-    let path = sftp.canonicalize(".").await
-        .map_err(|e| format!("Błąd pobierania katalogu domowego: {}", e))?;
+    let path = sftp
+        .canonicalize(".")
+        .await
+        .map_err(|e| AppError::with_details("HOME_DIR_READ_FAILED", e.to_string()))?;
     Ok(path)
 }
 
@@ -873,8 +932,7 @@ async fn start_container_logs(
     container_id: String,
     tail: Option<u32>,
     use_sudo: bool,
-) -> Result<(), String> {
-    // Cancel any existing log stream
+) -> Result<(), AppError> {
     {
         let mut cancel_guard = state.docker_log_cancel.lock();
         if let Some(tx) = cancel_guard.take() {
@@ -883,7 +941,7 @@ async fn start_container_logs(
     }
 
     let creds_guard = state.ssh_creds.lock();
-    let creds = creds_guard.as_ref().ok_or("Brak aktywnego połączenia SSH")?.clone();
+    let creds = creds_guard.as_ref().ok_or_else(no_ssh_connection)?.clone();
 
     let sudo_pass = if use_sudo {
         let sudo_pass_guard = state.sudo_password.lock();
@@ -907,16 +965,22 @@ async fn start_container_logs(
                 &creds.username,
                 creds.password.as_deref(),
                 private_key_path,
-                creds.passphrase.as_deref()
-            ).await?;
+                creds.passphrase.as_deref(),
+            )
+            .await?;
 
             let session = conn.session.lock().await;
-            let mut channel = session.channel_open_session().await
-                .map_err(|e| format!("Błąd kanału: {}", e))?;
+            let mut channel = session
+                .channel_open_session()
+                .await
+                .map_err(|e| AppError::with_details("SSH_CHANNEL_OPEN_FAILED", e.to_string()))?;
 
             let cmd = if use_sudo {
                 if let Some(ref pass) = sudo_pass {
-                    format!("echo '{}' | sudo -S docker logs -f --tail {} {}", pass, tail_num, container_id)
+                    format!(
+                        "echo '{}' | sudo -S docker logs -f --tail {} {}",
+                        pass, tail_num, container_id
+                    )
                 } else {
                     format!("docker logs -f --tail {} {}", tail_num, container_id)
                 }
@@ -924,8 +988,10 @@ async fn start_container_logs(
                 format!("docker logs -f --tail {} {}", tail_num, container_id)
             };
 
-            channel.exec(true, cmd.as_bytes()).await
-                .map_err(|e| format!("Błąd uruchomienia docker logs: {}", e))?;
+            channel
+                .exec(true, cmd.as_bytes())
+                .await
+                .map_err(|e| AppError::with_details("DOCKER_LOGS_START_FAILED", e.to_string()))?;
 
             loop {
                 tokio::select! {
@@ -953,11 +1019,15 @@ async fn start_container_logs(
                 }
             }
 
-            Ok::<(), String>(())
+            Ok::<(), AppError>(())
         };
 
         if let Err(e) = run_logs.await {
-            app.emit("docker-log-data", format!("\n[Błąd strumienia logów: {}]\n", e)).ok();
+            app.emit(
+                "docker-log-data",
+                format!("\n[Log stream error: {}]\n", e),
+            )
+            .ok();
         }
     });
 
@@ -965,7 +1035,7 @@ async fn start_container_logs(
 }
 
 #[tauri::command]
-async fn stop_container_logs(state: State<'_, AppState>) -> Result<(), String> {
+async fn stop_container_logs(state: State<'_, AppState>) -> Result<(), AppError> {
     let mut cancel_guard = state.docker_log_cancel.lock();
     if let Some(tx) = cancel_guard.take() {
         tx.send(()).ok();
@@ -979,8 +1049,7 @@ async fn start_compose_pull(
     app_handle: AppHandle,
     config_file: String,
     use_sudo: bool,
-) -> Result<(), String> {
-    // Cancel any existing compose pull stream
+) -> Result<(), AppError> {
     {
         let mut cancel_guard = state.docker_compose_cancel.lock();
         if let Some(tx) = cancel_guard.take() {
@@ -989,7 +1058,7 @@ async fn start_compose_pull(
     }
 
     let creds_guard = state.ssh_creds.lock();
-    let creds = creds_guard.as_ref().ok_or("Brak aktywnego połączenia SSH")?.clone();
+    let creds = creds_guard.as_ref().ok_or_else(no_ssh_connection)?.clone();
 
     let sudo_pass = if use_sudo {
         let sudo_pass_guard = state.sudo_password.lock();
@@ -1012,17 +1081,22 @@ async fn start_compose_pull(
                 &creds.username,
                 creds.password.as_deref(),
                 private_key_path,
-                creds.passphrase.as_deref()
-            ).await?;
+                creds.passphrase.as_deref(),
+            )
+            .await?;
 
             let session = conn.session.lock().await;
-            let mut channel = session.channel_open_session().await
-                .map_err(|e| format!("Błąd kanału: {}", e))?;
+            let mut channel = session
+                .channel_open_session()
+                .await
+                .map_err(|e| AppError::with_details("SSH_CHANNEL_OPEN_FAILED", e.to_string()))?;
 
-            // docker compose outputs logs/progress to stderr by default
             let cmd = if use_sudo {
                 if let Some(ref pass) = sudo_pass {
-                    format!("echo '{}' | sudo -S docker compose -f {} pull", pass, config_file)
+                    format!(
+                        "echo '{}' | sudo -S docker compose -f {} pull",
+                        pass, config_file
+                    )
                 } else {
                     format!("docker compose -f {} pull", config_file)
                 }
@@ -1030,8 +1104,10 @@ async fn start_compose_pull(
                 format!("docker compose -f {} pull", config_file)
             };
 
-            channel.exec(true, cmd.as_bytes()).await
-                .map_err(|e| format!("Błąd uruchomienia compose pull: {}", e))?;
+            channel
+                .exec(true, cmd.as_bytes())
+                .await
+                .map_err(|e| AppError::with_details("COMPOSE_PULL_START_FAILED", e.to_string()))?;
 
             loop {
                 tokio::select! {
@@ -1059,11 +1135,15 @@ async fn start_compose_pull(
                 }
             }
 
-            Ok::<(), String>(())
+            Ok::<(), AppError>(())
         };
 
         if let Err(e) = run_pull.await {
-            app.emit("compose-pull-data", format!("\n[Błąd pobierania: {}]\n", e)).ok();
+            app.emit(
+                "compose-pull-data",
+                format!("\n[Pull error: {}]\n", e),
+            )
+            .ok();
         }
     });
 
@@ -1071,7 +1151,7 @@ async fn start_compose_pull(
 }
 
 #[tauri::command]
-async fn stop_compose_pull(state: State<'_, AppState>) -> Result<(), String> {
+async fn stop_compose_pull(state: State<'_, AppState>) -> Result<(), AppError> {
     let mut cancel_guard = state.docker_compose_cancel.lock();
     if let Some(tx) = cancel_guard.take() {
         tx.send(()).ok();

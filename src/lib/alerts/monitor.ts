@@ -1,9 +1,11 @@
+import { get } from 'svelte/store';
 import {
   isPermissionGranted,
   requestPermission,
   sendNotification,
 } from '@tauri-apps/plugin-notification';
 import type { AlertThresholds } from '$lib/admin/types';
+import LL from '$lib/i18n/i18n-svelte';
 
 let permissionChecked = false;
 
@@ -43,30 +45,40 @@ export async function checkResourceAlerts(
 ) {
   if (!thresholds.enabled) return;
 
+  const ll = get(LL);
   const ramPct = stats.ram_total > 0 ? (stats.ram_used / stats.ram_total) * 100 : 0;
   const diskPct = stats.disk_total > 0 ? (stats.disk_used / stats.disk_total) * 100 : 0;
 
   if (stats.cpu_usage >= thresholds.cpu_pct) {
     await notifyOnce(
       `${profileLabel}-cpu`,
-      `Jarvis: wysokie CPU — ${profileLabel}`,
-      `Obciążenie CPU: ${Math.round(stats.cpu_usage)}% (próg: ${thresholds.cpu_pct}%)`,
+      ll.alerts.cpuTitle({ profile: profileLabel }),
+      ll.alerts.cpuBody({
+        value: String(Math.round(stats.cpu_usage)),
+        threshold: String(thresholds.cpu_pct),
+      }),
     );
   }
 
   if (ramPct >= thresholds.ram_pct) {
     await notifyOnce(
       `${profileLabel}-ram`,
-      `Jarvis: wysoka pamięć — ${profileLabel}`,
-      `RAM: ${Math.round(ramPct)}% (próg: ${thresholds.ram_pct}%)`,
+      ll.alerts.ramTitle({ profile: profileLabel }),
+      ll.alerts.ramBody({
+        value: String(Math.round(ramPct)),
+        threshold: String(thresholds.ram_pct),
+      }),
     );
   }
 
   if (diskPct >= thresholds.disk_pct) {
     await notifyOnce(
       `${profileLabel}-disk`,
-      `Jarvis: mało miejsca na dysku — ${profileLabel}`,
-      `Dysk: ${Math.round(diskPct)}% (próg: ${thresholds.disk_pct}%)`,
+      ll.alerts.diskTitle({ profile: profileLabel }),
+      ll.alerts.diskBody({
+        value: String(Math.round(diskPct)),
+        threshold: String(thresholds.disk_pct),
+      }),
     );
   }
 }

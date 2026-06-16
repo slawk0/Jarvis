@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Download, Trash2, FolderInput, X } from 'lucide-svelte';
+  import { LL } from '$lib/i18n/i18n-svelte';
 
   interface Props {
     selectedCount: number;
@@ -27,15 +28,15 @@
 </script>
 
 {#if inline}
-  <div class="selection-actions" class:move-active={moveMode} role="toolbar" aria-label="Akcje na zaznaczonych">
+  <div class="selection-actions" class:move-active={moveMode} role="toolbar" aria-label={$LL.sftp.bulkToolbar()}>
     {#if moveMode}
       <span class="move-hint">
         <FolderInput size={14} />
-        <span class="move-hint-text">Kliknij folder docelowy</span>
+        <span class="move-hint-text">{$LL.sftp.moveHint()}</span>
         <span class="bulk-count tabular-nums">{selectedCount}</span>
       </span>
       <button class="secondary btn-compact bulk-btn" type="button" onclick={onCancelMove}>
-        <X size={14} /> Anuluj
+        <X size={14} /> {$LL.common.cancel()}
       </button>
     {:else}
       <button
@@ -43,34 +44,34 @@
         type="button"
         disabled={!hasSelection}
         onclick={onDownload}
-        title={hasSelection ? 'Pobierz zaznaczone' : 'Zaznacz pliki, aby pobrać'}
+        title={hasSelection ? $LL.sftp.bulkDownload() : $LL.sftp.bulkDownloadHint()}
       >
-        <Download size={14} /> Pobierz
+        <Download size={14} /> {$LL.common.download()}
       </button>
       <button
         class="secondary btn-compact bulk-btn"
         type="button"
         disabled={!hasSelection}
         onclick={onMove}
-        title={hasSelection ? 'Przenieś zaznaczone' : 'Zaznacz pliki, aby przenieść'}
+        title={hasSelection ? $LL.sftp.bulkMove() : $LL.sftp.bulkMoveHint()}
       >
-        <FolderInput size={14} /> Przenieś
+        <FolderInput size={14} /> {$LL.common.move()}
       </button>
       <button
         class="secondary btn-compact bulk-btn danger"
         type="button"
         disabled={!hasSelection}
         onclick={onDelete}
-        title={hasSelection ? 'Usuń zaznaczone' : 'Zaznacz pliki, aby usunąć'}
+        title={hasSelection ? $LL.sftp.bulkDelete() : $LL.sftp.bulkDeleteHint()}
       >
-        <Trash2 size={14} /> Usuń
+        <Trash2 size={14} /> {$LL.common.delete()}
       </button>
       {#if hasSelection}
         <button
           class="secondary btn-compact bulk-btn btn-icon-only"
           type="button"
           onclick={onClearSelection}
-          title="Odznacz wszystko ({selectedCount})"
+          title={$LL.sftp.deselectAllCount({ count: String(selectedCount) })}
         >
           <X size={14} />
         </button>
@@ -78,19 +79,19 @@
     {/if}
   </div>
 {:else}
-  <div class="bulk-toolbar glass" role="toolbar" aria-label="Akcje grupowe">
+  <div class="bulk-toolbar glass" role="toolbar" aria-label={$LL.sftp.bulkToolbar()}>
     {#if moveMode}
       <span class="bulk-hint">
         <FolderInput size={16} />
-        Kliknij folder docelowy, aby przenieść
+        {$LL.sftp.moveHint()}
         <span class="bulk-count tabular-nums">{selectedCount}</span>
-        {selectedCount === 1 ? 'element' : 'elementów'}
+        {selectedCount === 1 ? $LL.sftp.bulkElement() : $LL.sftp.bulkElements()}
       </span>
       <button class="secondary btn-compact bulk-btn" type="button" onclick={onCancelMove}>
-        <X size={14} /> Anuluj
+        <X size={14} /> {$LL.common.cancel()}
       </button>
     {:else}
-      <span class="toolbar-label">Zaznaczone:</span>
+      <span class="toolbar-label">{$LL.sftp.bulkSelected()}</span>
       <span class="bulk-count tabular-nums" class:inactive={!hasSelection}>
         {hasSelection ? selectedCount : '—'}
       </span>
@@ -101,7 +102,7 @@
           disabled={!hasSelection}
           onclick={onDownload}
         >
-          <Download size={14} /> Pobierz
+          <Download size={14} /> {$LL.common.download()}
         </button>
         <button
           class="secondary btn-compact bulk-btn"
@@ -109,7 +110,7 @@
           disabled={!hasSelection}
           onclick={onMove}
         >
-          <FolderInput size={14} /> Przenieś
+          <FolderInput size={14} /> {$LL.common.move()}
         </button>
         <button
           class="secondary btn-compact bulk-btn danger"
@@ -117,14 +118,14 @@
           disabled={!hasSelection}
           onclick={onDelete}
         >
-          <Trash2 size={14} /> Usuń
+          <Trash2 size={14} /> {$LL.common.delete()}
         </button>
         {#if hasSelection}
           <button
             class="secondary btn-compact bulk-btn btn-icon-only"
             type="button"
             onclick={onClearSelection}
-            title="Odznacz wszystko"
+            title={$LL.common.deselectAll()}
           >
             <X size={14} />
           </button>

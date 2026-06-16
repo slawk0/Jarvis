@@ -4,6 +4,12 @@
   import { Shield, ShieldOff, Plus, Trash2, RefreshCw, KeyRound, Check, ShieldAlert } from 'lucide-svelte';
   import SortableTh from './ui/SortableTh.svelte';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
+  import { get } from 'svelte/store';
+  import { LL } from '$lib/i18n/i18n-svelte';
+  import {
+    formatInvokeError,
+    isSudoPasswordRequired,
+  } from '$lib/i18n/backendErrors';
 
   let firewallMode = $state<'ufw' | 'iptables'>('ufw');
 
@@ -40,7 +46,7 @@
   let pendingAction: (() => Promise<void>) | null = null;
   let sudoError = $state('');
 
-  // Formularz nowej reguły
+  // New rule form
   let showAddModal = $state(false);
   let ruleAction = $state('allow');
   let rulePort = $state('');
@@ -79,19 +85,19 @@
         }
         rules = parsedRules;
       }
-    } catch (err: any) {
-      const errStr = err.toString().toLowerCase();
-      if (errStr === 'sudo_password_required') {
+    } catch (err: unknown) {
+      const errStr = String(err).toLowerCase();
+      if (isSudoPasswordRequired(err)) {
         pendingAction = loadUfwStatus;
         showSudoModal = true;
       } else if (errStr.includes('not found') || errStr.includes('nie znaleziono')) {
         ufwActive = false;
         rules = [];
         if (firewallMode === 'ufw') {
-          errorMsg = 'UFW nie jest zainstalowane na tym serwerze. Możesz przełączyć się na iptables.';
+          errorMsg = get(LL).firewall.notInstalled();
         }
       } else {
-        errorMsg = 'Błąd wczytywania zapory UFW: ' + err.toString();
+        errorMsg = get(LL).firewall.loadUfwFailed({ error: formatInvokeError(err) });
       }
     } finally {
       isLoading = false;
@@ -141,12 +147,12 @@
       if (!chains.find(c => c.name === activeChain) && chains.length > 0) {
         activeChain = chains[0].name;
       }
-    } catch (err: any) {
-      if (err.toString() === 'SUDO_PASSWORD_REQUIRED') {
+    } catch (err: unknown) {
+      if (isSudoPasswordRequired(err)) {
         pendingAction = loadIptablesStatus;
         showSudoModal = true;
       } else {
-        errorMsg = 'Błąd wczytywania reguł iptables: ' + err.toString();
+        errorMsg = get(LL).firewall.loadIptablesFailed({ error: formatInvokeError(err) });
       }
     } finally {
       isLoading = false;
@@ -157,12 +163,12 @@
     const run = async () => {
       try {
         await action();
-      } catch (err: any) {
-        if (err.toString() === 'SUDO_PASSWORD_REQUIRED') {
+      } catch (err: unknown) {
+        if (isSudoPasswordRequired(err)) {
           pendingAction = run;
           showSudoModal = true;
         } else {
-          errorMsg = 'Błąd wykonania akcji: ' + err.toString();
+          errorMsg = get(LL).common.actionFailed({ error: formatInvokeError(err) });
         }
       }
     };
@@ -180,8 +186,8 @@
         pendingAction = null;
         await action();
       }
-    } catch (err: any) {
-      sudoError = err.toString();
+    } catch (err: unknown) {
+      sudoError = formatInvokeError(err);
     }
   }
 
@@ -248,7 +254,7 @@
 
   async function deleteRule(num: number) {
     if (firewallMode === 'ufw') {
-      if (confirm(`Czy na pewno chcesz usunąć regułę o numerze ${num}?`)) {
+      if (confirm(get(LL).firewall.confirmDeleteUfwRule({ num }))) {
         const action = async () => {
           isLoading = true;
           errorMsg = '';
@@ -261,7 +267,7 @@
         await handleActionWithSudo(action);
       }
     } else {
-      if (confirm(`Czy na pewno chcesz usunąć regułę nr ${num} z łańcucha ${activeChain}?`)) {
+      if (confirm(get(LL).firewall.confirmDeleteIptablesRule({ num, chain: activeChain }))) {
         const action = async () => {
           isLoading = true;
           errorMsg = '';
@@ -277,7 +283,7 @@
   }
 
   async function setIptablesPolicy(policy: string) {
-    if (confirm(`Zmienić domyślną politykę łańcucha ${activeChain} na ${policy}?`)) {
+    if (confirm(get(LL).firewall.confirmChangePolicy({ chain: activeChain, policy }))) {
       const action = async () => {
         isLoading = true;
         errorMsg = '';
@@ -311,7 +317,7 @@
 <div class="firewall-manager manager-shell fade-in">
   <header class="manager-header">
     <div class="header-content">
-      <h1 class="page-title">Zapora Sieciowa</h1>
+      <h1 class="page-title">{$LL.firewall.title()}</h1>
       <div class="mode-selector">
         <button class="mode-btn {firewallMode === 'ufw' ? 'active' : ''}" onclick={() => switchMode('ufw')}>UFW</button>
         <button class="mode-btn {firewallMode === 'iptables' ? 'active' : ''}" onclick={() => switchMode('iptables')}>iptables</button>
@@ -328,28 +334,28 @@
       <div class="status-indicator">
         {#if ufwActive}
           <Shield size={16} class="shield-icon active" />
-          <span class="status-title">UFW AKTYWNE</span>
+          <span class="status-title">{$LL.firewall.ufwActive()}</span>
         {:else}
           <ShieldOff size={16} class="shield-icon inactive" />
-          <span class="status-title">UFW NIEAKTYWNE</span>
+          <span class="status-title">{$LL.firewall.ufwInactive()}</span>
         {/if}
       </div>
       <div class="status-actions">
         <button class="secondary" onclick={loadUfwStatus} disabled={isLoading}>
-          <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> Odśwież
+          <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> {$LL.common.refresh()}
         </button>
         <button class={ufwActive ? 'danger' : 'primary'} onclick={toggleUfw} disabled={isLoading}>
-          {ufwActive ? 'Wyłącz UFW' : 'Włącz UFW'}
+          {ufwActive ? $LL.firewall.disableUfw() : $LL.firewall.enableUfw()}
         </button>
       </div>
     </div>
 
     {#if ufwActive}
-      <!-- Sekcja operacyjna dla reguł UFW -->
+      <!-- Operational section for UFW rules -->
       <div class="rules-header">
-        <h2>Aktywne Reguły UFW</h2>
+        <h2>{$LL.firewall.activeRules()}</h2>
         <button class="primary" onclick={() => showAddModal = true}>
-          <Plus size={16} /> Dodaj Regułę
+          <Plus size={16} /> {$LL.firewall.addRule()}
         </button>
       </div>
 
@@ -357,11 +363,11 @@
         <table class="rules-table">
           <thead>
             <tr>
-              <SortableTh label="Nr" column="num" activeColumn={ruleSort.column} direction={ruleSort.direction} onsort={setRuleSort} width="10%" />
-              <SortableTh label="Port / Usługa" column="to" activeColumn={ruleSort.column} direction={ruleSort.direction} onsort={setRuleSort} width="25%" />
-              <SortableTh label="Akcja" column="action" activeColumn={ruleSort.column} direction={ruleSort.direction} onsort={setRuleSort} width="20%" />
-              <SortableTh label="Z adresu IP" column="from" activeColumn={ruleSort.column} direction={ruleSort.direction} onsort={setRuleSort} width="25%" />
-              <th style="width: 20%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Usuń</th>
+              <SortableTh label={$LL.firewall.num()} column="num" activeColumn={ruleSort.column} direction={ruleSort.direction} onsort={setRuleSort} width="10%" />
+              <SortableTh label={$LL.firewall.portService()} column="to" activeColumn={ruleSort.column} direction={ruleSort.direction} onsort={setRuleSort} width="25%" />
+              <SortableTh label={$LL.firewall.action()} column="action" activeColumn={ruleSort.column} direction={ruleSort.direction} onsort={setRuleSort} width="20%" />
+              <SortableTh label={$LL.firewall.fromIp()} column="from" activeColumn={ruleSort.column} direction={ruleSort.direction} onsort={setRuleSort} width="25%" />
+              <th style="width: 20%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">{$LL.common.delete()}</th>
             </tr>
           </thead>
           <tbody>
@@ -376,7 +382,7 @@
                 </td>
                 <td class="mono-val"><code>{rule.from}</code></td>
                 <td class="actions-cell">
-                  <button class="btn-table danger-text" onclick={() => deleteRule(rule.num)} title="Usuń regułę">
+                  <button class="btn-table danger-text" onclick={() => deleteRule(rule.num)} title={$LL.firewall.deleteRule()}>
                     <Trash2 size={14} />
                   </button>
                 </td>
@@ -385,7 +391,7 @@
 
             {#if sortedRules.length === 0}
               <tr>
-                <td colspan="5" class="empty-state">Brak skonfigurowanych reguł. UFW blokuje domyślnie ruch wejściowy.</td>
+                <td colspan="5" class="empty-state">{$LL.firewall.emptyUfw()}</td>
               </tr>
             {/if}
           </tbody>
@@ -397,24 +403,24 @@
     <!-- IPTABLES MODE -->
     <div class="status-bar glass iptables-header">
       <div class="iptables-chain-selector">
-        <label for="chain-select" class="status-title">Wybierz Łańcuch:</label>
+        <label for="chain-select" class="status-title">{$LL.firewall.selectChain()}</label>
         <select id="chain-select" class="form-select" bind:value={activeChain}>
           {#each iptablesChains as chain}
-            <option value={chain.name}>{chain.name} (Polityka: {chain.policy})</option>
+            <option value={chain.name}>{$LL.firewall.chainPolicy({ name: chain.name, policy: chain.policy })}</option>
           {/each}
         </select>
       </div>
 
       <div class="status-actions">
         <button class="secondary" onclick={loadIptablesStatus} disabled={isLoading}>
-          <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> Odśwież
+          <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> {$LL.common.refresh()}
         </button>
       </div>
     </div>
 
     {#if activeChainData && activeChainData.policy !== '-'}
       <div class="policy-bar">
-        <span>Domyślna polityka: <strong>{activeChainData.policy}</strong></span>
+        <span>{$LL.firewall.defaultPolicy()} <strong>{activeChainData.policy}</strong></span>
         <div class="policy-actions">
           <button class="btn-sm {activeChainData.policy === 'ACCEPT' ? 'active-policy success' : 'secondary'}" onclick={() => setIptablesPolicy('ACCEPT')}>ACCEPT</button>
           <button class="btn-sm {activeChainData.policy === 'DROP' ? 'active-policy danger' : 'secondary'}" onclick={() => setIptablesPolicy('DROP')}>DROP</button>
@@ -423,9 +429,9 @@
     {/if}
 
     <div class="rules-header">
-      <h2>Reguły iptables: {activeChain}</h2>
+      <h2>{$LL.firewall.iptablesRules({ chain: activeChain })}</h2>
       <button class="primary" onclick={() => showAddModal = true}>
-        <Plus size={16} /> Dodaj Regułę
+        <Plus size={16} /> {$LL.firewall.addRule()}
       </button>
     </div>
 
@@ -433,13 +439,13 @@
       <table class="rules-table iptables-table">
         <thead>
           <tr>
-            <th style="width: 5%">Nr</th>
-            <th style="width: 15%">Cel (Target)</th>
-            <th style="width: 10%">Protokół</th>
-            <th style="width: 20%">Źródło</th>
-            <th style="width: 20%">Cel (IP)</th>
-            <th style="width: 20%">Dodatkowe (Porty itp.)</th>
-            <th style="width: 10%; text-align: right;">Usuń</th>
+            <th style="width: 5%">{$LL.firewall.num()}</th>
+            <th style="width: 15%">{$LL.firewall.target()}</th>
+            <th style="width: 10%">{$LL.firewall.protocol()}</th>
+            <th style="width: 20%">{$LL.firewall.source()}</th>
+            <th style="width: 20%">{$LL.firewall.destination()}</th>
+            <th style="width: 20%">{$LL.firewall.extra()}</th>
+            <th style="width: 10%; text-align: right;">{$LL.common.delete()}</th>
           </tr>
         </thead>
         <tbody>
@@ -457,7 +463,7 @@
                 <td class="mono-val"><code>{rule.destination}</code></td>
                 <td class="mono-val small-text">{rule.extra}</td>
                 <td class="actions-cell">
-                  <button class="btn-table danger-text" onclick={() => deleteRule(parseInt(rule.num))} title="Usuń regułę">
+                  <button class="btn-table danger-text" onclick={() => deleteRule(parseInt(rule.num))} title={$LL.firewall.deleteRule()}>
                     <Trash2 size={14} />
                   </button>
                 </td>
@@ -465,7 +471,7 @@
             {/each}
           {:else}
             <tr>
-              <td colspan="7" class="empty-state">Brak reguł w tym łańcuchu.</td>
+              <td colspan="7" class="empty-state">{$LL.firewall.emptyChain()}</td>
             </tr>
           {/if}
         </tbody>
@@ -480,11 +486,11 @@
         <div class="modal-header-icon">
           <KeyRound size={32} class="accent-amber-text" />
         </div>
-        <h3>Wymagane uwierzytelnienie Sudo</h3>
-        <p class="modal-desc">Ta operacja wymaga uprawnień roota. Wprowadź swoje hasło użytkownika (sudo):</p>
+        <h3>{$LL.sudo.authTitle()}</h3>
+        <p class="modal-desc">{$LL.sudo.authDesc()}</p>
         <input 
           type="password" 
-          placeholder="Wpisz hasło..." 
+          placeholder={$LL.sudo.passwordInputPlaceholder()} 
           bind:value={sudoPassword} 
           onkeydown={(e) => e.key === 'Enter' && submitSudoPassword()}
         />
@@ -492,52 +498,52 @@
           <span class="error-text">{sudoError}</span>
         {/if}
         <div class="modal-actions">
-          <button class="primary" onclick={submitSudoPassword}>Zatwierdź</button>
-          <button class="secondary" onclick={() => { showSudoModal = false; sudoPassword = ''; pendingAction = null; }}>Anuluj</button>
+          <button class="primary" onclick={submitSudoPassword}>{$LL.common.submit()}</button>
+          <button class="secondary" onclick={() => { showSudoModal = false; sudoPassword = ''; pendingAction = null; }}>{$LL.common.cancel()}</button>
         </div>
       </div>
     </div>
   {/if}
 
-  <!-- Kreator Nowej Reguły -->
+  <!-- New Rule Creator -->
   {#if showAddModal}
     <div class="modal-overlay">
       <div class="modal-content glass">
-        <h3>Dodaj regułę ({firewallMode === 'ufw' ? 'UFW' : 'iptables'})</h3>
+        <h3>{$LL.firewall.addRuleTitle({ mode: firewallMode === 'ufw' ? 'UFW' : 'iptables' })}</h3>
         
         <div class="form-group">
-          <label for="rule-action">Działanie (Action)</label>
+          <label for="rule-action">{$LL.firewall.ruleAction()}</label>
           <select id="rule-action" bind:value={ruleAction}>
-            <option value="allow">{firewallMode === 'ufw' ? 'ALLOW (Zezwól)' : 'ACCEPT (Zezwól)'}</option>
-            <option value="deny">{firewallMode === 'ufw' ? 'DENY (Blokuj)' : 'DROP (Odrzuć)'}</option>
+            <option value="allow">{firewallMode === 'ufw' ? $LL.firewall.ufwAllow() : $LL.firewall.iptablesAccept()}</option>
+            <option value="deny">{firewallMode === 'ufw' ? $LL.firewall.ufwDeny() : $LL.firewall.iptablesDrop()}</option>
             {#if firewallMode === 'iptables'}
-              <option value="reject">REJECT (Odrzuć z info)</option>
+              <option value="reject">{$LL.firewall.iptablesReject()}</option>
             {/if}
           </select>
         </div>
 
         <div class="form-group">
-          <label for="rule-port">Port lub porty (np. 80, 443){firewallMode === 'iptables' ? ' - opcjonalnie' : ''}</label>
-          <input id="rule-port" type="text" placeholder="8080" bind:value={rulePort} />
+          <label for="rule-port">{$LL.firewall.rulePort()}{firewallMode === 'iptables' ? $LL.firewall.rulePortOptional() : ''}</label>
+          <input id="rule-port" type="text" placeholder={$LL.firewall.rulePortPlaceholder()} bind:value={rulePort} />
         </div>
 
         <div class="form-group">
-          <label for="rule-proto">Protokół (Protocol)</label>
+          <label for="rule-proto">{$LL.firewall.ruleProtocol()}</label>
           <select id="rule-proto" bind:value={ruleProto}>
-            <option value="any">Dowolny (Any)</option>
+            <option value="any">{$LL.firewall.protocolAny()}</option>
             <option value="tcp">TCP</option>
             <option value="udp">UDP</option>
           </select>
         </div>
 
         <div class="form-group">
-          <label for="rule-source">Dozwolony źródłowy adres IP / podsieć</label>
-          <input id="rule-source" type="text" placeholder="Anywhere (lub np. 192.168.1.50)" bind:value={ruleSource} />
+          <label for="rule-source">{$LL.firewall.ruleSource()}</label>
+          <input id="rule-source" type="text" placeholder={$LL.firewall.ruleSourcePlaceholder()} bind:value={ruleSource} />
         </div>
 
         <div class="modal-actions">
-          <button class="primary" onclick={addRule} disabled={firewallMode === 'ufw' && !rulePort}>Dodaj regułę</button>
-          <button class="secondary" onclick={closeAddModal}>Anuluj</button>
+          <button class="primary" onclick={addRule} disabled={firewallMode === 'ufw' && !rulePort}>{$LL.common.addRule()}</button>
+          <button class="secondary" onclick={closeAddModal}>{$LL.common.cancel()}</button>
         </div>
       </div>
     </div>

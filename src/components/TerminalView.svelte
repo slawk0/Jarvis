@@ -7,6 +7,12 @@
   import { Terminal as TerminalIcon, ExternalLink, RefreshCw } from 'lucide-svelte';
   import '@xterm/xterm/css/xterm.css';
   import { registerBackHandler } from '$lib/backNavigation.svelte';
+  import { get } from 'svelte/store';
+  import { LL } from '$lib/i18n/i18n-svelte';
+  import {
+    formatInvokeError,
+    isSudoPasswordRequired,
+  } from '$lib/i18n/backendErrors';
 
   type ContainerSession = {
     containerId: string;
@@ -99,19 +105,19 @@
       });
 
       if (activeContainer) {
-        term.writeln(`\x1b[1;33m[Jarvis — shell kontenera: ${activeContainer.containerName}]\x1b[0m`);
+        const ll = get(LL);
+        term.writeln(`\x1b[1;33m${ll.terminal.containerBanner({ name: activeContainer.containerName })}\x1b[0m`);
       } else {
-        term.writeln('\x1b[1;33m[Jarvis SSH Terminal — Inicjalizacja...]\x1b[0m');
+        term.writeln(`\x1b[1;33m${get(LL).terminal.initBanner()}\x1b[0m`);
       }
 
       // Use ResizeObserver instead of window resize for split-panel support
       setupResizeObserver();
-    } catch (err: any) {
-      const errText = err.toString();
-      if (errText.includes('SUDO_PASSWORD_REQUIRED')) {
-        errorMsg = 'Wymagane hasło sudo — wróć do Dockera i podaj hasło, albo włącz dostęp bez sudo.';
+    } catch (err: unknown) {
+      if (isSudoPasswordRequired(err)) {
+        errorMsg = get(LL).terminal.sudoRequired();
       } else {
-        errorMsg = 'Nie udało się otworzyć terminala: ' + errText;
+        errorMsg = get(LL).terminal.openFailed({ error: formatInvokeError(err) });
       }
     } finally {
       isLoading = false;
@@ -146,12 +152,11 @@
         useSudo: activeContainer?.useSudo ?? false,
         shell: activeContainer?.shell ?? null,
       });
-    } catch (err: any) {
-      const errText = err.toString();
-      if (errText.includes('SUDO_PASSWORD_REQUIRED')) {
-        errorMsg = 'Wymagane hasło sudo — wróć do Dockera i podaj hasło, albo włącz dostęp bez sudo.';
+    } catch (err: unknown) {
+      if (isSudoPasswordRequired(err)) {
+        errorMsg = get(LL).terminal.sudoRequired();
       } else {
-        errorMsg = 'Nie udało się otworzyć zewnętrznego terminala: ' + errText;
+        errorMsg = get(LL).terminal.externalOpenFailed({ error: formatInvokeError(err) });
       }
     }
   }
@@ -172,7 +177,7 @@
       goBack: () => {
         if (activeContainer) switchToServerShell();
       },
-      label: 'Wróć do shella serwera',
+      label: get(LL).terminal.backToServerShell(),
     });
   });
 
@@ -194,9 +199,9 @@
   <header class="manager-header term-header">
     <div class="title-area">
       {#if activeContainer}
-        <h1 class="page-title">Shell: {activeContainer.containerName}</h1>
+        <h1 class="page-title">{$LL.terminal.shellTitle({ name: activeContainer.containerName })}</h1>
       {:else}
-        <h1 class="page-title">Konsola SSH</h1>
+        <h1 class="page-title">{$LL.terminal.sshConsole()}</h1>
       {/if}
     </div>
     {#if errorMsg}
@@ -204,15 +209,15 @@
     {/if}
     <div class="actions">
       {#if activeContainer}
-        <button class="secondary" onclick={switchToServerShell} disabled={isLoading} title="Wróć do shella serwera">
-          <TerminalIcon size={16} /> Shell serwera
+        <button class="secondary" onclick={switchToServerShell} disabled={isLoading} title={$LL.terminal.backToServerShell()}>
+          <TerminalIcon size={16} /> {$LL.terminal.serverShell()}
         </button>
       {/if}
-      <button class="secondary" onclick={initTerminal} disabled={isLoading} title="Zrestartuj sesję">
-        <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> Zrestartuj
+      <button class="secondary" onclick={initTerminal} disabled={isLoading} title={$LL.terminal.restartSession()}>
+        <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> {$LL.terminal.restart()}
       </button>
-      <button class="secondary" onclick={openExternal} title={activeContainer ? 'Otwórz shell kontenera w Windows Terminal' : 'Otwórz Windows Terminal'}>
-        <ExternalLink size={16} /> Zewnętrzny terminal
+      <button class="secondary" onclick={openExternal} title={activeContainer ? $LL.terminal.externalTerminalContainer() : $LL.terminal.externalTerminalDefault()}>
+        <ExternalLink size={16} /> {$LL.terminal.externalTerminal()}
       </button>
     </div>
   </header>

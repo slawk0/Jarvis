@@ -23,12 +23,17 @@
     PanelLeftOpen,
   } from 'lucide-svelte';
   import type { ServerProfile } from '$lib/admin/types';
+  import { LL } from '$lib/i18n/i18n-svelte';
+  import { getNavLabel, TAB_IDS } from '$lib/i18n/nav';
+  import { getCurrentLocale, setAppLocale } from '$lib/i18n/localeStore.svelte';
+  import { get } from 'svelte/store';
+  import type { Locales } from '$lib/i18n/i18n-types';
 
   let {
     activeTab = '',
     collapsed = $bindable(false),
     onDisconnect,
-    hostname = 'Serwer',
+    hostname = '',
     onTabSelect = (_tab: string) => {},
     profiles = [] as ServerProfile[],
     currentProfileId = '',
@@ -38,24 +43,30 @@
   } = $props();
 
   let showProfileMenu = $state(false);
+  let currentLocale = $state<Locales>(getCurrentLocale());
 
-  const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'maintenance', label: 'Konserwacja', icon: Wrench },
-    { id: 'backups', label: 'Backupy', icon: Database },
-    { id: 'network', label: 'Sieć / Porty', icon: Network },
-    { id: 'runbooks', label: 'Runbooki', icon: BookOpen },
-    { id: 'files', label: 'Pliki (SFTP)', icon: FolderClosed },
-    { id: 'services', label: 'Usługi (Systemd)', icon: Settings },
-    { id: 'docker', label: 'Docker', icon: Box },
-    { id: 'cron', label: 'Zadania (Cron)', icon: Calendar },
-    { id: 'users', label: 'Użytkownicy', icon: Users },
-    { id: 'firewall', label: 'Zapora', icon: Shield },
-    { id: 'crowdsec', label: 'CrowdSec', icon: ShieldAlert },
-    { id: 'pangolin', label: 'Pangolin Proxy', icon: Globe },
-    { id: 'logs', label: 'Logi', icon: FileText },
-    { id: 'terminal', label: 'Terminal', icon: Terminal },
-  ];
+  const menuItems = TAB_IDS.map((id) => ({
+    id,
+    icon: {
+      dashboard: LayoutDashboard,
+      maintenance: Wrench,
+      backups: Database,
+      network: Network,
+      runbooks: BookOpen,
+      files: FolderClosed,
+      services: Settings,
+      docker: Box,
+      cron: Calendar,
+      users: Users,
+      firewall: Shield,
+      crowdsec: ShieldAlert,
+      pangolin: Globe,
+      logs: FileText,
+      terminal: Terminal,
+    }[id],
+  }));
+
+  const displayHostname = $derived(hostname || get(LL).shell.defaultServerLabel());
 
   function toggleProfileMenu() {
     if (profiles.length <= 1) return;
@@ -77,6 +88,12 @@
     }
   }
 
+  async function switchLocale(locale: Locales) {
+    if (locale === currentLocale) return;
+    await setAppLocale(locale);
+    currentLocale = locale;
+  }
+
   const currentProfile = $derived(profiles.find((p) => p.id === currentProfileId));
 </script>
 
@@ -84,15 +101,15 @@
 
 <aside class="sidebar glass" class:collapsed>
   <div class="brand">
-    <button class="logo-circle" onclick={toggleCollapse} title={collapsed ? 'Rozwiń pasek' : 'Zwiń pasek'}>J</button>
+    <button class="logo-circle" onclick={toggleCollapse} title={collapsed ? $LL.sidebar.expandSidebar() : $LL.sidebar.collapseSidebar()}>J</button>
     {#if !collapsed}
       <div class="brand-info">
-        <span class="brand-name">JARVIS</span>
+        <span class="brand-name">{$LL.sidebar.brandName()}</span>
         <button
           class="server-switcher"
           class:clickable={profiles.length > 1}
           onclick={(e) => { e.stopPropagation(); toggleProfileMenu(); }}
-          title={profiles.length > 1 ? 'Przełącz serwer' : hostname}
+          title={profiles.length > 1 ? $LL.sidebar.switchServer() : displayHostname}
         >
           {#if isSwitching}
             <Loader2 size={12} class="spin" />
@@ -100,7 +117,7 @@
             <span class="status-dot"></span>
           {/if}
           <span class="switcher-label">
-            {currentProfile?.label || hostname}
+            {currentProfile?.label || displayHostname}
           </span>
           {#if profiles.length > 1}
             <ChevronDown size={12} class="chev" />
@@ -129,6 +146,7 @@
 
   <nav class="nav-menu">
     {#each menuItems as item}
+      {@const label = getNavLabel(get(LL), item.id)}
       <div 
         class="nav-item {activeTab === item.id ? 'active' : ''}" 
         onclick={() => onTabSelect(item.id)}
@@ -136,11 +154,11 @@
         onpointerdown={(e: PointerEvent) => handlePointerDown(e, item.id)}
         role="button"
         tabindex="0"
-        title={collapsed ? item.label : ''}
+        title={collapsed ? label : ''}
       >
         <item.icon size={18} class="nav-icon" />
         {#if !collapsed}
-          <span class="nav-label">{item.label}</span>
+          <span class="nav-label">{label}</span>
         {/if}
       </div>
     {/each}
@@ -148,37 +166,53 @@
 
   <div class="sidebar-footer">
     {#if !collapsed}
+      <div class="locale-picker" role="group" aria-label={$LL.locale.label()}>
+        <button
+          type="button"
+          class="locale-btn"
+          class:active={currentLocale === 'en'}
+          onclick={() => switchLocale('en')}
+        >EN</button>
+        <span class="locale-sep">|</span>
+        <button
+          type="button"
+          class="locale-btn"
+          class:active={currentLocale === 'pl'}
+          onclick={() => switchLocale('pl')}
+        >PL</button>
+      </div>
+
       <div class="telemetry-hud">
         <div class="hud-row">
-          <span class="hud-label">HOST:</span>
-          <span class="hud-val" title={hostname}>{hostname.length > 14 ? hostname.slice(0, 14) + '...' : hostname}</span>
+          <span class="hud-label">{$LL.sidebar.hostLabel()}</span>
+          <span class="hud-val" title={displayHostname}>{displayHostname.length > 14 ? displayHostname.slice(0, 14) + '...' : displayHostname}</span>
         </div>
         <div class="hud-row">
-          <span class="hud-label">STATUS:</span>
+          <span class="hud-label">{$LL.sidebar.statusLabel()}</span>
           <span class="hud-status nominal">
-            <span class="heartbeat"></span> {isSwitching ? 'PRZEŁĄCZANIE' : 'ONLINE'}
+            <span class="heartbeat"></span> {isSwitching ? $LL.common.switching() : $LL.common.online()}
           </span>
         </div>
         <div class="hud-row">
-          <span class="hud-label">TUNNEL:</span>
-          <span class="hud-val secure">SSH/SFTP</span>
+          <span class="hud-label">{$LL.sidebar.tunnelLabel()}</span>
+          <span class="hud-val secure">{$LL.sidebar.tunnelValue()}</span>
         </div>
       </div>
     {/if}
 
-    <button class="nav-item collapse-toggle" onclick={toggleCollapse} title={collapsed ? 'Rozwiń pasek boczny' : 'Zwiń pasek boczny'}>
+    <button class="nav-item collapse-toggle" onclick={toggleCollapse} title={collapsed ? $LL.sidebar.expandSidebarFooter() : $LL.sidebar.collapseSidebarFooter()}>
       {#if collapsed}
         <PanelLeftOpen size={16} class="nav-icon" />
       {:else}
         <PanelLeftClose size={16} class="nav-icon" />
-        <span class="nav-label">Zwiń</span>
+        <span class="nav-label">{$LL.sidebar.collapse()}</span>
       {/if}
     </button>
 
-    <button class="nav-item logout" onclick={onDisconnect} title={collapsed ? 'Rozłącz' : ''}>
+    <button class="nav-item logout" onclick={onDisconnect} title={collapsed ? $LL.sidebar.disconnect() : ''}>
       <LogOut size={16} class="nav-icon" />
       {#if !collapsed}
-        <span class="nav-label">Rozłącz</span>
+        <span class="nav-label">{$LL.sidebar.disconnect()}</span>
       {/if}
     </button>
   </div>
@@ -393,7 +427,6 @@
     font-weight: 600;
   }
 
-  /* Draggable cursor hint */
   .nav-menu .nav-item {
     cursor: grab;
   }
@@ -417,6 +450,40 @@
     flex-direction: column;
     align-items: center;
     gap: 4px;
+  }
+
+  .locale-picker {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 10px;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+  }
+
+  .locale-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px 4px;
+    font: inherit;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
+  .locale-btn:hover {
+    color: var(--text-primary);
+  }
+
+  .locale-btn.active {
+    color: var(--accent-amber);
+  }
+
+  .locale-sep {
+    color: var(--text-muted);
+    opacity: 0.5;
   }
 
   .telemetry-hud {

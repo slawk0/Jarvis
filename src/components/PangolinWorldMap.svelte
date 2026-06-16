@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { LL } from '$lib/i18n/i18n-svelte';
   import worldMap from '@svg-maps/world';
   import { trafficFill, trafficIntensity, type CountryTraffic } from '$lib/geo/countryUtils';
 
@@ -35,7 +36,7 @@
 </script>
 
 <div class="world-map-container">
-  <svg viewBox={worldMap.viewBox} class="world-map-svg" role="img" aria-label="Mapa ruchu według krajów">
+  <svg viewBox={worldMap.viewBox} class="world-map-svg" role="img" aria-label={$LL.pangolinWorldMap.ariaLabel()}>
     {#each worldMap.locations as location}
       {@const isHovered = hoveredCode?.toLowerCase() === location.id}
       <path
@@ -51,12 +52,12 @@
         onblur={handleLeave}
         tabindex="0"
         role="button"
-        aria-label="{location.name}"
+        aria-label={$LL.pangolinWorldMap.countryAriaLabel({ name: location.name })}
       />
     {/each}
   </svg>
   {#if countries.length === 0}
-    <div class="map-empty">Brak danych geograficznych</div>
+    <div class="map-empty">{$LL.pangolinWorldMap.empty()}</div>
   {/if}
 </div>
 
@@ -78,12 +79,13 @@
   }
 
   .country-path {
-    transition: fill 0.2s ease, stroke 0.2s ease, stroke-width 0.2s ease;
     cursor: pointer;
+    transition: fill 0.15s ease, stroke 0.15s ease;
   }
 
   .country-path:hover,
-  .country-path.hovered {
+  .country-path.hovered,
+  .country-path:focus-visible {
     filter: brightness(1.15);
   }
 

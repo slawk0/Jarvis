@@ -4,6 +4,12 @@
   import { Users, UserPlus, Trash2, KeyRound, RefreshCw, Check, ShieldAlert, Settings2, Plus } from 'lucide-svelte';
   import SortableTh from './ui/SortableTh.svelte';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
+  import { get } from 'svelte/store';
+  import { LL } from '$lib/i18n/i18n-svelte';
+  import {
+    formatInvokeError,
+    isSudoPasswordRequired,
+  } from '$lib/i18n/backendErrors';
 
   let users = $state<any[]>([]);
   let groups = $state<any[]>([]);
@@ -11,19 +17,19 @@
   let errorMsg = $state('');
   let showSystemAccounts = $state(false);
 
-  // Zarządzanie Sudo
+  // Sudo management
   let showSudoModal = $state(false);
   let sudoPassword = $state('');
   let pendingAction: (() => Promise<void>) | null = null;
   let sudoError = $state('');
 
-  // Modale
+  // Modals
   let showCreateUserModal = $state(false);
   let showCreateGroupModal = $state(false);
   let showChangePassModal = $state(false);
   let showGroupsModal = $state(false);
 
-  // Zmienne formularzy
+  // Form variables
   let newUsername = $state('');
   let newUserShell = $state('/bin/bash');
   let newUserHome = $state('');
@@ -40,7 +46,7 @@
     isLoading = true;
     errorMsg = '';
     try {
-      // 1. Pobierz Użytkowników z /etc/passwd
+      // 1. Get users from /etc/passwd
       const passwdOut: string = await invoke('exec_custom_command', {
         cmd: 'cat /etc/passwd',
         useSudo: false
@@ -77,8 +83,8 @@
 
       users = parsedUsers;
       groups = parsedGroups;
-    } catch (err: any) {
-      errorMsg = 'Błąd wczytywania danych użytkowników: ' + err.toString();
+    } catch (err: unknown) {
+      errorMsg = get(LL).users.loadFailed({ error: formatInvokeError(err) });
     } finally {
       isLoading = false;
     }
@@ -126,12 +132,12 @@
     const run = async () => {
       try {
         await action();
-      } catch (err: any) {
-        if (err.toString() === 'SUDO_PASSWORD_REQUIRED') {
+      } catch (err: unknown) {
+        if (isSudoPasswordRequired(err)) {
           pendingAction = run;
           showSudoModal = true;
         } else {
-          errorMsg = 'Błąd wykonania polecenia: ' + err.toString();
+          errorMsg = get(LL).common.commandFailed({ error: formatInvokeError(err) });
         }
       }
     };
@@ -149,12 +155,12 @@
         pendingAction = null;
         await action();
       }
-    } catch (err: any) {
-      sudoError = err.toString();
+    } catch (err: unknown) {
+      sudoError = formatInvokeError(err);
     }
   }
 
-  // Funkcje CRUD Użytkowników
+  // CRUD User functions
   async function createUser() {
     if (!newUsername) return;
     
@@ -175,7 +181,7 @@
   }
 
   async function deleteUser(username: string) {
-    if (confirm(`Czy na pewno chcesz usunąć użytkownika "${username}" wraz z katalogiem domowym?`)) {
+    if (confirm(get(LL).users.confirmDeleteUser({ username }))) {
       const action = async () => {
         isLoading = true;
         errorMsg = '';
@@ -195,7 +201,7 @@
     const action = async () => {
       isLoading = true;
       errorMsg = '';
-      // Bezpieczny chpasswd w strumieniu wejściowym
+      // Secure chpasswd in input stream
       await invoke('exec_custom_command', {
         cmd: `echo "${targetUser.username}:${targetPassword}" | chpasswd`,
         useSudo: true
@@ -203,7 +209,7 @@
       showChangePassModal = false;
       targetPassword = '';
       targetUser = null;
-      alert('Hasło zostało pomyślnie zmienione.');
+      alert(get(LL).users.passwordChanged());
     };
     
     await handleActionWithSudo(action);
@@ -227,7 +233,7 @@
   }
 
   async function deleteGroup(groupName: string) {
-    if (confirm(`Czy na pewno chcesz usunąć grupę "${groupName}"?`)) {
+    if (confirm(get(LL).users.confirmDeleteGroup({ name: groupName }))) {
       const action = async () => {
         isLoading = true;
         errorMsg = '';
@@ -243,7 +249,7 @@
 
   async function openGroupsModal(user: any) {
     targetUser = user;
-    // Znajdź grupy do których należy user
+    // Find groups the user belongs to
     selectedUserGroups = groups
       .filter(g => g.members.includes(user.username) || (user.gid === g.gid))
       .map(g => g.name);
@@ -258,12 +264,12 @@
       isLoading = true;
       errorMsg = '';
       
-      // 1. Ustal wszystkie grupy, do których należy użytkownik obecnie
+      // 1. Determine all groups the user currently belongs to
       const currentGroups = groups
         .filter(g => g.members.includes(targetUser.username))
         .map(g => g.name);
       
-      // 2. Dodaj użytkownika do nowo zaznaczonych grup
+      // 2. Add the user to newly selected groups
       for (const group of selectedUserGroups) {
         if (!currentGroups.includes(group)) {
           await invoke('exec_custom_command', {
@@ -273,10 +279,10 @@
         }
       }
       
-      // 3. Usuń użytkownika z grup, które zostały odznaczone
+      // 3. Remove the user from groups that were deselected
       for (const group of currentGroups) {
         if (!selectedUserGroups.includes(group)) {
-          // Unikaj usunięcia użytkownika z jego grupy podstawowej
+          // Avoid removing the user from their primary group
           const groupObj = groups.find(g => g.name === group);
           if (groupObj && groupObj.gid !== targetUser.gid) {
             await invoke('exec_custom_command', {
@@ -302,7 +308,7 @@
 
 <div class="user-manager manager-shell fade-in">
   <header class="manager-header">
-    <h1 class="page-title">Użytkownicy i Grupy</h1>
+    <h1 class="page-title">{$LL.users.title()}</h1>
     {#if errorMsg}
       <div class="error-badge">{errorMsg}</div>
     {/if}
@@ -312,35 +318,35 @@
   <div class="ops-bar glass">
     <label class="toggle-checkbox">
       <input type="checkbox" bind:checked={showSystemAccounts} />
-      <span>Pokaż konta systemowe (UID &lt; 1000)</span>
+      <span>{$LL.users.showSystemAccounts()}</span>
     </label>
     <button class="secondary" onclick={loadData} disabled={isLoading}>
-      <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> Odśwież
+      <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> {$LL.common.refresh()}
     </button>
     <button class="primary" onclick={() => showCreateUserModal = true}>
-      <UserPlus size={16} /> Nowy Użytkownik
+      <UserPlus size={16} /> {$LL.users.newUser()}
     </button>
     <button class="secondary" onclick={() => showCreateGroupModal = true}>
-      <Plus size={16} /> Nowa Grupa
+      <Plus size={16} /> {$LL.users.newGroup()}
     </button>
   </div>
 
   <div class="split-view">
-    <!-- Lista użytkowników -->
+    <!-- Users list -->
     <div class="table-container glass users-section">
-      <h3>Lista Użytkowników</h3>
+      <h3>{$LL.users.userList()}</h3>
       {#if isLoading && users.length === 0}
         <div class="loading-state">
           <RefreshCw class="spin" size={32} />
-          <p>Wczytywanie kont...</p>
+          <p>{$LL.users.loadingAccounts()}</p>
         </div>
       {:else}
         <table class="users-table">
           <thead>
             <tr>
-              <SortableTh label="Nazwa (UID)" column="name" activeColumn={userSort.column} direction={userSort.direction} onsort={setUserSort} width="30%" />
-              <SortableTh label="Katalog Domowy & Powłoka" column="home" activeColumn={userSort.column} direction={userSort.direction} onsort={setUserSort} width="35%" />
-              <th style="width: 35%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Akcje</th>
+              <SortableTh label={$LL.users.nameUid()} column="name" activeColumn={userSort.column} direction={userSort.direction} onsort={setUserSort} width="30%" />
+              <SortableTh label={$LL.users.homeAndShell()} column="home" activeColumn={userSort.column} direction={userSort.direction} onsort={setUserSort} width="35%" />
+              <th style="width: 35%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">{$LL.common.actions()}</th>
             </tr>
           </thead>
           <tbody>
@@ -355,14 +361,14 @@
                   <span class="shell-code mono-val"><code>{user.shell}</code></span>
                 </td>
                 <td class="actions-cell">
-                  <button class="btn-table" onclick={() => { targetUser = user; showChangePassModal = true; }} title="Zmień hasło">
+                  <button class="btn-table" onclick={() => { targetUser = user; showChangePassModal = true; }} title={$LL.users.changePassword()}>
                     <KeyRound size={14} />
                   </button>
-                  <button class="btn-table" onclick={() => openGroupsModal(user)} title="Zarządzaj grupami">
+                  <button class="btn-table" onclick={() => openGroupsModal(user)} title={$LL.users.manageGroups()}>
                     <Settings2 size={14} />
                   </button>
                   {#if user.uid !== 0 && user.username !== 'slawek'}
-                    <button class="btn-table danger-text" onclick={() => deleteUser(user.username)} title="Usuń użytkownika">
+                    <button class="btn-table danger-text" onclick={() => deleteUser(user.username)} title={$LL.users.deleteUser()}>
                       <Trash2 size={14} />
                     </button>
                   {/if}
@@ -376,7 +382,7 @@
 
     <!-- Lista grup -->
     <div class="table-container glass groups-section">
-      <h3>Grupy Systemowe</h3>
+      <h3>{$LL.users.systemGroups()}</h3>
       {#if isLoading && groups.length === 0}
         <div class="loading-state">
           <RefreshCw class="spin" size={32} />
@@ -385,9 +391,9 @@
         <table class="groups-table">
           <thead>
             <tr>
-              <SortableTh label="Nazwa Grupy (GID)" column="name" activeColumn={groupSort.column} direction={groupSort.direction} onsort={setGroupSort} width="40%" />
-              <SortableTh label="Członkowie" column="members" activeColumn={groupSort.column} direction={groupSort.direction} onsort={setGroupSort} width="40%" />
-              <th style="width: 20%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Usuń</th>
+              <SortableTh label={$LL.users.groupNameGid()} column="name" activeColumn={groupSort.column} direction={groupSort.direction} onsort={setGroupSort} width="40%" />
+              <SortableTh label={$LL.users.members()} column="members" activeColumn={groupSort.column} direction={groupSort.direction} onsort={setGroupSort} width="40%" />
+              <th style="width: 20%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">{$LL.common.delete()}</th>
             </tr>
           </thead>
           <tbody>
@@ -398,11 +404,11 @@
                   <span class="gid-tag mono-val">GID: {group.gid}</span>
                 </td>
                 <td class="members-cell mono-val">
-                  {group.members.length > 0 ? group.members.join(', ') : '(brak)'}
+                  {group.members.length > 0 ? group.members.join(', ') : $LL.common.none()}
                 </td>
                 <td class="actions-cell">
                   {#if group.gid >= 1000}
-                    <button class="btn-table danger-text" onclick={() => deleteGroup(group.name)} title="Usuń grupę">
+                    <button class="btn-table danger-text" onclick={() => deleteGroup(group.name)} title={$LL.users.deleteGroupTitle()}>
                       <Trash2 size={14} />
                     </button>
                   {/if}
@@ -422,11 +428,11 @@
         <div class="modal-header-icon">
           <KeyRound size={32} class="accent-amber-text" />
         </div>
-        <h3>Wymagane uwierzytelnienie Sudo</h3>
-        <p class="modal-desc">Ta operacja wymaga uprawnień roota. Wprowadź swoje hasło użytkownika (sudo):</p>
+        <h3>{$LL.sudo.authTitle()}</h3>
+        <p class="modal-desc">{$LL.sudo.authDesc()}</p>
         <input 
           type="password" 
-          placeholder="Wpisz hasło..." 
+          placeholder={$LL.sudo.passwordInputPlaceholder()} 
           bind:value={sudoPassword} 
           onkeydown={(e) => e.key === 'Enter' && submitSudoPassword()}
         />
@@ -434,42 +440,42 @@
           <span class="error-text">{sudoError}</span>
         {/if}
         <div class="modal-actions">
-          <button class="primary" onclick={submitSudoPassword}>Zatwierdź</button>
-          <button class="secondary" onclick={() => { showSudoModal = false; sudoPassword = ''; pendingAction = null; }}>Anuluj</button>
+          <button class="primary" onclick={submitSudoPassword}>{$LL.common.submit()}</button>
+          <button class="secondary" onclick={() => { showSudoModal = false; sudoPassword = ''; pendingAction = null; }}>{$LL.common.cancel()}</button>
         </div>
       </div>
     </div>
   {/if}
 
-  <!-- Modal Nowy Użytkownik -->
+  <!-- New User Modal -->
   {#if showCreateUserModal}
     <div class="modal-overlay">
       <div class="modal-content glass">
-        <h3>Utwórz nowego użytkownika</h3>
+        <h3>{$LL.users.createUserTitle()}</h3>
         
         <div class="form-group">
-          <label for="new-username">Nazwa użytkownika</label>
-          <input id="new-username" type="text" placeholder="jan" bind:value={newUsername} />
+          <label for="new-username">{$LL.users.username()}</label>
+          <input id="new-username" type="text" placeholder={$LL.users.usernamePlaceholder()} bind:value={newUsername} />
         </div>
 
         <div class="form-group">
-          <label for="new-user-shell">Domyślna powłoka</label>
+          <label for="new-user-shell">{$LL.users.defaultShell()}</label>
           <select id="new-user-shell" bind:value={newUserShell}>
-            <option value="/bin/bash">/bin/bash (Bash)</option>
-            <option value="/bin/sh">/bin/sh (Standard Sh)</option>
-            <option value="/usr/bin/zsh">/usr/bin/zsh (Zsh)</option>
-            <option value="/usr/sbin/nologin">/usr/sbin/nologin (Bez logowania)</option>
+            <option value="/bin/bash">{$LL.users.shellBash()}</option>
+            <option value="/bin/sh">{$LL.users.shellSh()}</option>
+            <option value="/usr/bin/zsh">{$LL.users.shellZsh()}</option>
+            <option value="/usr/sbin/nologin">{$LL.users.shellNologin()}</option>
           </select>
         </div>
 
         <div class="form-group">
-          <label for="new-user-home">Katalog domowy (Opcjonalnie)</label>
-          <input id="new-user-home" type="text" placeholder="Automatyczny (/home/nazwa)" bind:value={newUserHome} />
+          <label for="new-user-home">{$LL.users.homeOptional()}</label>
+          <input id="new-user-home" type="text" placeholder={$LL.users.homePlaceholder()} bind:value={newUserHome} />
         </div>
 
         <div class="modal-actions">
-          <button class="primary" onclick={createUser} disabled={!newUsername}>Utwórz użytkownika</button>
-          <button class="secondary" onclick={() => { showCreateUserModal = false; newUsername = ''; }}>Anuluj</button>
+          <button class="primary" onclick={createUser} disabled={!newUsername}>{$LL.users.createUser()}</button>
+          <button class="secondary" onclick={() => { showCreateUserModal = false; newUsername = ''; }}>{$LL.common.cancel()}</button>
         </div>
       </div>
     </div>
@@ -479,36 +485,36 @@
   {#if showCreateGroupModal}
     <div class="modal-overlay">
       <div class="modal-content glass">
-        <h3>Utwórz nową grupę</h3>
-        <input type="text" placeholder="Nazwa grupy (np. developers)" bind:value={newGroupName} />
+        <h3>{$LL.users.createGroupTitle()}</h3>
+        <input type="text" placeholder={$LL.users.groupNamePlaceholder()} bind:value={newGroupName} />
         <div class="modal-actions">
-          <button class="primary" onclick={createGroup} disabled={!newGroupName}>Utwórz</button>
-          <button class="secondary" onclick={() => { showCreateGroupModal = false; newGroupName = ''; }}>Anuluj</button>
+          <button class="primary" onclick={createGroup} disabled={!newGroupName}>{$LL.common.create()}</button>
+          <button class="secondary" onclick={() => { showCreateGroupModal = false; newGroupName = ''; }}>{$LL.common.cancel()}</button>
         </div>
       </div>
     </div>
   {/if}
 
-  <!-- Modal Zmiana Hasła -->
+  <!-- Change Password Modal -->
   {#if showChangePassModal}
     <div class="modal-overlay">
       <div class="modal-content glass">
-        <h3>Zmień hasło dla <strong>{targetUser?.username}</strong></h3>
-        <input type="password" placeholder="Wpisz nowe hasło..." bind:value={targetPassword} />
+        <h3>{$LL.users.changePasswordFor({ username: targetUser?.username ?? '' })}</h3>
+        <input type="password" placeholder={$LL.users.newPasswordPlaceholder()} bind:value={targetPassword} />
         <div class="modal-actions">
-          <button class="primary" onclick={changePassword} disabled={!targetPassword}>Zmień hasło</button>
-          <button class="secondary" onclick={() => { showChangePassModal = false; targetPassword = ''; targetUser = null; }}>Anuluj</button>
+          <button class="primary" onclick={changePassword} disabled={!targetPassword}>{$LL.users.changePasswordBtn()}</button>
+          <button class="secondary" onclick={() => { showChangePassModal = false; targetPassword = ''; targetUser = null; }}>{$LL.common.cancel()}</button>
         </div>
       </div>
     </div>
   {/if}
 
-  <!-- Modal Zarządzania Grupami Użytkownika -->
+  <!-- User Groups Management Modal -->
   {#if showGroupsModal}
     <div class="modal-overlay">
       <div class="modal-content glass groups-select-modal">
-        <h3>Grupy użytkownika <strong>{targetUser?.username}</strong></h3>
-        <p class="modal-desc">Zaznacz grupy, do których ma należeć użytkownik:</p>
+        <h3>{$LL.users.userGroupsTitle({ username: targetUser?.username ?? '' })}</h3>
+        <p class="modal-desc">{$LL.users.selectGroups()}</p>
         <div class="groups-checkbox-list">
           {#each groups.filter(g => g.gid >= 1000 || g.name === 'sudo' || g.name === 'docker') as group}
             <label class="group-checkbox-item">
@@ -530,8 +536,8 @@
           {/each}
         </div>
         <div class="modal-actions">
-          <button class="primary" onclick={saveUserGroups}>Zapisz grupy</button>
-          <button class="secondary" onclick={() => { showGroupsModal = false; targetUser = null; }}>Anuluj</button>
+          <button class="primary" onclick={saveUserGroups}>{$LL.users.saveGroups()}</button>
+          <button class="secondary" onclick={() => { showGroupsModal = false; targetUser = null; }}>{$LL.common.cancel()}</button>
         </div>
       </div>
     </div>

@@ -6,12 +6,17 @@
   import { checkResourceAlerts } from '$lib/alerts/monitor';
   import type { ExtendedServerStats, ProfileExtras } from '$lib/admin/types';
   import { DEFAULT_PROFILE_EXTRAS } from '$lib/admin/types';
+  import { get } from 'svelte/store';
+  import { LL } from '$lib/i18n/i18n-svelte';
+  import { formatInvokeError } from '$lib/i18n/backendErrors';
 
   let {
     initialStats,
     profileId = '',
-    profileLabel = 'Serwer',
+    profileLabel = '',
   } = $props();
+
+  const displayProfileLabel = $derived(profileLabel || get(LL).shell.defaultServerLabel());
 
   let stats = $state(initialStats);
   let extended = $state<ExtendedServerStats | null>(null);
@@ -122,30 +127,30 @@
       stats = newStats;
       errorMsg = '';
 
-      await checkResourceAlerts(profileLabel, newStats, alertConfig);
+      await checkResourceAlerts(displayProfileLabel, newStats, alertConfig);
 
-      // Obliczanie przepustowości sieci
+      // Network throughput calculation
       const deltaRx = newStats.network_rx >= prevRx ? newStats.network_rx - prevRx : 0;
       const deltaTx = newStats.network_tx >= prevTx ? newStats.network_tx - prevTx : 0;
       
-      // Nasz poller działa co 2 sekundy, więc dzielimy przez 2 dla wartości na sekundę
+      // Our poller runs every 2 seconds, so we divide by 2 for the per-second value
       downSpeed = formatBytes(deltaRx / 2) + '/s';
       upSpeed = formatBytes(deltaTx / 2) + '/s';
 
       prevRx = newStats.network_rx;
       prevTx = newStats.network_tx;
 
-      // Aktualizuj historię
+      // Update history
       cpuHistory = [...cpuHistory.slice(-19), newStats.cpu_usage];
       const ramUsagePct = (newStats.ram_used / newStats.ram_total) * 100;
       ramHistory = [...ramHistory.slice(-19), ramUsagePct];
       
-    } catch (err: any) {
-      errorMsg = 'Nie można pobrać statystyk: ' + err.toString();
+    } catch (err: unknown) {
+      errorMsg = get(LL).alerts.statsLoadFailed({ error: formatInvokeError(err) });
     }
   }
 
-  // Generowanie ścieżki SVG dla wykresów liniowych
+  // Generating SVG path for line charts
   function getSvgPath(history: number[]) {
     if (history.length < 2) return '';
     const width = 500;
@@ -198,15 +203,15 @@
       const extras: ProfileExtras = await invoke('get_profile_extras', { profileId });
       extras.alert_thresholds = alertConfig;
       await invoke('save_profile_extras', { profileId, extras });
-    } catch (err: any) {
-      errorMsg = 'Nie udało się zapisać progów alertów: ' + err.toString();
+    } catch (err: unknown) {
+      errorMsg = get(LL).alerts.saveFailed({ error: formatInvokeError(err) });
     }
   }
 </script>
 
 <div class="dashboard manager-shell scrollable fade-in">
   <header class="manager-header">
-    <h1 class="page-title">Panel Główny</h1>
+    <h1 class="page-title">{$LL.dashboard.title()}</h1>
     {#if errorMsg}
       <div class="error-badge">{errorMsg}</div>
     {/if}
@@ -217,21 +222,21 @@
     <div class="info-item">
       <Info class="info-icon animate-pulse" size={20} />
       <div>
-        <span class="info-label">System Operacyjny</span>
+        <span class="info-label">{$LL.dashboard.os()}</span>
         <span class="info-val">{stats.os}</span>
       </div>
     </div>
     <div class="info-item">
       <Activity class="info-icon" size={20} />
       <div>
-        <span class="info-label">Czas Uruchomienia (Uptime)</span>
+        <span class="info-label">{$LL.dashboard.uptime()}</span>
         <span class="info-val mono-val">{stats.uptime}</span>
       </div>
     </div>
     <div class="info-item">
       <Cpu class="info-icon" size={20} />
       <div>
-        <span class="info-label">Nazwa Hosta</span>
+        <span class="info-label">{$LL.dashboard.hostname()}</span>
         <span class="info-val">{stats.hostname}</span>
       </div>
     </div>
@@ -242,7 +247,7 @@
     <!-- CPU -->
     <div class="metric-card glass">
       <div class="card-header">
-        <h3>Procesor (CPU)</h3>
+        <h3>{$LL.dashboard.cpu()}</h3>
         <Cpu size={18} class="accent-amber-text" />
       </div>
       <div class="gauge-container">
@@ -263,7 +268,7 @@
     <!-- RAM -->
     <div class="metric-card glass">
       <div class="card-header">
-        <h3>Pamięć operacyjna</h3>
+        <h3>{$LL.dashboard.ram()}</h3>
         <Activity size={18} class="accent-rust-text" />
       </div>
       <div class="gauge-container">
@@ -285,7 +290,7 @@
     <!-- DYSK -->
     <div class="metric-card glass">
       <div class="card-header">
-        <h3>Przestrzeń dyskowa</h3>
+        <h3>{$LL.dashboard.disk()}</h3>
         <HardDrive size={18} class="accent-green-text" />
       </div>
       <div class="gauge-container">
@@ -305,14 +310,14 @@
     </div>
   </section>
 
-  <!-- Wykresy historii oraz sieć -->
+  <!-- History charts and network -->
   <section class="charts-grid">
     <div class="chart-card glass">
       <div class="chart-header">
-        <h3>Historia obciążenia CPU & RAM</h3>
+        <h3>{$LL.dashboard.chartTitle()}</h3>
         <div class="legend">
-          <span class="legend-item"><span class="color-dot cpu"></span>CPU</span>
-          <span class="legend-item"><span class="color-dot ram"></span>RAM</span>
+          <span class="legend-item"><span class="color-dot cpu"></span>{$LL.dashboard.cpu()}</span>
+          <span class="legend-item"><span class="color-dot ram"></span>{$LL.dashboard.ram()}</span>
         </div>
       </div>
       <div class="chart-container">
@@ -355,21 +360,21 @@
       </div>
     </div>
 
-    <!-- Sieć -->
+    <!-- Network -->
     <div class="network-card glass">
-      <h3>Prędkość sieciowa (I/O)</h3>
+      <h3>{$LL.dashboard.networkSpeed()}</h3>
       <div class="net-stats">
         <div class="net-dir">
           <ArrowDown size={28} class="net-icon down" />
           <div class="net-info">
-            <span class="label">POBIERANIE</span>
+            <span class="label">{$LL.dashboard.download()}</span>
             <span class="value down-val mono-val">{downSpeed}</span>
           </div>
         </div>
         <div class="net-dir">
           <ArrowUp size={28} class="net-icon up" />
           <div class="net-info">
-            <span class="label">WYSYŁANIE</span>
+            <span class="label">{$LL.dashboard.upload()}</span>
             <span class="value up-val mono-val">{upSpeed}</span>
           </div>
         </div>
@@ -380,7 +385,7 @@
   {#if extended}
     <section class="extended-grid">
       <div class="ext-card glass">
-        <div class="ext-header"><Gauge size={16} /> Load average</div>
+        <div class="ext-header"><Gauge size={16} /> {$LL.dashboard.loadAverage()}</div>
         <div class="load-vals mono-val">
           <span>{extended.load_1.toFixed(2)}</span>
           <span class="sep">/</span>
@@ -388,27 +393,31 @@
           <span class="sep">/</span>
           <span>{extended.load_15.toFixed(2)}</span>
         </div>
-        <span class="ext-label">1 min / 5 min / 15 min</span>
+        <span class="ext-label">{$LL.dashboard.loadPeriods()}</span>
       </div>
       <div class="ext-card glass">
-        <div class="ext-header"><Layers size={16} /> Swap</div>
+        <div class="ext-header"><Layers size={16} /> {$LL.dashboard.swap()}</div>
         <div class="ext-val mono-val">
           {extended.swap_used_mb} / {extended.swap_total_mb} MB
         </div>
         <span class="ext-label">
-          {extended.swap_total_mb > 0
-            ? Math.round((extended.swap_used_mb / extended.swap_total_mb) * 100)
-            : 0}% użycia
+          {$LL.dashboard.swapUsage({
+            pct: String(
+              extended.swap_total_mb > 0
+                ? Math.round((extended.swap_used_mb / extended.swap_total_mb) * 100)
+                : 0
+            ),
+          })}
         </span>
       </div>
     </section>
 
     {#if extended.disk_mounts.length > 0}
       <section class="mounts-panel glass">
-        <h3>Partycje dyskowe</h3>
+        <h3>{$LL.dashboard.diskPartitions()}</h3>
         <div class="mounts-table">
           <div class="mount-row head">
-            <span>Montowanie</span><span>Użycie</span><span>Inode</span>
+            <span>{$LL.dashboard.mount()}</span><span>{$LL.dashboard.usage()}</span><span>{$LL.dashboard.inode()}</span>
           </div>
           {#each extended.disk_mounts as m}
             <div class="mount-row">
@@ -423,10 +432,10 @@
 
     {#if extended.top_processes.length > 0}
       <section class="procs-panel glass">
-        <h3>Top procesy (RAM)</h3>
+        <h3>{$LL.dashboard.topProcesses()}</h3>
         <div class="procs-table">
           <div class="proc-row head">
-            <span>PID</span><span>Użytk.</span><span>CPU</span><span>RAM</span><span>Komenda</span>
+            <span>{$LL.dashboard.pid()}</span><span>{$LL.dashboard.user()}</span><span>{$LL.dashboard.cpu()}</span><span>{$LL.dashboard.ram()}</span><span>{$LL.dashboard.command()}</span>
           </div>
           {#each extended.top_processes as p}
             <div class="proc-row">
@@ -444,21 +453,21 @@
 
   <section class="alerts-panel glass">
     <div class="alerts-header">
-      <h3>Alerty desktopowe</h3>
+      <h3>{$LL.alerts.panelTitle()}</h3>
       <label class="toggle-row">
         <input type="checkbox" bind:checked={alertConfig.enabled} onchange={saveAlertConfig} />
-        Włączone
+        {$LL.alerts.enabled()}
       </label>
     </div>
     {#if alertConfig.enabled}
       <div class="alert-thresholds">
-        <label>CPU (%)
+        <label>{$LL.alerts.cpuThreshold()}
           <input type="number" min="50" max="100" bind:value={alertConfig.cpu_pct} onchange={saveAlertConfig} />
         </label>
-        <label>RAM (%)
+        <label>{$LL.alerts.ramThreshold()}
           <input type="number" min="50" max="100" bind:value={alertConfig.ram_pct} onchange={saveAlertConfig} />
         </label>
-        <label>Dysk (%)
+        <label>{$LL.alerts.diskThreshold()}
           <input type="number" min="50" max="100" bind:value={alertConfig.disk_pct} onchange={saveAlertConfig} />
         </label>
       </div>
@@ -468,41 +477,41 @@
   <!-- Pangolin Proxy Stats -->
   <section class="proxy-section glass">
     <div class="proxy-header">
-      <h3><Globe size={18} class="accent-amber-text" /> Pangolin Proxy (7 dni)</h3>
+      <h3><Globe size={18} class="accent-amber-text" /> {$LL.dashboard.proxyTitle()}</h3>
       {#if proxyStats.configured}
-        <span class="proxy-badge">Połączono</span>
+        <span class="proxy-badge">{$LL.dashboard.proxyConnected()}</span>
       {/if}
     </div>
 
     {#if proxyStats.loading}
-      <p class="proxy-muted">Wczytywanie statystyk proxy...</p>
+      <p class="proxy-muted">{$LL.dashboard.proxyLoading()}</p>
     {:else if !proxyStats.configured}
       <p class="proxy-muted">
-        Skonfiguruj Pangolin w zakładce „Pangolin Proxy”, aby zobaczyć statystyki ruchu.
+        {$LL.dashboard.proxyNotConfigured()}
       </p>
     {:else}
       <div class="proxy-grid">
         <div class="proxy-stat">
-          <span class="proxy-label">Zapytania</span>
+          <span class="proxy-label">{$LL.dashboard.requests()}</span>
           <span class="proxy-val mono-val">{formatCompact(proxyStats.totalRequests)}</span>
         </div>
         <div class="proxy-stat">
-          <span class="proxy-label">Dozwolone</span>
+          <span class="proxy-label">{$LL.dashboard.allowed()}</span>
           <span class="proxy-val mono-val text-green">{formatCompact(proxyAllowed)}</span>
         </div>
         <div class="proxy-stat">
-          <span class="proxy-label">Zablokowane</span>
+          <span class="proxy-label">{$LL.dashboard.blocked()}</span>
           <span class="proxy-val mono-val text-red">{formatCompact(proxyStats.totalBlocked)}</span>
         </div>
         <div class="proxy-stat">
-          <span class="proxy-label">Współcz. blokad</span>
+          <span class="proxy-label">{$LL.dashboard.blockRate()}</span>
           <span class="proxy-val mono-val">{proxyBlockRate}%</span>
         </div>
       </div>
 
       {#if proxyStats.topCountries.length > 0}
         <div class="proxy-countries">
-          <span class="proxy-label">Top kraje</span>
+          <span class="proxy-label">{$LL.dashboard.topCountries()}</span>
           <div class="proxy-country-list">
             {#each proxyStats.topCountries as country}
               <div class="proxy-country-item">

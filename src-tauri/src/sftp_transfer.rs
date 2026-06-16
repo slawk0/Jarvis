@@ -1,3 +1,4 @@
+use crate::app_error::AppError;
 use crate::ssh::SshConnection;
 use russh_sftp::client::SftpSession;
 use russh_sftp::protocol::OpenFlags;
@@ -152,24 +153,28 @@ fn job_event(
     }
 }
 
+fn error_payload(err: &AppError) -> String {
+    err.to_json()
+}
+
 async fn sleep_backoff(attempt: u32) {
     let idx = (attempt as usize).min(RETRY_DELAYS.len() - 1);
     tokio::time::sleep(Duration::from_secs(RETRY_DELAYS[idx])).await;
 }
 
-pub async fn open_sftp(conn: &SshConnection) -> Result<SftpSession, String> {
+pub async fn open_sftp(conn: &SshConnection) -> Result<SftpSession, AppError> {
     conn.get_sftp().await
 }
 
-pub async fn sftp_stat_size(sftp: &SftpSession, path: &str) -> Result<u64, String> {
+pub async fn sftp_stat_size(sftp: &SftpSession, path: &str) -> Result<u64, AppError> {
     let meta = sftp
         .metadata(path)
         .await
-        .map_err(|e| format!("Błąd metadata {}: {}", path, e))?;
+        .map_err(|e| AppError::with_details("SFTP_METADATA_FAILED", format!("{}: {}", path, e)))?;
     Ok(meta.size.unwrap_or(0))
 }
 
-pub async fn sftp_ensure_parent_dirs(sftp: &SftpSession, remote_path: &str) -> Result<(), String> {
+pub async fn sftp_ensure_parent_dirs(sftp: &SftpSession, remote_path: &str) -> Result<(), AppError> {
     let path = Path::new(remote_path);
     let Some(parent) = path.parent() else {
         return Ok(());
@@ -189,7 +194,7 @@ pub async fn sftp_ensure_parent_dirs(sftp: &SftpSession, remote_path: &str) -> R
         if sftp.metadata(&current).await.is_err() {
             sftp.create_dir(&current)
                 .await
-                .map_err(|e| format!("Nie można utworzyć katalogu {}: {}", current, e))?;
+                .map_err(|e| AppError::with_details("SFTP_DIR_CREATE_FAILED", format!("{}: {}", current, e)))?;
         }
     }
     Ok(())
@@ -201,10 +206,10 @@ pub async fn sftp_upload_stream(
     remote_path: &str,
     cancel: &AtomicBool,
     on_progress: impl Fn(u64, u64, u64),
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     let local_meta = fs::metadata(local_path)
         .await
-        .map_err(|e| format!("Błąd odczytu lokalnego pliku {}: {}", local_path, e))?;
+        .map_err(|e| AppError::with_details("LOCAL_FILE_READ_FAILED", format!("{}: {}", local_path, e)))?;
     let total = local_meta.len();
 
     sftp_ensure_parent_dirs(sftp, remote_path).await?;
@@ -214,7 +219,7 @@ pub async fn sftp_upload_stream(
 
     let mut local_file = File::open(local_path)
         .await
-        .map_err(|e| format!("Nie można otworzyć {}: {}", local_path, e))?;
+        .map_err(|e| AppError::with_details("LOCAL_FILE_OPEN_FAILED", format!("{}: {}", local_path, e)))?;
 
     let mut remote_file = sftp
         .open_with_flags(
@@ -222,7 +227,7 @@ pub async fn sftp_upload_stream(
             OpenFlags::CREATE | OpenFlags::TRUNCATE | OpenFlags::WRITE,
         )
         .await
-        .map_err(|e| format!("Nie można utworzyć zdalnego pliku {}: {}", part_path, e))?;
+        .map_err(|e| AppError::with_details("REMOTE_FILE_CREATE_FAILED", format!("{}: {}", part_path, e)))?;
 
     let mut buf = vec![0u8; CHUNK_SIZE];
     let mut done: u64 = 0;
@@ -232,13 +237,13 @@ pub async fn sftp_upload_stream(
     loop {
         if cancel.load(Ordering::Relaxed) {
             let _ = sftp.remove_file(&part_path).await;
-            return Err("Anulowano".to_string());
+            return Err(AppError::new(AppError::TRANSFER_CANCELLED));
         }
 
         let n = local_file
             .read(&mut buf)
             .await
-            .map_err(|e| format!("Błąd odczytu lokalnego: {}", e))?;
+            .map_err(|e| AppError::with_details("LOCAL_READ_FAILED", e.to_string()))?;
         if n == 0 {
             break;
         }
@@ -246,7 +251,7 @@ pub async fn sftp_upload_stream(
         remote_file
             .write_all(&buf[..n])
             .await
-            .map_err(|e| format!("Błąd zapisu zdalnego: {}", e))?;
+            .map_err(|e| AppError::with_details("REMOTE_WRITE_FAILED", e.to_string()))?;
         done += n as u64;
 
         if last_emit.elapsed() >= PROGRESS_INTERVAL {
@@ -260,20 +265,20 @@ pub async fn sftp_upload_stream(
     remote_file
         .shutdown()
         .await
-        .map_err(|e| format!("Błąd zamykania zdalnego pliku: {}", e))?;
+        .map_err(|e| AppError::with_details("REMOTE_FILE_CLOSE_FAILED", e.to_string()))?;
 
     let remote_size = sftp_stat_size(sftp, &part_path).await?;
     if remote_size != total {
         let _ = sftp.remove_file(&part_path).await;
-        return Err(format!(
-            "Weryfikacja nie powiodła się: oczekiwano {} bajtów, otrzymano {}",
-            total, remote_size
+        return Err(AppError::with_details(
+            "TRANSFER_VERIFY_FAILED",
+            format!("expected {} bytes, got {}", total, remote_size),
         ));
     }
 
     sftp.rename(&part_path, remote_path)
         .await
-        .map_err(|e| format!("Błąd finalizacji uploadu: {}", e))?;
+        .map_err(|e| AppError::with_details("UPLOAD_FINALIZE_FAILED", e.to_string()))?;
 
     let elapsed = start.elapsed().as_secs_f64().max(0.001);
     on_progress(total, total, (total as f64 / elapsed) as u64);
@@ -286,13 +291,13 @@ pub async fn sftp_download_stream(
     local_path: &str,
     cancel: &AtomicBool,
     on_progress: impl Fn(u64, u64, u64),
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     let total = sftp_stat_size(sftp, remote_path).await?;
 
     if let Some(parent) = Path::new(local_path).parent() {
         fs::create_dir_all(parent)
             .await
-            .map_err(|e| format!("Nie można utworzyć katalogu lokalnego: {}", e))?;
+            .map_err(|e| AppError::with_details("LOCAL_DIR_CREATE_FAILED", e.to_string()))?;
     }
 
     let part_path = format!("{}.part", local_path);
@@ -301,11 +306,11 @@ pub async fn sftp_download_stream(
     let mut remote_file = sftp
         .open_with_flags(remote_path, OpenFlags::READ)
         .await
-        .map_err(|e| format!("Nie można otworzyć zdalnego pliku {}: {}", remote_path, e))?;
+        .map_err(|e| AppError::with_details("REMOTE_FILE_OPEN_FAILED", format!("{}: {}", remote_path, e)))?;
 
     let mut local_file = File::create(&part_path)
         .await
-        .map_err(|e| format!("Nie można utworzyć lokalnego pliku {}: {}", part_path, e))?;
+        .map_err(|e| AppError::with_details("LOCAL_FILE_CREATE_FAILED", format!("{}: {}", part_path, e)))?;
 
     let mut buf = vec![0u8; CHUNK_SIZE];
     let mut done: u64 = 0;
@@ -315,13 +320,13 @@ pub async fn sftp_download_stream(
     loop {
         if cancel.load(Ordering::Relaxed) {
             let _ = fs::remove_file(&part_path).await;
-            return Err("Anulowano".to_string());
+            return Err(AppError::new(AppError::TRANSFER_CANCELLED));
         }
 
         let n = remote_file
             .read(&mut buf)
             .await
-            .map_err(|e| format!("Błąd odczytu zdalnego: {}", e))?;
+            .map_err(|e| AppError::with_details("REMOTE_READ_FAILED", e.to_string()))?;
         if n == 0 {
             break;
         }
@@ -329,7 +334,7 @@ pub async fn sftp_download_stream(
         local_file
             .write_all(&buf[..n])
             .await
-            .map_err(|e| format!("Błąd zapisu lokalnego: {}", e))?;
+            .map_err(|e| AppError::with_details("LOCAL_WRITE_FAILED", e.to_string()))?;
         done += n as u64;
 
         if last_emit.elapsed() >= PROGRESS_INTERVAL {
@@ -343,33 +348,34 @@ pub async fn sftp_download_stream(
     local_file
         .flush()
         .await
-        .map_err(|e| format!("Błąd flush lokalnego: {}", e))?;
+        .map_err(|e| AppError::with_details("LOCAL_FLUSH_FAILED", e.to_string()))?;
     drop(local_file);
 
-    let local_meta = fs::metadata(&part_path).await.map_err(|e| e.to_string())?;
+    let local_meta = fs::metadata(&part_path)
+        .await
+        .map_err(|e| AppError::with_details("LOCAL_FILE_READ_FAILED", e.to_string()))?;
     if local_meta.len() != total {
         let _ = fs::remove_file(&part_path).await;
-        return Err(format!(
-            "Weryfikacja nie powiodła się: oczekiwano {} bajtów, otrzymano {}",
-            total,
-            local_meta.len()
+        return Err(AppError::with_details(
+            "TRANSFER_VERIFY_FAILED",
+            format!("expected {} bytes, got {}", total, local_meta.len()),
         ));
     }
 
     fs::rename(&part_path, local_path)
         .await
-        .map_err(|e| format!("Błąd finalizacji pobierania: {}", e))?;
+        .map_err(|e| AppError::with_details("DOWNLOAD_FINALIZE_FAILED", e.to_string()))?;
 
     let elapsed = start.elapsed().as_secs_f64().max(0.001);
     on_progress(total, total, (total as f64 / elapsed) as u64);
     Ok(())
 }
 
-pub async fn sftp_delete_recursive(sftp: &SftpSession, path: &str) -> Result<(), String> {
+pub async fn sftp_delete_recursive(sftp: &SftpSession, path: &str) -> Result<(), AppError> {
     let entries = sftp
         .read_dir(path)
         .await
-        .map_err(|e| format!("Błąd odczytu katalogu {}: {}", path, e))?;
+        .map_err(|e| AppError::with_details("SFTP_DIR_READ_FAILED", format!("{}: {}", path, e)))?;
 
     for entry in entries {
         let name = entry.file_name();
@@ -386,74 +392,85 @@ pub async fn sftp_delete_recursive(sftp: &SftpSession, path: &str) -> Result<(),
         } else {
             sftp.remove_file(&child)
                 .await
-                .map_err(|e| format!("Nie można usunąć pliku {}: {}", child, e))?;
+                .map_err(|e| AppError::with_details("SFTP_FILE_DELETE_FAILED", format!("{}: {}", child, e)))?;
         }
     }
 
     sftp.remove_dir(path)
         .await
-        .map_err(|e| format!("Nie można usunąć katalogu {}: {}", path, e))?;
+        .map_err(|e| AppError::with_details("SFTP_DIR_DELETE_FAILED", format!("{}: {}", path, e)))?;
     Ok(())
 }
 
-pub async fn sftp_move_path(sftp: &SftpSession, src: &str, dest: &str) -> Result<(), String> {
+pub async fn sftp_move_path(sftp: &SftpSession, src: &str, dest: &str) -> Result<(), AppError> {
     if let Err(e) = sftp.rename(src, dest).await {
         let err = e.to_string();
-        if sftp.metadata(src).await.map(|m| m.is_dir()).unwrap_or(false) {
+        if sftp
+            .metadata(src)
+            .await
+            .map(|m| m.is_dir())
+            .unwrap_or(false)
+        {
             sftp_copy_recursive(sftp, src, dest).await?;
             return sftp_delete_recursive(sftp, src).await;
         }
-        return Err(format!("Błąd przeniesienia {} -> {}: {}", src, dest, err));
+        return Err(AppError::with_details(
+            "SFTP_MOVE_FAILED",
+            format!("{} -> {}: {}", src, dest, err),
+        ));
     }
     Ok(())
 }
 
-async fn sftp_copy_file(sftp: &SftpSession, src: &str, dest: &str) -> Result<(), String> {
+async fn sftp_copy_file(sftp: &SftpSession, src: &str, dest: &str) -> Result<(), AppError> {
     sftp_ensure_parent_dirs(sftp, dest).await?;
     let total = sftp_stat_size(sftp, src).await?;
     let mut remote_src = sftp
         .open_with_flags(src, OpenFlags::READ)
         .await
-        .map_err(|e| format!("Nie można otworzyć {}: {}", src, e))?;
+        .map_err(|e| AppError::with_details("REMOTE_FILE_OPEN_FAILED", format!("{}: {}", src, e)))?;
     let mut remote_dest = sftp
         .open_with_flags(
             dest,
             OpenFlags::CREATE | OpenFlags::TRUNCATE | OpenFlags::WRITE,
         )
         .await
-        .map_err(|e| format!("Nie można utworzyć {}: {}", dest, e))?;
+        .map_err(|e| AppError::with_details("REMOTE_FILE_CREATE_FAILED", format!("{}: {}", dest, e)))?;
 
     let mut buf = vec![0u8; CHUNK_SIZE];
     loop {
         let n = remote_src
             .read(&mut buf)
             .await
-            .map_err(|e| format!("Błąd kopiowania z {}: {}", src, e))?;
+            .map_err(|e| AppError::with_details("SFTP_COPY_FAILED", format!("{}: {}", src, e)))?;
         if n == 0 {
             break;
         }
         remote_dest
             .write_all(&buf[..n])
             .await
-            .map_err(|e| format!("Błąd kopiowania do {}: {}", dest, e))?;
+            .map_err(|e| AppError::with_details("SFTP_COPY_FAILED", format!("{}: {}", dest, e)))?;
     }
-    remote_dest.shutdown().await.map_err(|e| e.to_string())?;
+    remote_dest
+        .shutdown()
+        .await
+        .map_err(|e| AppError::with_details("REMOTE_FILE_CLOSE_FAILED", e.to_string()))?;
 
     let dest_size = sftp_stat_size(sftp, dest).await?;
     if dest_size != total {
-        return Err(format!(
-            "Kopiowanie nieudane: {} vs {} bajtów",
-            total, dest_size
+        return Err(AppError::with_details(
+            "SFTP_COPY_VERIFY_FAILED",
+            format!("{} vs {} bytes", total, dest_size),
         ));
     }
     Ok(())
 }
 
-pub async fn sftp_copy_recursive(sftp: &SftpSession, src: &str, dest: &str) -> Result<(), String> {
+pub async fn sftp_copy_recursive(sftp: &SftpSession, src: &str, dest: &str) -> Result<(), AppError> {
     let meta = sftp
         .metadata(src)
         .await
-        .map_err(|e| format!("Błąd metadata {}: {}", src, e))?;
+        .map_err(|e| AppError::with_details("SFTP_METADATA_FAILED", format!("{}: {}", src, e)))?;
 
     if !meta.is_dir() {
         return sftp_copy_file(sftp, src, dest).await;
@@ -461,12 +478,12 @@ pub async fn sftp_copy_recursive(sftp: &SftpSession, src: &str, dest: &str) -> R
 
     sftp.create_dir(dest)
         .await
-        .map_err(|e| format!("Nie można utworzyć {}: {}", dest, e))?;
+        .map_err(|e| AppError::with_details("SFTP_DIR_CREATE_FAILED", format!("{}: {}", dest, e)))?;
 
     let entries = sftp
         .read_dir(src)
         .await
-        .map_err(|e| format!("Błąd odczytu {}: {}", src, e))?;
+        .map_err(|e| AppError::with_details("SFTP_DIR_READ_FAILED", format!("{}: {}", src, e)))?;
 
     for entry in entries {
         let name = entry.file_name();
@@ -493,11 +510,11 @@ pub async fn collect_remote_files(
     remote_path: &str,
     local_base: &Path,
     remote_base: &str,
-) -> Result<Vec<InternalJob>, String> {
+) -> Result<Vec<InternalJob>, AppError> {
     let meta = sftp
         .metadata(remote_path)
         .await
-        .map_err(|e| format!("Błąd metadata {}: {}", remote_path, e))?;
+        .map_err(|e| AppError::with_details("SFTP_METADATA_FAILED", format!("{}: {}", remote_path, e)))?;
 
     if !meta.is_dir() {
         let rel = remote_path
@@ -523,7 +540,7 @@ pub async fn collect_remote_files(
     let entries = sftp
         .read_dir(remote_path)
         .await
-        .map_err(|e| format!("Błąd odczytu {}: {}", remote_path, e))?;
+        .map_err(|e| AppError::with_details("SFTP_DIR_READ_FAILED", format!("{}: {}", remote_path, e)))?;
 
     for entry in entries {
         let name = entry.file_name();
@@ -542,20 +559,23 @@ pub async fn collect_remote_files(
     Ok(jobs)
 }
 
-pub fn collect_local_files(local_paths: &[String], remote_dir: &str) -> Result<Vec<InternalJob>, String> {
+pub fn collect_local_files(
+    local_paths: &[String],
+    remote_dir: &str,
+) -> Result<Vec<InternalJob>, AppError> {
     let mut jobs = Vec::new();
 
     for local_path in local_paths {
         let path = Path::new(local_path);
         if !path.exists() {
-            return Err(format!("Ścieżka nie istnieje: {}", local_path));
+            return Err(AppError::with_details("LOCAL_PATH_NOT_FOUND", local_path.clone()));
         }
 
         if path.is_file() {
             let name = path
                 .file_name()
                 .and_then(|n| n.to_str())
-                .ok_or_else(|| format!("Nieprawidłowa nazwa: {}", local_path))?;
+                .ok_or_else(|| AppError::with_details("INVALID_LOCAL_PATH_NAME", local_path.clone()))?;
             let remote = if remote_dir.ends_with('/') {
                 format!("{}{}", remote_dir, name)
             } else {
@@ -582,13 +602,15 @@ fn collect_local_dir(
     current: &Path,
     remote_dir: &str,
     jobs: &mut Vec<InternalJob>,
-) -> Result<(), String> {
-    for entry in std::fs::read_dir(current).map_err(|e| e.to_string())? {
-        let entry = entry.map_err(|e| e.to_string())?;
+) -> Result<(), AppError> {
+    for entry in std::fs::read_dir(current).map_err(|e| {
+        AppError::with_details("LOCAL_DIR_READ_FAILED", e.to_string())
+    })? {
+        let entry = entry.map_err(|e| AppError::with_details("LOCAL_DIR_READ_FAILED", e.to_string()))?;
         let path = entry.path();
         let rel = path
             .strip_prefix(root)
-            .map_err(|e| e.to_string())?
+            .map_err(|e| AppError::with_details("LOCAL_DIR_READ_FAILED", e.to_string()))?
             .to_string_lossy()
             .replace('\\', "/");
         let remote = if rel.is_empty() {
@@ -679,7 +701,10 @@ impl TransferRunner {
             let handle = tokio::spawn(async move {
                 let _permit = permit;
                 if cancel.load(Ordering::Relaxed) {
-                    return (job_id, Err("Anulowano".to_string()));
+                    return (
+                        job_id,
+                        Err(AppError::new(AppError::TRANSFER_CANCELLED)),
+                    );
                 }
 
                 let batch_for_job = {
@@ -697,7 +722,7 @@ impl TransferRunner {
                     let mut guard = counters.lock().await;
                     match &result {
                         Ok(()) => guard.0 += 1,
-                        Err(e) if e != "Anulowano" => guard.1 += 1,
+                        Err(e) if !e.is_transfer_cancelled() => guard.1 += 1,
                         _ => {}
                     }
                 }
@@ -710,7 +735,7 @@ impl TransferRunner {
         let mut cancelled = false;
         for handle in handles {
             if let Ok((_, Err(err))) = handle.await {
-                if err == "Anulowano" {
+                if err.is_transfer_cancelled() {
                     cancelled = true;
                 }
             }
@@ -755,10 +780,11 @@ async fn run_single_job(
     job: &InternalJob,
     cancel: &Arc<AtomicBool>,
     batch: &BatchSummary,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     let mut attempt = 0u32;
     loop {
         if cancel.load(Ordering::Relaxed) {
+            let cancelled = AppError::new(AppError::TRANSFER_CANCELLED);
             emit_job_status(
                 app,
                 job,
@@ -766,10 +792,10 @@ async fn run_single_job(
                 0,
                 job.total_bytes,
                 0,
-                Some("Anulowano".to_string()),
+                Some(error_payload(&cancelled)),
                 batch,
             );
-            return Err("Anulowano".to_string());
+            return Err(cancelled);
         }
 
         emit_job_status(
@@ -802,24 +828,24 @@ async fn run_single_job(
 
         let result = match job.kind {
             TransferKind::Upload => {
-                let local = job.local_path.as_ref().ok_or("Brak ścieżki lokalnej")?;
+                let local = job.local_path.as_ref().ok_or(AppError::new("NO_LOCAL_PATH"))?;
                 sftp_upload_stream(&sftp, local, &job.remote_path, cancel, on_progress).await
             }
             TransferKind::Download => {
-                let local = job.local_path.as_ref().ok_or("Brak ścieżki lokalnej")?;
+                let local = job.local_path.as_ref().ok_or(AppError::new("NO_LOCAL_PATH"))?;
                 sftp_download_stream(&sftp, &job.remote_path, local, cancel, on_progress).await
             }
             TransferKind::Move => {
-                let dest = job.local_path.as_ref().ok_or("Brak ścieżki docelowej")?;
+                let dest = job.local_path.as_ref().ok_or(AppError::new("NO_DEST_PATH"))?;
                 sftp_move_path(&sftp, &job.remote_path, dest).await
             }
             TransferKind::Delete => {
                 if job.is_dir {
                     sftp_delete_recursive(&sftp, &job.remote_path).await
                 } else {
-                    sftp.remove_file(&job.remote_path)
-                        .await
-                        .map_err(|e| format!("Nie można usunąć pliku: {}", e))
+                    sftp.remove_file(&job.remote_path).await.map_err(|e| {
+                        AppError::with_details("SFTP_FILE_DELETE_FAILED", e.to_string())
+                    })
                 }
             }
         };
@@ -838,7 +864,7 @@ async fn run_single_job(
                 );
                 return Ok(());
             }
-            Err(err) if err == "Anulowano" => {
+            Err(err) if err.is_transfer_cancelled() => {
                 emit_job_status(
                     app,
                     job,
@@ -846,7 +872,7 @@ async fn run_single_job(
                     0,
                     job.total_bytes,
                     0,
-                    Some(err.clone()),
+                    Some(error_payload(&err)),
                     batch,
                 );
                 return Err(err);
@@ -861,7 +887,7 @@ async fn run_single_job(
                         0,
                         job.total_bytes,
                         0,
-                        Some(err.clone()),
+                        Some(error_payload(&err)),
                         batch,
                     );
                     return Err(err);

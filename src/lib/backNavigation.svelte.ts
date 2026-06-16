@@ -1,3 +1,6 @@
+import { get } from 'svelte/store';
+import LL from './i18n/i18n-svelte';
+
 export type BackHandler = {
   id: string;
   priority: number;
@@ -38,8 +41,9 @@ export function navigateBack(): boolean {
   return true;
 }
 
-export function getBackDescription(fallback = 'Cofnij ostatnią akcję'): string {
+export function getBackDescription(fallback?: string): string {
+  const defaultFallback = fallback ?? get(LL).backNav.default();
   const active = getActiveBackHandler();
-  if (!active?.label) return fallback;
+  if (!active?.label) return defaultFallback;
   return typeof active.label === 'function' ? active.label() : active.label;
 }

@@ -1,3 +1,4 @@
+use crate::app_error::AppError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -63,34 +64,44 @@ impl Default for ProfileExtras {
     }
 }
 
-fn extras_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
+fn extras_path(app_handle: &AppHandle) -> Result<PathBuf, AppError> {
     let mut path = app_handle
         .path()
         .app_config_dir()
-        .map_err(|e| e.to_string())?;
-    fs::create_dir_all(&path)
-        .map_err(|e| format!("Nie można utworzyć katalogu konfiguracji: {}", e))?;
+        .map_err(|e| AppError::with_details("APP_CONFIG_DIR_FAILED", e.to_string()))?;
+    fs::create_dir_all(&path).map_err(|e| {
+        AppError::with_details("PROFILE_EXTRAS_CONFIG_DIR_FAILED", e.to_string())
+    })?;
     path.push("profile_extras.json");
     Ok(path)
 }
 
-fn load_all(app_handle: &AppHandle) -> Result<HashMap<String, ProfileExtras>, String> {
+fn load_all(app_handle: &AppHandle) -> Result<HashMap<String, ProfileExtras>, AppError> {
     let path = extras_path(app_handle)?;
     if !path.exists() {
         return Ok(HashMap::new());
     }
-    let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let content = fs::read_to_string(path)
+        .map_err(|e| AppError::with_details("PROFILE_EXTRAS_READ_FAILED", e.to_string()))?;
     Ok(serde_json::from_str(&content).unwrap_or_default())
 }
 
-fn save_all(app_handle: &AppHandle, data: &HashMap<String, ProfileExtras>) -> Result<(), String> {
+fn save_all(
+    app_handle: &AppHandle,
+    data: &HashMap<String, ProfileExtras>,
+) -> Result<(), AppError> {
     let path = extras_path(app_handle)?;
-    let content = serde_json::to_string_pretty(data).map_err(|e| e.to_string())?;
-    fs::write(path, content).map_err(|e| e.to_string())
+    let content = serde_json::to_string_pretty(data)
+        .map_err(|e| AppError::with_details("JSON_SERIALIZE_FAILED", e.to_string()))?;
+    fs::write(path, content)
+        .map_err(|e| AppError::with_details("PROFILE_EXTRAS_WRITE_FAILED", e.to_string()))
 }
 
 #[tauri::command]
-pub fn get_profile_extras(app_handle: AppHandle, profile_id: String) -> Result<ProfileExtras, String> {
+pub fn get_profile_extras(
+    app_handle: AppHandle,
+    profile_id: String,
+) -> Result<ProfileExtras, AppError> {
     let all = load_all(&app_handle)?;
     Ok(all.get(&profile_id).cloned().unwrap_or_default())
 }
@@ -100,7 +111,7 @@ pub fn save_profile_extras(
     app_handle: AppHandle,
     profile_id: String,
     extras: ProfileExtras,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     let mut all = load_all(&app_handle)?;
     all.insert(profile_id, extras);
     save_all(&app_handle, &all)

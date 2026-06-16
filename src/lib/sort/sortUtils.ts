@@ -1,3 +1,5 @@
+import { getIntlLocale } from '$lib/i18n/formatLocale';
+
 export type SortDir = 'asc' | 'desc';
 
 export interface SortState<C extends string = string> {
@@ -16,7 +18,7 @@ export function nextSort<C extends string>(
 }
 
 export function cmpStr(a: string, b: string, dir: SortDir): number {
-  const r = (a ?? '').localeCompare(b ?? '', 'pl', { numeric: true, sensitivity: 'base' });
+  const r = (a ?? '').localeCompare(b ?? '', getIntlLocale(), { numeric: true, sensitivity: 'base' });
   return dir === 'asc' ? r : -r;
 }
 

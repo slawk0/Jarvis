@@ -43,6 +43,10 @@
     startDeleteBatch,
   } from '$lib/sftp/transferStore.svelte';
   import { registerBackHandler } from '$lib/backNavigation.svelte';
+  import { get } from 'svelte/store';
+  import { LL } from '$lib/i18n/i18n-svelte';
+  import { formatInvokeError } from '$lib/i18n/backendErrors';
+  import { getCurrentLocale } from '$lib/i18n/localeStore.svelte';
 
   interface Props {
     onEdit: (filePath: string, file: FileInfo) => void;
@@ -246,7 +250,7 @@
     } catch (err: unknown) {
       if (gen !== searchGeneration) return;
       searchResults = [];
-      onError('Błąd wyszukiwania: ' + String(err));
+      onError(get(LL).sftp.errorSearch({ error: formatInvokeError(err) }));
     } finally {
       if (gen === searchGeneration) isSearchLoading = false;
     }
@@ -292,7 +296,7 @@
       onPathChange?.(lastLoadedPath);
       void resolveFolderSizes(loadedPath, result.filter((f) => f.is_dir));
     } catch (err: unknown) {
-      onError('Nie można odczytać katalogu: ' + String(err));
+      onError(get(LL).sftp.errorList({ error: formatInvokeError(err) }));
       currentPath = lastLoadedPath;
     } finally {
       isLoading = false;
@@ -394,14 +398,14 @@
       await startDownloadBatch(paths);
       clearSelection();
     } catch (err: unknown) {
-      onError('Błąd pobierania: ' + String(err));
+      onError(get(LL).sftp.errorDownload({ error: formatInvokeError(err) }));
     }
   }
 
   async function handleBulkDelete() {
     const paths = Array.from(selectedPaths);
     if (paths.length === 0) return;
-    if (!confirm(`Usunąć ${paths.length} element(ów)?`)) return;
+    if (!confirm(get(LL).sftp.confirmDeleteMany({ count: String(paths.length) }))) return;
 
     const items = paths.map((p) => {
       const file = resolveFileByPath(p);
@@ -413,7 +417,7 @@
       clearSelection();
       setOnBatchComplete(() => refreshAfterFsChange());
     } catch (err: unknown) {
-      onError('Błąd usuwania: ' + String(err));
+      onError(get(LL).sftp.errorDelete({ error: formatInvokeError(err) }));
     }
   }
 
@@ -430,7 +434,7 @@
 
     for (const m of moves) {
       if (isSubPath(m.src, m.dest)) {
-        onError('Nie można przenieść folderu do samego siebie lub podfolderu.');
+        onError(get(LL).sftp.moveToSelf());
         moveMode = false;
         return;
       }
@@ -442,7 +446,7 @@
       clearSelection();
       setOnBatchComplete(() => refreshAfterFsChange());
     } catch (err: unknown) {
-      onError('Błąd przenoszenia: ' + String(err));
+      onError(get(LL).sftp.errorMove({ error: formatInvokeError(err) }));
       moveMode = false;
     }
   }
@@ -491,7 +495,7 @@
 
       for (const m of moves) {
         if (isSubPath(m.src, m.dest)) {
-          onError('Nie można przenieść folderu do samego siebie lub podfolderu.');
+          onError(get(LL).sftp.moveToSelf());
           return;
         }
       }
@@ -499,7 +503,7 @@
       await startMoveBatch(moves);
       setOnBatchComplete(() => refreshAfterFsChange());
     } catch (err: unknown) {
-      onError('Błąd przenoszenia: ' + String(err));
+      onError(get(LL).sftp.errorMove({ error: formatInvokeError(err) }));
     }
   }
 
@@ -548,16 +552,16 @@
       }
       setOnBatchComplete(() => refreshAfterFsChange());
     } catch (err: unknown) {
-      onError('Błąd wysyłania: ' + String(err));
+      onError(get(LL).sftp.errorUpload({ error: formatInvokeError(err) }));
     }
   }
 
   async function pickAndUpload() {
     try {
-      const paths = await invoke<string[]>('sftp_pick_files');
+      const paths = await invoke<string[]>('sftp_pick_files', { locale: getCurrentLocale() });
       if (paths.length > 0) await queueExternalUpload(paths);
     } catch (err: unknown) {
-      onError('Błąd wyboru plików: ' + String(err));
+      onError(get(LL).sftp.errorPickFiles({ error: formatInvokeError(err) }));
     }
   }
 
@@ -570,10 +574,10 @@
 
   async function pickFolderAndUpload() {
     try {
-      const folder = await invoke<string | null>('sftp_pick_folder');
+      const folder = await invoke<string | null>('sftp_pick_folder', { locale: getCurrentLocale() });
       if (folder) await queueExternalUpload([folder]);
     } catch (err: unknown) {
-      onError('Błąd wyboru folderu: ' + String(err));
+      onError(get(LL).sftp.errorPickFolder({ error: formatInvokeError(err) }));
     }
   }
 
@@ -582,18 +586,21 @@
     try {
       await startDownloadBatch([path]);
     } catch (err: unknown) {
-      onError('Błąd pobierania: ' + String(err));
+      onError(get(LL).sftp.errorDownload({ error: formatInvokeError(err) }));
     }
   }
 
   async function deleteSingle(file: FileInfo) {
     const path = fileRemotePath(file, lastLoadedPath);
-    if (!confirm(`Czy na pewno chcesz usunąć ${file.is_dir ? 'katalog' : 'plik'} "${file.name}"?`)) return;
+    if (!confirm(get(LL).sftp.confirmDeleteOne({
+      type: file.is_dir ? get(LL).sftp.dirType() : get(LL).sftp.fileType(),
+      name: file.name,
+    }))) return;
     try {
       await startDeleteBatch([{ path, is_dir: file.is_dir }]);
       setOnBatchComplete(() => refreshAfterFsChange());
     } catch (err: unknown) {
-      onError('Błąd usuwania: ' + String(err));
+      onError(get(LL).sftp.errorDelete({ error: formatInvokeError(err) }));
     }
   }
 
@@ -641,10 +648,11 @@
         void handleGoBack();
       },
       label: () => {
-        if (showConflictModal) return 'Anuluj rozwiązywanie konfliktu';
-        if (showContextMenu) return 'Zamknij menu kontekstowe';
-        if (moveMode) return 'Anuluj przenoszenie plików';
-        return 'Wróć do folderu nadrzędnego';
+        const bn = get(LL).backNav.sftp;
+        if (showConflictModal) return bn.cancelConflict();
+        if (showContextMenu) return bn.closeContextMenu();
+        if (moveMode) return bn.cancelMove();
+        return bn.goParent();
       },
     });
 
@@ -708,16 +716,16 @@
     </button>
     <div class="actions-group">
       <button class="secondary btn-compact" onclick={pickAndUpload}>
-        <Upload size={14} /> Wyślij pliki
+        <Upload size={14} /> {$LL.sftp.uploadFiles()}
       </button>
       <button class="secondary btn-compact" onclick={pickFolderAndUpload}>
-        <Upload size={14} /> Wyślij folder
+        <Upload size={14} /> {$LL.sftp.uploadFolder()}
       </button>
       <button class="secondary btn-compact" onclick={onNewFile}>
-        <Plus size={14} /> Nowy plik
+        <Plus size={14} /> {$LL.sftp.newFile()}
       </button>
       <button class="secondary btn-compact" onclick={onNewDir}>
-        <Plus size={14} /> Nowy folder
+        <Plus size={14} /> {$LL.sftp.newFolder()}
       </button>
     </div>
     <div class="actions-divider"></div>
@@ -745,19 +753,19 @@
           type="text"
           class="search-panel-input mono-val"
           placeholder={recursiveSearch
-            ? 'Szukaj w podfolderach…'
-            : 'Szukaj w tym katalogu…'}
+            ? $LL.sftp.searchSubfolders()
+            : $LL.sftp.searchThisFolder()}
           bind:value={searchQuery}
           oninput={onSearchInput}
           onkeydown={(e) => e.key === 'Enter' && recursiveSearch && runRecursiveSearch()}
         />
         {#if searchQuery}
-          <button class="search-clear" type="button" onclick={clearSearch} title="Wyczyść wyszukiwanie">
+          <button class="search-clear" type="button" onclick={clearSearch} title={$LL.common.clear()}>
             <X size={13} />
           </button>
         {/if}
       </div>
-      <div class="search-scope-toggle" role="radiogroup" aria-label="Zakres wyszukiwania">
+      <div class="search-scope-toggle" role="radiogroup" aria-label={$LL.sftp.searchScope()}>
         <button
           type="button"
           class="scope-btn"
@@ -766,7 +774,7 @@
           aria-checked={!recursiveSearch}
           onclick={() => setSearchScope(false)}
         >
-          Ten folder
+          {$LL.sftp.thisFolder()}
         </button>
         <button
           type="button"
@@ -776,18 +784,18 @@
           aria-checked={recursiveSearch}
           onclick={() => setSearchScope(true)}
         >
-          Podfoldery
+          {$LL.sftp.subfolders()}
         </button>
       </div>
-      <label class="option-toggle" title="Ukryj pliki i foldery zaczynające się od kropki">
+      <label class="option-toggle" title={$LL.sftp.hideHiddenTitle()}>
         <input type="checkbox" bind:checked={hideHidden} onchange={onHideHiddenChange} />
-        <span>Ukryj ukryte</span>
+        <span>{$LL.sftp.hideHidden()}</span>
       </label>
     </div>
 
     {#if recursiveSearch}
       <div class="search-scope-row">
-        <span class="search-scope-label">Szukaj od ścieżki:</span>
+        <span class="search-scope-label">{$LL.sftp.searchFromPath()}</span>
         <input
           type="text"
           class="search-scope-path mono-val"
@@ -799,13 +807,13 @@
           class="secondary btn-compact scope-reset-btn"
           type="button"
           onclick={() => (searchRootPath = lastLoadedPath)}
-          title="Ustaw na bieżący folder"
+          title={$LL.sftp.currentFolder()}
         >
-          Bieżący folder
+          {$LL.sftp.currentFolder()}
         </button>
       </div>
     {:else if searchQuery.trim()}
-      <p class="search-scope-hint">Filtruje listę w <span class="mono-val">{lastLoadedPath}</span></p>
+      <p class="search-scope-hint">{$LL.sftp.filtersIn()} <span class="mono-val">{lastLoadedPath}</span></p>
     {/if}
   </div>
 
@@ -813,14 +821,15 @@
     <div class="search-status glass" class:searching={isSearchLoading} class:done={!isSearchLoading}>
       {#if isSearchLoading}
         <Loader2 size={16} class="spin status-icon" />
-        <span>Szukanie w <span class="mono-val">{effectiveSearchRoot}</span>…</span>
+        <span>{$LL.sftp.searchingIn({ path: effectiveSearchRoot })}</span>
       {:else}
         <Search size={16} class="status-icon done-icon" />
         <span>
-          Zakończono — {displayFiles.length}
-          {displayFiles.length === 1 ? 'wynik' : 'wyników'}
+          {displayFiles.length === 1
+            ? $LL.sftp.searchDoneOne({ count: String(displayFiles.length) })
+            : $LL.sftp.searchDone({ count: String(displayFiles.length) })}
           {#if displayFiles.length === 0}
-            <span class="status-hint">(brak dopasowań dla „{searchQuery}”)</span>
+            <span class="status-hint">{$LL.sftp.noMatches({ query: searchQuery })}</span>
           {/if}
         </span>
       {/if}
@@ -836,22 +845,22 @@
     {#if externalDragOver}
       <div class="drop-overlay">
         <Upload size={32} />
-        <p>Upuść pliki aby wysłać na serwer</p>
+        <p>{$LL.sftp.dropToUpload()}</p>
       </div>
     {/if}
 
     {#if isSearchLoading && recursiveSearch && searchQuery.trim()}
       <div class="loading-state overlay-loading">
         <Loader2 class="spin" size={32} />
-        <p>Szukanie w <span class="mono-val">{effectiveSearchRoot}</span>…</p>
-        <p class="loading-hint">To może chwilę potrwać przy dużych katalogach</p>
+        <p>{$LL.sftp.searchingIn({ path: effectiveSearchRoot })}</p>
+        <p class="loading-hint">{$LL.sftp.searchHint()}</p>
       </div>
     {/if}
 
     {#if isLoading && files.length === 0 && !(isSearchLoading && recursiveSearch)}
       <div class="loading-state">
         <RefreshCw class="spin" size={32} />
-        <p>Ładowanie struktury plików...</p>
+        <p>{$LL.sftp.loadingStructure()}</p>
       </div>
     {:else}
       <table class="files-table">
@@ -862,17 +871,17 @@
                 type="checkbox"
                 checked={allSelected}
                 onchange={toggleSelectAll}
-                title="Zaznacz wszystko"
+                title={$LL.common.selectAll()}
               />
             </th>
-            <SortableTh label="Nazwa" column="name" activeColumn={fileSort.column} direction={fileSort.direction} onsort={setFileSort} width={isRecursiveActive ? '28%' : '34%'} />
-            <SortableTh label="Rozmiar" column="size" activeColumn={fileSort.column} direction={fileSort.direction} onsort={setFileSort} width="12%" />
+            <SortableTh label={$LL.common.name()} column="name" activeColumn={fileSort.column} direction={fileSort.direction} onsort={setFileSort} width={isRecursiveActive ? '28%' : '34%'} />
+            <SortableTh label={$LL.common.size()} column="size" activeColumn={fileSort.column} direction={fileSort.direction} onsort={setFileSort} width="12%" />
             {#if isRecursiveActive}
-              <th style="width: 18%; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Ścieżka</th>
+              <th style="width: 18%; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">{$LL.common.path()}</th>
             {/if}
-            <SortableTh label="Uprawnienia" column="permissions" activeColumn={fileSort.column} direction={fileSort.direction} onsort={setFileSort} width="12%" />
-            <SortableTh label="Modyfikacja" column="modified" activeColumn={fileSort.column} direction={fileSort.direction} onsort={setFileSort} width="14%" />
-            <th style="width: {isRecursiveActive ? '20%' : '26%'}; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Akcje</th>
+            <SortableTh label={$LL.common.permissions()} column="permissions" activeColumn={fileSort.column} direction={fileSort.direction} onsort={setFileSort} width="12%" />
+            <SortableTh label={$LL.common.modified()} column="modified" activeColumn={fileSort.column} direction={fileSort.direction} onsort={setFileSort} width="14%" />
+            <th style="width: {isRecursiveActive ? '20%' : '26%'}; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">{$LL.common.actions()}</th>
           </tr>
         </thead>
         <tbody>
@@ -903,7 +912,7 @@
                   }}
                 />
               </td>
-              <td class="file-name-cell" title="Dwuklik — otwórz">
+              <td class="file-name-cell" title={$LL.sftp.doubleClickOpen()}>
                 {#if file.is_dir}
                   <Folder size={18} class="folder-icon" />
                 {:else}
@@ -919,20 +928,20 @@
               <td class="mono-val date-cell">{formatModified(file.modified)}</td>
               <td class="actions-cell" onclick={(e) => e.stopPropagation()}>
                 {#if !file.is_dir}
-                  <button class="btn-table" onclick={() => onEdit(remotePath, file)} title="Edytuj">
+                  <button class="btn-table" onclick={() => onEdit(remotePath, file)} title={$LL.sftp.edit()}>
                     <Edit size={14} />
                   </button>
-                  <button class="btn-table" onclick={() => downloadSingle(file)} title="Pobierz">
+                  <button class="btn-table" onclick={() => downloadSingle(file)} title={$LL.common.download()}>
                     <Download size={14} />
                   </button>
                 {/if}
-                <button class="btn-table" onclick={() => onChmod(file)} title="Uprawnienia">
+                <button class="btn-table" onclick={() => onChmod(file)} title={$LL.sftp.chmod()}>
                   <KeyRound size={14} />
                 </button>
-                <button class="btn-table" onclick={() => onRename(file)} title="Zmień nazwę">
+                <button class="btn-table" onclick={() => onRename(file)} title={$LL.common.rename()}>
                   <CornerDownLeft size={14} />
                 </button>
-                <button class="btn-table danger-text" onclick={() => deleteSingle(file)} title="Usuń">
+                <button class="btn-table danger-text" onclick={() => deleteSingle(file)} title={$LL.common.delete()}>
                   <Trash2 size={14} />
                 </button>
               </td>
@@ -943,11 +952,11 @@
             <tr>
               <td colspan={isRecursiveActive ? 7 : 6} class="empty-state">
                 {#if isRecursiveActive}
-                  Brak wyników dla „{searchQuery}” w {effectiveSearchRoot}
+                  {$LL.sftp.emptySearchIn({ query: searchQuery, path: effectiveSearchRoot })}
                 {:else if searchQuery.trim()}
-                  Brak wyników dla „{searchQuery}”
+                  {$LL.sftp.emptySearch({ query: searchQuery })}
                 {:else}
-                  Katalog jest pusty — przeciągnij pliki aby wysłać
+                  {$LL.sftp.emptyDir()}
                 {/if}
               </td>
             </tr>
@@ -973,7 +982,7 @@
           closeContextMenu();
         }}
       >
-        <Edit size={14} /> <span>Edytuj plik</span>
+        <Edit size={14} /> <span>{$LL.sftp.editFile()}</span>
       </button>
       <button
         class="menu-item"
@@ -982,7 +991,7 @@
           closeContextMenu();
         }}
       >
-        <Download size={14} /> <span>Pobierz</span>
+        <Download size={14} /> <span>{$LL.common.download()}</span>
       </button>
     {/if}
     <button
@@ -992,7 +1001,7 @@
         closeContextMenu();
       }}
     >
-      <KeyRound size={14} /> <span>Uprawnienia (chmod)</span>
+      <KeyRound size={14} /> <span>{$LL.sftp.chmod()}</span>
     </button>
     <button
       class="menu-item"
@@ -1001,7 +1010,7 @@
         closeContextMenu();
       }}
     >
-      <CornerDownLeft size={14} /> <span>Zmień nazwę</span>
+      <CornerDownLeft size={14} /> <span>{$LL.common.rename()}</span>
     </button>
     <hr class="menu-divider" />
     <button
@@ -1011,7 +1020,7 @@
         closeContextMenu();
       }}
     >
-      <Trash2 size={14} /> <span>Usuń</span>
+      <Trash2 size={14} /> <span>{$LL.common.delete()}</span>
     </button>
   </div>
 {/if}
@@ -1019,34 +1028,34 @@
 {#if showConflictModal}
   <div class="modal-overlay">
     <div class="modal-content glass">
-      <h3>Konflikt nazw plików</h3>
+      <h3>{$LL.sftp.conflictTitle()}</h3>
       <p class="conflict-desc">
-        {conflictFiles.length} plik(ów) już istnieje w tym katalogu. Co zrobić?
+        {$LL.sftp.conflictDesc({ count: String(conflictFiles.length) })}
       </p>
       <ul class="conflict-list">
         {#each conflictFiles.slice(0, 5) as name}
           <li class="mono-val">{name}</li>
         {/each}
         {#if conflictFiles.length > 5}
-          <li>…i {conflictFiles.length - 5} więcej</li>
+          <li>{$LL.sftp.conflictMore({ count: String(conflictFiles.length - 5) })}</li>
         {/if}
       </ul>
       <div class="conflict-options">
         <label>
           <input type="radio" bind:group={conflictAction} value="overwrite" />
-          Nadpisz istniejące
+          {$LL.sftp.conflictOverwrite()}
         </label>
         <label>
           <input type="radio" bind:group={conflictAction} value="skip" />
-          Pomiń istniejące
+          {$LL.sftp.conflictSkip()}
         </label>
         <label>
           <input type="radio" bind:group={conflictAction} value="rename" />
-          Zmień nazwę (dopisz .1)
+          {$LL.sftp.conflictRename()}
         </label>
       </div>
       <div class="modal-actions">
-        <button class="primary" onclick={resolveConflict}>Kontynuuj</button>
+        <button class="primary" onclick={resolveConflict}>{$LL.common.continue()}</button>
         <button
           class="secondary"
           onclick={() => {
@@ -1054,7 +1063,7 @@
             pendingUploadPaths = [];
           }}
         >
-          Anuluj
+          {$LL.common.cancel()}
         </button>
       </div>
     </div>

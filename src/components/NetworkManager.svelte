@@ -4,6 +4,8 @@
   import { RefreshCw, Network, Globe, ArrowRightLeft } from 'lucide-svelte';
   import SortableTh from './ui/SortableTh.svelte';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
+  import { LL } from '$lib/i18n/i18n-svelte';
+  import { formatInvokeError } from '$lib/i18n/backendErrors';
 
   let activeSubTab = $state<'listening' | 'connections'>('listening');
   let isLoading = $state(false);
@@ -76,8 +78,8 @@
         useSudo: false,
       });
       connections = parseConnections(connOut);
-    } catch (err: any) {
-      errorMsg = err.toString();
+    } catch (err: unknown) {
+      errorMsg = formatInvokeError(err);
     } finally {
       isLoading = false;
     }
@@ -88,9 +90,9 @@
 
 <div class="network manager-shell fade-in">
   <header class="manager-header">
-    <h1 class="page-title">Sieć i porty</h1>
+    <h1 class="page-title">{$LL.network.title()}</h1>
     <button class="secondary btn-compact" disabled={isLoading} onclick={loadData}>
-      <RefreshCw size={14} class={isLoading ? 'spin' : ''} /> Odśwież
+      <RefreshCw size={14} class={isLoading ? 'spin' : ''} /> {$LL.common.refresh()}
     </button>
   </header>
 
@@ -100,10 +102,10 @@
 
   <div class="sub-tabs">
     <button class="sub-tab {activeSubTab === 'listening' ? 'active' : ''}" onclick={() => (activeSubTab = 'listening')}>
-      <Network size={14} /> Nasłuchujące ({listening.length})
+      <Network size={14} /> {$LL.network.listening({ count: listening.length })}
     </button>
     <button class="sub-tab {activeSubTab === 'connections' ? 'active' : ''}" onclick={() => (activeSubTab = 'connections')}>
-      <ArrowRightLeft size={14} /> Połączenia ({connections.length})
+      <ArrowRightLeft size={14} /> {$LL.network.connections({ count: connections.length })}
     </button>
   </div>
 
@@ -112,9 +114,9 @@
       <table>
         <thead>
           <tr>
-            <SortableTh label="Protokół" column="proto" activeColumn={listenSort.column} direction={listenSort.direction} onsort={(c) => { listenSort = nextSort(listenSort, c as ListenSortCol); }} />
-            <SortableTh label="Adres lokalny" column="local" activeColumn={listenSort.column} direction={listenSort.direction} onsort={(c) => { listenSort = nextSort(listenSort, c as ListenSortCol); }} />
-            <SortableTh label="Proces" column="process" activeColumn={listenSort.column} direction={listenSort.direction} onsort={(c) => { listenSort = nextSort(listenSort, c as ListenSortCol); }} />
+            <SortableTh label={$LL.network.protocol()} column="proto" activeColumn={listenSort.column} direction={listenSort.direction} onsort={(c) => { listenSort = nextSort(listenSort, c as ListenSortCol); }} />
+            <SortableTh label={$LL.network.localAddress()} column="local" activeColumn={listenSort.column} direction={listenSort.direction} onsort={(c) => { listenSort = nextSort(listenSort, c as ListenSortCol); }} />
+            <SortableTh label={$LL.network.process()} column="process" activeColumn={listenSort.column} direction={listenSort.direction} onsort={(c) => { listenSort = nextSort(listenSort, c as ListenSortCol); }} />
           </tr>
         </thead>
         <tbody>
@@ -131,9 +133,9 @@
       <table>
         <thead>
           <tr>
-            <SortableTh label="Stan" column="state" activeColumn={connSort.column} direction={connSort.direction} onsort={(c) => { connSort = nextSort(connSort, c as ConnSortCol); }} />
-            <SortableTh label="Lokalny" column="local" activeColumn={connSort.column} direction={connSort.direction} onsort={(c) => { connSort = nextSort(connSort, c as ConnSortCol); }} />
-            <SortableTh label="Zdalny" column="remote" activeColumn={connSort.column} direction={connSort.direction} onsort={(c) => { connSort = nextSort(connSort, c as ConnSortCol); }} />
+            <SortableTh label={$LL.network.state()} column="state" activeColumn={connSort.column} direction={connSort.direction} onsort={(c) => { connSort = nextSort(connSort, c as ConnSortCol); }} />
+            <SortableTh label={$LL.network.local()} column="local" activeColumn={connSort.column} direction={connSort.direction} onsort={(c) => { connSort = nextSort(connSort, c as ConnSortCol); }} />
+            <SortableTh label={$LL.network.remote()} column="remote" activeColumn={connSort.column} direction={connSort.direction} onsort={(c) => { connSort = nextSort(connSort, c as ConnSortCol); }} />
           </tr>
         </thead>
         <tbody>
@@ -151,7 +153,7 @@
 
   <div class="hint glass">
     <Globe size={14} />
-    <span>Porty Docker i nginx pojawią się w kolumnie procesu. Porównaj z regułami UFW w zakładce Zapora.</span>
+    <span>{$LL.network.hint()}</span>
   </div>
 </div>
 

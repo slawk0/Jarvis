@@ -1,0 +1,6254 @@
+{
+  "common": {
+    "save": {
+      "en": "Save",
+      "pl": "Zapisz"
+    },
+    "cancel": {
+      "en": "Cancel",
+      "pl": "Anuluj"
+    },
+    "close": {
+      "en": "Close",
+      "pl": "Zamknij"
+    },
+    "delete": {
+      "en": "Delete",
+      "pl": "Usuń"
+    },
+    "edit": {
+      "en": "Edit",
+      "pl": "Edytuj"
+    },
+    "loading": {
+      "en": "Loading…",
+      "pl": "Ładowanie…"
+    },
+    "error": {
+      "en": "Error",
+      "pl": "Błąd"
+    },
+    "success": {
+      "en": "Success",
+      "pl": "Sukces"
+    },
+    "confirm": {
+      "en": "Confirm",
+      "pl": "Potwierdź"
+    },
+    "yes": {
+      "en": "Yes",
+      "pl": "Tak"
+    },
+    "no": {
+      "en": "No",
+      "pl": "Nie"
+    },
+    "refresh": {
+      "en": "Refresh",
+      "pl": "Odśwież"
+    },
+    "search": {
+      "en": "Search",
+      "pl": "Szukaj"
+    },
+    "back": {
+      "en": "Back",
+      "pl": "Wstecz"
+    },
+    "unknown": {
+      "en": "Unknown",
+      "pl": "Nieznany"
+    },
+    "submit": {
+      "en": "Submit",
+      "pl": "Zatwierdź"
+    },
+    "run": {
+      "en": "Run",
+      "pl": "Uruchom"
+    },
+    "add": {
+      "en": "Add",
+      "pl": "Dodaj"
+    },
+    "actions": {
+      "en": "Actions",
+      "pl": "Akcje"
+    },
+    "none": {
+      "en": "(none)",
+      "pl": "(brak)"
+    },
+    "noDescription": {
+      "en": "(no description)",
+      "pl": "(brak opisu)"
+    },
+    "noData": {
+      "en": "(no data)",
+      "pl": "(brak danych)"
+    },
+    "filterPlaceholder": {
+      "en": "Filter…",
+      "pl": "Filtruj…"
+    },
+    "host": {
+      "en": "host",
+      "pl": "host"
+    },
+    "local": {
+      "en": "local",
+      "pl": "local"
+    },
+    "new": {
+      "en": "New",
+      "pl": "Nowy"
+    },
+    "create": {
+      "en": "Create",
+      "pl": "Utwórz"
+    },
+    "install": {
+      "en": "Install",
+      "pl": "Zainstaluj"
+    },
+    "saveChanges": {
+      "en": "Save changes",
+      "pl": "Zapisz zmiany"
+    },
+    "addRule": {
+      "en": "Add rule",
+      "pl": "Dodaj regułę"
+    },
+    "enable": {
+      "en": "Enable",
+      "pl": "Włącz"
+    },
+    "disable": {
+      "en": "Disable",
+      "pl": "Wyłącz"
+    },
+    "pause": {
+      "en": "Pause",
+      "pl": "Pauza"
+    },
+    "stream": {
+      "en": "Stream",
+      "pl": "Streamuj"
+    },
+    "yesUpper": {
+      "en": "YES",
+      "pl": "TAK"
+    },
+    "noUpper": {
+      "en": "NO",
+      "pl": "NIE"
+    },
+    "enabledUpper": {
+      "en": "ENABLED",
+      "pl": "WŁĄCZONE"
+    },
+    "disabledUpper": {
+      "en": "DISABLED",
+      "pl": "WYŁĄCZONE"
+    },
+    "unknownQ": {
+      "en": "?",
+      "pl": "?"
+    },
+    "actionFailed": {
+      "en": "Action failed: {error}",
+      "pl": "Błąd wykonania akcji: {error}"
+    },
+    "commandFailed": {
+      "en": "Command failed: {error}",
+      "pl": "Błąd wykonania polecenia: {error}"
+    },
+    "loadFailed": {
+      "en": "Failed to load: {error}",
+      "pl": "Nie udało się wczytać: {error}"
+    },
+    "fetchDataFailed": {
+      "en": "Failed to fetch data: {error}",
+      "pl": "Nie udało się pobrać danych: {error}"
+    },
+    "sudoIncorrect": {
+      "en": "Incorrect sudo password. Try again.",
+      "pl": "Niepoprawne hasło sudo. Spróbuj ponownie."
+    },
+    "name": {
+      "en": "Name",
+      "pl": "Nazwa"
+    },
+    "type": {
+      "en": "Type",
+      "pl": "Typ"
+    },
+    "status": {
+      "en": "Status",
+      "pl": "Status"
+    },
+    "size": {
+      "en": "Size",
+      "pl": "Rozmiar"
+    },
+    "path": {
+      "en": "Path",
+      "pl": "Ścieżka"
+    },
+    "apply": {
+      "en": "Apply",
+      "pl": "Zastosuj"
+    },
+    "clear": {
+      "en": "Clear",
+      "pl": "Wyczyść"
+    },
+    "download": {
+      "en": "Download",
+      "pl": "Pobierz"
+    },
+    "upload": {
+      "en": "Upload",
+      "pl": "Wyślij"
+    },
+    "stop": {
+      "en": "Stop",
+      "pl": "Zatrzymaj"
+    },
+    "start": {
+      "en": "Start",
+      "pl": "Uruchom"
+    },
+    "restart": {
+      "en": "Restart",
+      "pl": "Restartuj"
+    },
+    "remove": {
+      "en": "Remove",
+      "pl": "Usuń"
+    },
+    "details": {
+      "en": "Details",
+      "pl": "Szczegóły"
+    },
+    "optional": {
+      "en": "Optional",
+      "pl": "Opcjonalnie"
+    },
+    "required": {
+      "en": "Required",
+      "pl": "Wymagane"
+    },
+    "password": {
+      "en": "Password",
+      "pl": "Hasło"
+    },
+    "username": {
+      "en": "Username",
+      "pl": "Nazwa użytkownika"
+    },
+    "description": {
+      "en": "Description",
+      "pl": "Opis"
+    },
+    "port": {
+      "en": "Port",
+      "pl": "Port"
+    },
+    "protocol": {
+      "en": "Protocol",
+      "pl": "Protokół"
+    },
+    "source": {
+      "en": "Source",
+      "pl": "Źródło"
+    },
+    "destination": {
+      "en": "Destination",
+      "pl": "Cel"
+    },
+    "target": {
+      "en": "Target",
+      "pl": "Cel"
+    },
+    "active": {
+      "en": "Active",
+      "pl": "Aktywny"
+    },
+    "inactive": {
+      "en": "Inactive",
+      "pl": "Nieaktywny"
+    },
+    "selected": {
+      "en": "Selected",
+      "pl": "Zaznaczone"
+    },
+    "all": {
+      "en": "All",
+      "pl": "Wszystkie"
+    },
+    "copy": {
+      "en": "Copy",
+      "pl": "Kopiuj"
+    },
+    "retry": {
+      "en": "Retry",
+      "pl": "Ponów"
+    },
+    "overwrite": {
+      "en": "Overwrite",
+      "pl": "Nadpisz"
+    },
+    "skip": {
+      "en": "Skip",
+      "pl": "Pomiń"
+    },
+    "rename": {
+      "en": "Rename",
+      "pl": "Zmień nazwę"
+    },
+    "move": {
+      "en": "Move",
+      "pl": "Przenieś"
+    },
+    "open": {
+      "en": "Open",
+      "pl": "Otwórz"
+    },
+    "closeEditor": {
+      "en": "Close editor",
+      "pl": "Zamknij edytor"
+    },
+    "saving": {
+      "en": "Saving…",
+      "pl": "Zapisywanie…"
+    },
+    "saved": {
+      "en": "Saved",
+      "pl": "Zapisano"
+    },
+    "unsaved": {
+      "en": "Unsaved changes",
+      "pl": "Niezapisane zmiany"
+    },
+    "autoSave": {
+      "en": "Auto-save",
+      "pl": "Auto-zapis"
+    },
+    "continue": {
+      "en": "Continue",
+      "pl": "Kontynuuj"
+    },
+    "settings": {
+      "en": "Settings",
+      "pl": "Ustawienia"
+    },
+    "disconnect": {
+      "en": "Disconnect",
+      "pl": "Rozłącz"
+    },
+    "collapse": {
+      "en": "Collapse",
+      "pl": "Zwiń"
+    },
+    "expand": {
+      "en": "Expand",
+      "pl": "Rozwiń"
+    },
+    "online": {
+      "en": "Online",
+      "pl": "ONLINE"
+    },
+    "offline": {
+      "en": "Offline",
+      "pl": "OFFLINE"
+    },
+    "switching": {
+      "en": "Switching",
+      "pl": "PRZEŁĄCZANIE"
+    },
+    "operations": {
+      "en": "Operations",
+      "pl": "Operacje"
+    },
+    "sortBy": {
+      "en": "Sort by",
+      "pl": "Sortuj według"
+    },
+    "modified": {
+      "en": "Modified",
+      "pl": "Modyfikacja"
+    },
+    "permissions": {
+      "en": "Permissions",
+      "pl": "Uprawnienia"
+    },
+    "owner": {
+      "en": "Owner",
+      "pl": "Właściciel"
+    },
+    "group": {
+      "en": "Group",
+      "pl": "Grupa"
+    },
+    "others": {
+      "en": "Others",
+      "pl": "Inni"
+    },
+    "read": {
+      "en": "Read (r)",
+      "pl": "Odczyt (r)"
+    },
+    "write": {
+      "en": "Write (w)",
+      "pl": "Zapis (w)"
+    },
+    "execute": {
+      "en": "Execute (x)",
+      "pl": "Wykonanie (x)"
+    },
+    "value": {
+      "en": "Value",
+      "pl": "Wartość"
+    },
+    "empty": {
+      "en": "Empty",
+      "pl": "Pusty"
+    },
+    "total": {
+      "en": "Total",
+      "pl": "Łącznie"
+    },
+    "version": {
+      "en": "Version",
+      "pl": "Wersja"
+    },
+    "enabled": {
+      "en": "Enabled",
+      "pl": "Włączone"
+    },
+    "disabled": {
+      "en": "Disabled",
+      "pl": "Wyłączone"
+    },
+    "test": {
+      "en": "Test",
+      "pl": "Testuj"
+    },
+    "saveSettings": {
+      "en": "Save settings",
+      "pl": "Zapisz ustawienia"
+    },
+    "selectAll": {
+      "en": "Select all",
+      "pl": "Zaznacz wszystko"
+    },
+    "deselectAll": {
+      "en": "Deselect all",
+      "pl": "Odznacz wszystko"
+    },
+    "loadingEllipsis": {
+      "en": "Loading…",
+      "pl": "Ładowanie..."
+    },
+    "noResults": {
+      "en": "No results",
+      "pl": "Brak wyników"
+    },
+    "confirmDelete": {
+      "en": "Confirm delete",
+      "pl": "Potwierdź usunięcie"
+    },
+    "yesExecute": {
+      "en": "Yes, execute",
+      "pl": "Tak, wykonaj"
+    },
+    "undo": {
+      "en": "Undo",
+      "pl": "Cofnij"
+    }
+  },
+  "nav": {
+    "dashboard": {
+      "en": "Dashboard",
+      "pl": "Panel"
+    },
+    "maintenance": {
+      "en": "Maintenance",
+      "pl": "Konserwacja"
+    },
+    "backups": {
+      "en": "Backups",
+      "pl": "Backupy"
+    },
+    "network": {
+      "en": "Network / Ports",
+      "pl": "Sieć / Porty"
+    },
+    "runbooks": {
+      "en": "Runbooks",
+      "pl": "Runbooki"
+    },
+    "files": {
+      "en": "Files (SFTP)",
+      "pl": "Pliki (SFTP)"
+    },
+    "services": {
+      "en": "Services (Systemd)",
+      "pl": "Usługi (Systemd)"
+    },
+    "docker": {
+      "en": "Docker",
+      "pl": "Docker"
+    },
+    "cron": {
+      "en": "Tasks (Cron)",
+      "pl": "Zadania (Cron)"
+    },
+    "users": {
+      "en": "Users",
+      "pl": "Użytkownicy"
+    },
+    "firewall": {
+      "en": "Firewall",
+      "pl": "Zapora"
+    },
+    "crowdsec": {
+      "en": "CrowdSec",
+      "pl": "CrowdSec"
+    },
+    "pangolin": {
+      "en": "Pangolin Proxy",
+      "pl": "Pangolin Proxy"
+    },
+    "logs": {
+      "en": "Logs",
+      "pl": "Logi"
+    },
+    "terminal": {
+      "en": "Terminal",
+      "pl": "Terminal"
+    }
+  },
+  "locale": {
+    "label": {
+      "en": "Language",
+      "pl": "Język"
+    },
+    "en": {
+      "en": "English",
+      "pl": "Angielski"
+    },
+    "pl": {
+      "en": "Polish",
+      "pl": "Polski"
+    }
+  },
+  "sudo": {
+    "titleRequired": {
+      "en": "Sudo password required",
+      "pl": "Wymagane hasło sudo"
+    },
+    "descRequired": {
+      "en": "Enter your sudo password to perform this operation.",
+      "pl": "Podaj hasło sudo, aby wykonać tę operację."
+    },
+    "passwordPlaceholder": {
+      "en": "Sudo password",
+      "pl": "Hasło sudo"
+    },
+    "verifying": {
+      "en": "Verifying…",
+      "pl": "Weryfikacja…"
+    },
+    "authTitle": {
+      "en": "Sudo authentication required",
+      "pl": "Wymagane uwierzytelnienie Sudo"
+    },
+    "authDesc": {
+      "en": "This operation requires root privileges. Enter your user password (sudo):",
+      "pl": "Ta operacja wymaga uprawnień roota. Wprowadź swoje hasło użytkownika (sudo):"
+    },
+    "passwordInputPlaceholder": {
+      "en": "Enter password…",
+      "pl": "Wpisz hasło…"
+    }
+  },
+  "network": {
+    "title": {
+      "en": "Network & ports",
+      "pl": "Sieć i porty"
+    },
+    "listening": {
+      "en": "Listening ({count})",
+      "pl": "Nasłuchujące ({count})"
+    },
+    "connections": {
+      "en": "Connections ({count})",
+      "pl": "Połączenia ({count})"
+    },
+    "protocol": {
+      "en": "Protocol",
+      "pl": "Protokół"
+    },
+    "localAddress": {
+      "en": "Local address",
+      "pl": "Adres lokalny"
+    },
+    "process": {
+      "en": "Process",
+      "pl": "Proces"
+    },
+    "state": {
+      "en": "State",
+      "pl": "Stan"
+    },
+    "local": {
+      "en": "Local",
+      "pl": "Lokalny"
+    },
+    "remote": {
+      "en": "Remote",
+      "pl": "Zdalny"
+    },
+    "hint": {
+      "en": "Docker and nginx ports appear in the process column. Compare with UFW rules in the Firewall tab.",
+      "pl": "Porty Docker i nginx pojawią się w kolumnie procesu. Porównaj z regułami UFW w zakładce Zapora."
+    }
+  },
+  "backup": {
+    "title": {
+      "en": "Backups",
+      "pl": "Backupy"
+    },
+    "newTemplate": {
+      "en": "New template",
+      "pl": "Nowy szablon"
+    },
+    "addTemplate": {
+      "en": "Add template",
+      "pl": "Dodaj szablon"
+    },
+    "empty": {
+      "en": "No backup templates. Create one for www directories or databases.",
+      "pl": "Brak szablonów backupu. Utwórz szablon dla katalogów www lub baz danych."
+    },
+    "run": {
+      "en": "Run",
+      "pl": "Uruchom"
+    },
+    "info": {
+      "en": "Backup creates an archive on the server, downloads it to Downloads (Jarvis-SFTP-*), then removes the temporary file.",
+      "pl": "Backup tworzy archiwum na serwerze, pobiera je do folderu Pobrane (Jarvis-SFTP-*), a następnie usuwa plik tymczasowy."
+    },
+    "editTemplate": {
+      "en": "Edit template",
+      "pl": "Edytuj szablon"
+    },
+    "newBackupTemplate": {
+      "en": "New backup template",
+      "pl": "Nowy szablon backupu"
+    },
+    "name": {
+      "en": "Name",
+      "pl": "Nazwa"
+    },
+    "namePlaceholder": {
+      "en": "WWW backup",
+      "pl": "Backup www"
+    },
+    "type": {
+      "en": "Type",
+      "pl": "Typ"
+    },
+    "typeFiles": {
+      "en": "Files (tar.gz)",
+      "pl": "Pliki (tar.gz)"
+    },
+    "typeMysql": {
+      "en": "MySQL (mysqldump)",
+      "pl": "MySQL (mysqldump)"
+    },
+    "typePostgres": {
+      "en": "PostgreSQL (pg_dump)",
+      "pl": "PostgreSQL (pg_dump)"
+    },
+    "pathLabel": {
+      "en": "Directory path",
+      "pl": "Ścieżka katalogu"
+    },
+    "dockerContainer": {
+      "en": "Docker container (empty = host)",
+      "pl": "Kontener Docker (puste = host)"
+    },
+    "dockerPlaceholder": {
+      "en": "mysql",
+      "pl": "mysql"
+    },
+    "dbName": {
+      "en": "Database name",
+      "pl": "Nazwa bazy"
+    },
+    "dbUser": {
+      "en": "DB user",
+      "pl": "Użytkownik DB"
+    },
+    "dbPassword": {
+      "en": "DB password (optional)",
+      "pl": "Hasło DB (opcjonalne)"
+    },
+    "alertTemplateName": {
+      "en": "Enter template name",
+      "pl": "Podaj nazwę szablonu"
+    },
+    "confirmDeleteTemplate": {
+      "en": "Delete backup template?",
+      "pl": "Usunąć szablon backupu?"
+    },
+    "createdOnServer": {
+      "en": "Backup created on server: {path}\n{output}",
+      "pl": "Utworzono backup na serwerze: {path}\n{output}"
+    },
+    "downloading": {
+      "en": "Downloading {count} file(s) to local disk…",
+      "pl": "Pobieranie {count} plik(ów) na dysk lokalny…"
+    },
+    "error": {
+      "en": "Backup error: {error}",
+      "pl": "Błąd backupu: {error}"
+    }
+  },
+  "runbook": {
+    "title": {
+      "en": "Runbooks",
+      "pl": "Runbooki"
+    },
+    "quickPresets": {
+      "en": "Quick presets",
+      "pl": "Szybkie presety"
+    },
+    "empty": {
+      "en": "No saved runbooks. Add repeatable command sequences.",
+      "pl": "Brak zapisanych runbooków. Dodaj powtarzalne sekwencje komend."
+    },
+    "requiresSudo": {
+      "en": "Requires sudo",
+      "pl": "Wymaga sudo"
+    },
+    "running": {
+      "en": "Running…",
+      "pl": "Uruchamianie…"
+    },
+    "errorPrefix": {
+      "en": "Error:\n{error}",
+      "pl": "Błąd:\n{error}"
+    },
+    "editRunbook": {
+      "en": "Edit runbook",
+      "pl": "Edytuj runbook"
+    },
+    "newRunbook": {
+      "en": "New runbook",
+      "pl": "Nowy runbook"
+    },
+    "name": {
+      "en": "Name",
+      "pl": "Nazwa"
+    },
+    "namePlaceholder": {
+      "en": "App deploy",
+      "pl": "Deploy aplikacji"
+    },
+    "command": {
+      "en": "Command",
+      "pl": "Komenda"
+    },
+    "commandPlaceholder": {
+      "en": "cd /opt/app && git pull && docker compose up -d",
+      "pl": "cd /opt/app && git pull && docker compose up -d"
+    },
+    "alertNameAndCommand": {
+      "en": "Enter name and command",
+      "pl": "Podaj nazwę i komendę"
+    },
+    "confirmDelete": {
+      "en": "Delete runbook?",
+      "pl": "Usunąć runbook?"
+    },
+    "presetDockerPrune": {
+      "en": "Docker: prune unused",
+      "pl": "Docker: wyczyść nieużywane"
+    },
+    "presetDockerComposePs": {
+      "en": "Docker: compose ps",
+      "pl": "Docker: compose ps"
+    },
+    "presetNginxTest": {
+      "en": "Nginx: test config",
+      "pl": "Nginx: test konfiguracji"
+    },
+    "presetNginxReload": {
+      "en": "Nginx: reload",
+      "pl": "Nginx: reload"
+    },
+    "presetNginxRestart": {
+      "en": "Restart nginx",
+      "pl": "Restart nginx"
+    }
+  },
+  "maintenance": {
+    "title": {
+      "en": "System maintenance",
+      "pl": "Konserwacja systemu"
+    },
+    "packagesToUpdate": {
+      "en": "Packages to update",
+      "pl": "Pakiety do aktualizacji"
+    },
+    "detectedByApt": {
+      "en": "Detected by apt list --upgradable",
+      "pl": "Wykryte przez apt list --upgradable"
+    },
+    "rebootRequired": {
+      "en": "Reboot required",
+      "pl": "Wymagany restart"
+    },
+    "noRebootFile": {
+      "en": "No /var/run/reboot-required file",
+      "pl": "Brak pliku /var/run/reboot-required"
+    },
+    "autoUpdates": {
+      "en": "Automatic updates",
+      "pl": "Automatyczne aktualizacje"
+    },
+    "unattendedPackage": {
+      "en": "unattended-upgrades package",
+      "pl": "Pakiet unattended-upgrades"
+    },
+    "actions": {
+      "en": "Actions",
+      "pl": "Akcje"
+    },
+    "aptUpdate": {
+      "en": "apt update",
+      "pl": "apt update"
+    },
+    "aptUpgrade": {
+      "en": "apt upgrade ({count})",
+      "pl": "apt upgrade ({count})"
+    },
+    "rebootServer": {
+      "en": "Reboot server",
+      "pl": "Restart serwera"
+    },
+    "rebootWarning": {
+      "en": "Kernel or key packages require a server reboot.",
+      "pl": "Kernel lub kluczowe pakiety wymagają restartu serwera."
+    },
+    "pendingPackages": {
+      "en": "Pending packages ({count})",
+      "pl": "Pakiety oczekujące ({count})"
+    },
+    "andMore": {
+      "en": "… and {count} more",
+      "pl": "… i {count} więcej"
+    },
+    "operationResult": {
+      "en": "Operation result",
+      "pl": "Wynik operacji"
+    },
+    "statusLoadFailed": {
+      "en": "Failed to load status: {error}",
+      "pl": "Nie udało się pobrać statusu: {error}"
+    },
+    "confirmUpgrade": {
+      "en": "Update {count} package(s)? This may take several minutes.",
+      "pl": "Zaktualizować {count} pakiet(ów)? Operacja może potrwać kilka minut."
+    },
+    "confirmReboot": {
+      "en": "Are you sure you want to reboot the server? The connection will be lost.",
+      "pl": "Czy na pewno zrestartować serwer? Połączenie zostanie przerwane."
+    },
+    "rebooting": {
+      "en": "Server is rebooting… Connection will be lost.",
+      "pl": "Serwer restartuje się… Połączenie zostanie utracone."
+    }
+  },
+  "terminal": {
+    "sshConsole": {
+      "en": "SSH console",
+      "pl": "Konsola SSH"
+    },
+    "shellTitle": {
+      "en": "Shell: {name}",
+      "pl": "Shell: {name}"
+    },
+    "sudoRequired": {
+      "en": "Sudo password required — return to Docker and enter password, or enable passwordless access.",
+      "pl": "Wymagane hasło sudo — wróć do Dockera i podaj hasło, albo włącz dostęp bez sudo."
+    },
+    "openFailed": {
+      "en": "Failed to open terminal: {error}",
+      "pl": "Nie udało się otworzyć terminala: {error}"
+    },
+    "externalOpenFailed": {
+      "en": "Failed to open external terminal: {error}",
+      "pl": "Nie udało się otworzyć zewnętrznego terminala: {error}"
+    },
+    "backToServerShell": {
+      "en": "Back to server shell",
+      "pl": "Wróć do shella serwera"
+    },
+    "serverShell": {
+      "en": "Server shell",
+      "pl": "Shell serwera"
+    },
+    "restartSession": {
+      "en": "Restart session",
+      "pl": "Zrestartuj sesję"
+    },
+    "restart": {
+      "en": "Restart",
+      "pl": "Zrestartuj"
+    },
+    "externalTerminal": {
+      "en": "External terminal",
+      "pl": "Zewnętrzny terminal"
+    },
+    "externalTerminalContainer": {
+      "en": "Open container shell in Windows Terminal",
+      "pl": "Otwórz shell kontenera w Windows Terminal"
+    },
+    "externalTerminalDefault": {
+      "en": "Open Windows Terminal",
+      "pl": "Otwórz Windows Terminal"
+    },
+    "initBanner": {
+      "en": "[Jarvis SSH Terminal — Initializing…]",
+      "pl": "[Jarvis SSH Terminal — Inicjalizacja…]"
+    },
+    "containerBanner": {
+      "en": "[Jarvis — container shell: {name}]",
+      "pl": "[Jarvis — shell kontenera: {name}]"
+    }
+  },
+  "logs": {
+    "title": {
+      "en": "Logs & active sessions",
+      "pl": "Logi i Aktywne Sesje"
+    },
+    "tabLogs": {
+      "en": "Server logs",
+      "pl": "Logi Serwera"
+    },
+    "tabSessions": {
+      "en": "Sessions & logins",
+      "pl": "Sesje i Logowania"
+    },
+    "selectLog": {
+      "en": "Select log:",
+      "pl": "Wybierz log:"
+    },
+    "filterResults": {
+      "en": "Filter results…",
+      "pl": "Filtruj wyniki…"
+    },
+    "loadingContent": {
+      "en": "Loading log content…",
+      "pl": "Ładowanie zawartości logu…"
+    },
+    "readFailed": {
+      "en": "Could not read log:\n{error}",
+      "pl": "Nie można odczytać logu:\n{error}"
+    },
+    "sessionsLoadFailed": {
+      "en": "Failed to load sessions: {error}",
+      "pl": "Nie udało się wczytać sesji: {error}"
+    },
+    "currentlyLoggedIn": {
+      "en": "Currently logged in (who)",
+      "pl": "Aktualnie zalogowani (who)"
+    },
+    "loginHistory": {
+      "en": "Recent login history (last)",
+      "pl": "Historia ostatnich logowań (last)"
+    },
+    "user": {
+      "en": "User",
+      "pl": "Użytkownik"
+    },
+    "terminal": {
+      "en": "Terminal",
+      "pl": "Terminal"
+    },
+    "ipAddress": {
+      "en": "IP address",
+      "pl": "Adres IP"
+    },
+    "loginDate": {
+      "en": "Login date",
+      "pl": "Data Zalogowania"
+    },
+    "kick": {
+      "en": "Kick",
+      "pl": "Wyrzuć"
+    },
+    "disconnectSession": {
+      "en": "Disconnect session",
+      "pl": "Rozłącz sesję"
+    },
+    "loginIp": {
+      "en": "Login IP",
+      "pl": "IP logowania"
+    },
+    "timeDetails": {
+      "en": "Time details",
+      "pl": "Szczegóły czasu"
+    },
+    "noActiveSessions": {
+      "en": "No active sessions",
+      "pl": "Brak aktywnych sesji"
+    },
+    "noLoginHistory": {
+      "en": "No login history",
+      "pl": "Brak historii logowań"
+    },
+    "confirmDisconnect": {
+      "en": "Are you sure you want to disconnect session on terminal \"{tty}\"?",
+      "pl": "Czy na pewno chcesz wyrzucić (rozłączyć) sesję na terminalu \"{tty}\"?"
+    },
+    "sourceSyslog": {
+      "en": "System log (syslog)",
+      "pl": "Dziennik Systemowy (syslog)"
+    },
+    "sourceAuth": {
+      "en": "Authentication logs (auth.log)",
+      "pl": "Logi Uwierzytelniania (auth.log)"
+    },
+    "sourceNginxAccess": {
+      "en": "Nginx access log",
+      "pl": "Nginx Access Log"
+    },
+    "sourceNginxError": {
+      "en": "Nginx error log",
+      "pl": "Nginx Error Log"
+    },
+    "sourceJournal": {
+      "en": "Systemd journal (journalctl)",
+      "pl": "Dziennik Systemd (journalctl)"
+    }
+  },
+  "cron": {
+    "title": {
+      "en": "Scheduled tasks (Cron)",
+      "pl": "Zadania Harmonogramu (Cron)"
+    },
+    "newTask": {
+      "en": "New task",
+      "pl": "Nowe Zadanie"
+    },
+    "loading": {
+      "en": "Loading scheduled tasks…",
+      "pl": "Wczytywanie zadań harmonogramu…"
+    },
+    "loadFailed": {
+      "en": "Failed to load cron jobs: {error}",
+      "pl": "Nie udało się wczytać zadań cron: {error}"
+    },
+    "saveFailed": {
+      "en": "Failed to save tasks: {error}",
+      "pl": "Nie udało się zapisać zadań: {error}"
+    },
+    "active": {
+      "en": "Active",
+      "pl": "Aktywny"
+    },
+    "schedule": {
+      "en": "Schedule (Cron)",
+      "pl": "Harmonogram (Cron)"
+    },
+    "command": {
+      "en": "Command",
+      "pl": "Komenda"
+    },
+    "empty": {
+      "en": "No active tasks in crontab file",
+      "pl": "Brak aktywnych zadań w pliku crontab"
+    },
+    "addTask": {
+      "en": "Add task",
+      "pl": "Dodaj zadanie"
+    },
+    "editTask": {
+      "en": "Edit Cron task",
+      "pl": "Edytuj zadanie Cron"
+    },
+    "commandLabel": {
+      "en": "Command / script to run",
+      "pl": "Polecenie / Skrypt do uruchomienia"
+    },
+    "commandPlaceholder": {
+      "en": "/var/www/scripts/backup.sh >> /var/log/backup.log 2>&1",
+      "pl": "/var/www/scripts/backup.sh >> /var/log/backup.log 2>&1"
+    },
+    "expressionLabel": {
+      "en": "Cron expression (5 fields)",
+      "pl": "Wyrażenie Cron (5 pól)"
+    },
+    "expressionPlaceholder": {
+      "en": "* * * * *",
+      "pl": "* * * * *"
+    },
+    "generatorTitle": {
+      "en": "Visual schedule builder",
+      "pl": "Wizualny Kreator Harmonogramu"
+    },
+    "minute": {
+      "en": "Minute",
+      "pl": "Minuta"
+    },
+    "hour": {
+      "en": "Hour",
+      "pl": "Godzina"
+    },
+    "dayOfMonth": {
+      "en": "Day of month",
+      "pl": "Dzień miesiąca"
+    },
+    "month": {
+      "en": "Month",
+      "pl": "Miesiąc"
+    },
+    "dayOfWeek": {
+      "en": "Day of week",
+      "pl": "Dzień tygodnia"
+    },
+    "everyMinute": {
+      "en": "Every (*)",
+      "pl": "Każda (*)"
+    },
+    "every5Min": {
+      "en": "Every 5 minutes (*/5)",
+      "pl": "Co 5 minut (*/5)"
+    },
+    "every15Min": {
+      "en": "Every 15 minutes (*/15)",
+      "pl": "Co 15 minut (*/15)"
+    },
+    "onTheHour": {
+      "en": "On the hour (0)",
+      "pl": "O pełnej godzinie (0)"
+    },
+    "at30": {
+      "en": "At minute 30 (30)",
+      "pl": "W 30. minucie (30)"
+    },
+    "everyHour": {
+      "en": "Every hour (*)",
+      "pl": "Każda godzina (*)"
+    },
+    "every2Hours": {
+      "en": "Every 2 hours (*/2)",
+      "pl": "Co 2 godziny (*/2)"
+    },
+    "midnight": {
+      "en": "Midnight (00:00)",
+      "pl": "Północ (00:00)"
+    },
+    "noon": {
+      "en": "Noon (12:00)",
+      "pl": "Południe (12:00)"
+    },
+    "twoAm": {
+      "en": "2 AM (02:00)",
+      "pl": "Druga w nocy (02:00)"
+    },
+    "everyDay": {
+      "en": "Every day (*)",
+      "pl": "Każdy dzień (*)"
+    },
+    "firstDay": {
+      "en": "First day (1)",
+      "pl": "Pierwszy dzień (1)"
+    },
+    "midMonth": {
+      "en": "Mid-month (15)",
+      "pl": "Połowa miesiąca (15)"
+    },
+    "everyOtherDay": {
+      "en": "Every other day (*/2)",
+      "pl": "Co drugi dzień (*/2)"
+    },
+    "everyMonth": {
+      "en": "Every month (*)",
+      "pl": "Każdy miesiąc (*)"
+    },
+    "january": {
+      "en": "January (1)",
+      "pl": "Styczeń (1)"
+    },
+    "quarterly": {
+      "en": "Quarterly (*/3)",
+      "pl": "Kwartalnie (*/3)"
+    },
+    "weekdays": {
+      "en": "Weekdays (Mon–Fri)",
+      "pl": "Dni robocze (Pon-Pt)"
+    },
+    "weekend": {
+      "en": "Weekend (Sat–Sun)",
+      "pl": "Weekend (Sob-Nie)"
+    },
+    "monday": {
+      "en": "Monday (1)",
+      "pl": "Poniedziałek (1)"
+    },
+    "confirmDelete": {
+      "en": "Are you sure you want to delete this cron task?",
+      "pl": "Czy na pewno chcesz usunąć to zadanie cron?"
+    },
+    "toggleDisable": {
+      "en": "Disable",
+      "pl": "Wyłącz"
+    },
+    "toggleEnable": {
+      "en": "Enable",
+      "pl": "Włącz"
+    },
+    "editTitle": {
+      "en": "Edit",
+      "pl": "Edytuj"
+    },
+    "deleteTitle": {
+      "en": "Delete",
+      "pl": "Usuń"
+    }
+  },
+  "users": {
+    "title": {
+      "en": "Users & groups",
+      "pl": "Użytkownicy i Grupy"
+    },
+    "showSystemAccounts": {
+      "en": "Show system accounts (UID < 1000)",
+      "pl": "Pokaż konta systemowe (UID < 1000)"
+    },
+    "newUser": {
+      "en": "New user",
+      "pl": "Nowy Użytkownik"
+    },
+    "newGroup": {
+      "en": "New group",
+      "pl": "Nowa Grupa"
+    },
+    "userList": {
+      "en": "User list",
+      "pl": "Lista Użytkowników"
+    },
+    "loadingAccounts": {
+      "en": "Loading accounts…",
+      "pl": "Wczytywanie kont…"
+    },
+    "nameUid": {
+      "en": "Name (UID)",
+      "pl": "Nazwa (UID)"
+    },
+    "homeAndShell": {
+      "en": "Home directory & shell",
+      "pl": "Katalog Domowy & Powłoka"
+    },
+    "systemGroups": {
+      "en": "System groups",
+      "pl": "Grupy Systemowe"
+    },
+    "groupNameGid": {
+      "en": "Group name (GID)",
+      "pl": "Nazwa Grupy (GID)"
+    },
+    "members": {
+      "en": "Members",
+      "pl": "Członkowie"
+    },
+    "changePassword": {
+      "en": "Change password",
+      "pl": "Zmień hasło"
+    },
+    "manageGroups": {
+      "en": "Manage groups",
+      "pl": "Zarządzaj grupami"
+    },
+    "deleteUser": {
+      "en": "Delete user",
+      "pl": "Usuń użytkownika"
+    },
+    "deleteGroupTitle": {
+      "en": "Delete group",
+      "pl": "Usuń grupę"
+    },
+    "loadFailed": {
+      "en": "Failed to load user data: {error}",
+      "pl": "Błąd wczytywania danych użytkowników: {error}"
+    },
+    "createUserTitle": {
+      "en": "Create new user",
+      "pl": "Utwórz nowego użytkownika"
+    },
+    "username": {
+      "en": "Username",
+      "pl": "Nazwa użytkownika"
+    },
+    "usernamePlaceholder": {
+      "en": "john",
+      "pl": "jan"
+    },
+    "defaultShell": {
+      "en": "Default shell",
+      "pl": "Domyślna powłoka"
+    },
+    "shellBash": {
+      "en": "/bin/bash (Bash)",
+      "pl": "/bin/bash (Bash)"
+    },
+    "shellSh": {
+      "en": "/bin/sh (Standard Sh)",
+      "pl": "/bin/sh (Standard Sh)"
+    },
+    "shellZsh": {
+      "en": "/usr/bin/zsh (Zsh)",
+      "pl": "/usr/bin/zsh (Zsh)"
+    },
+    "shellNologin": {
+      "en": "/usr/sbin/nologin (No login)",
+      "pl": "/usr/sbin/nologin (Bez logowania)"
+    },
+    "homeOptional": {
+      "en": "Home directory (optional)",
+      "pl": "Katalog domowy (Opcjonalnie)"
+    },
+    "homePlaceholder": {
+      "en": "Automatic (/home/name)",
+      "pl": "Automatyczny (/home/nazwa)"
+    },
+    "createUser": {
+      "en": "Create user",
+      "pl": "Utwórz użytkownika"
+    },
+    "createGroupTitle": {
+      "en": "Create new group",
+      "pl": "Utwórz nową grupę"
+    },
+    "groupNamePlaceholder": {
+      "en": "Group name (e.g. developers)",
+      "pl": "Nazwa grupy (np. developers)"
+    },
+    "changePasswordFor": {
+      "en": "Change password for {username}",
+      "pl": "Zmień hasło dla {username}"
+    },
+    "newPasswordPlaceholder": {
+      "en": "Enter new password…",
+      "pl": "Wpisz nowe hasło…"
+    },
+    "changePasswordBtn": {
+      "en": "Change password",
+      "pl": "Zmień hasło"
+    },
+    "userGroupsTitle": {
+      "en": "Groups for user {username}",
+      "pl": "Grupy użytkownika {username}"
+    },
+    "selectGroups": {
+      "en": "Select groups the user should belong to:",
+      "pl": "Zaznacz grupy, do których ma należeć użytkownik:"
+    },
+    "saveGroups": {
+      "en": "Save groups",
+      "pl": "Zapisz grupy"
+    },
+    "passwordChanged": {
+      "en": "Password changed successfully.",
+      "pl": "Hasło zostało pomyślnie zmienione."
+    },
+    "confirmDeleteUser": {
+      "en": "Are you sure you want to delete user \"{username}\" along with their home directory?",
+      "pl": "Czy na pewno chcesz usunąć użytkownika \"{username}\" wraz z katalogiem domowym?"
+    },
+    "confirmDeleteGroup": {
+      "en": "Are you sure you want to delete group \"{name}\"?",
+      "pl": "Czy na pewno chcesz usunąć grupę \"{name}\"?"
+    }
+  },
+  "firewall": {
+    "title": {
+      "en": "Firewall",
+      "pl": "Zapora Sieciowa"
+    },
+    "ufwActive": {
+      "en": "UFW ACTIVE",
+      "pl": "UFW AKTYWNE"
+    },
+    "ufwInactive": {
+      "en": "UFW INACTIVE",
+      "pl": "UFW NIEAKTYWNE"
+    },
+    "disableUfw": {
+      "en": "Disable UFW",
+      "pl": "Wyłącz UFW"
+    },
+    "enableUfw": {
+      "en": "Enable UFW",
+      "pl": "Włącz UFW"
+    },
+    "activeRules": {
+      "en": "Active UFW rules",
+      "pl": "Aktywne Reguły UFW"
+    },
+    "addRule": {
+      "en": "Add rule",
+      "pl": "Dodaj Regułę"
+    },
+    "num": {
+      "en": "No.",
+      "pl": "Nr"
+    },
+    "portService": {
+      "en": "Port / service",
+      "pl": "Port / Usługa"
+    },
+    "action": {
+      "en": "Action",
+      "pl": "Akcja"
+    },
+    "fromIp": {
+      "en": "From IP",
+      "pl": "Z adresu IP"
+    },
+    "deleteRule": {
+      "en": "Delete rule",
+      "pl": "Usuń regułę"
+    },
+    "emptyUfw": {
+      "en": "No rules configured. UFW blocks incoming traffic by default.",
+      "pl": "Brak skonfigurowanych reguł. UFW blokuje domyślnie ruch wejściowy."
+    },
+    "selectChain": {
+      "en": "Select chain:",
+      "pl": "Wybierz Łańcuch:"
+    },
+    "chainPolicy": {
+      "en": "{name} (Policy: {policy})",
+      "pl": "{name} (Polityka: {policy})"
+    },
+    "defaultPolicy": {
+      "en": "Default policy:",
+      "pl": "Domyślna polityka:"
+    },
+    "iptablesRules": {
+      "en": "iptables rules: {chain}",
+      "pl": "Reguły iptables: {chain}"
+    },
+    "target": {
+      "en": "Target",
+      "pl": "Cel (Target)"
+    },
+    "protocol": {
+      "en": "Protocol",
+      "pl": "Protokół"
+    },
+    "source": {
+      "en": "Source",
+      "pl": "Źródło"
+    },
+    "destination": {
+      "en": "Destination (IP)",
+      "pl": "Cel (IP)"
+    },
+    "extra": {
+      "en": "Extra (ports, etc.)",
+      "pl": "Dodatkowe (Porty itp.)"
+    },
+    "emptyChain": {
+      "en": "No rules in this chain.",
+      "pl": "Brak reguł w tym łańcuchu."
+    },
+    "notInstalled": {
+      "en": "UFW is not installed on this server. You can switch to iptables.",
+      "pl": "UFW nie jest zainstalowane na tym serwerze. Możesz przełączyć się na iptables."
+    },
+    "loadUfwFailed": {
+      "en": "Failed to load UFW firewall: {error}",
+      "pl": "Błąd wczytywania zapory UFW: {error}"
+    },
+    "loadIptablesFailed": {
+      "en": "Failed to load iptables rules: {error}",
+      "pl": "Błąd wczytywania reguł iptables: {error}"
+    },
+    "addRuleTitle": {
+      "en": "Add rule ({mode})",
+      "pl": "Dodaj regułę ({mode})"
+    },
+    "ruleAction": {
+      "en": "Action",
+      "pl": "Działanie (Action)"
+    },
+    "ufwAllow": {
+      "en": "ALLOW",
+      "pl": "ALLOW (Zezwól)"
+    },
+    "ufwDeny": {
+      "en": "DENY",
+      "pl": "DENY (Blokuj)"
+    },
+    "iptablesAccept": {
+      "en": "ACCEPT",
+      "pl": "ACCEPT (Zezwól)"
+    },
+    "iptablesDrop": {
+      "en": "DROP",
+      "pl": "DROP (Odrzuć)"
+    },
+    "iptablesReject": {
+      "en": "REJECT",
+      "pl": "REJECT (Odrzuć z info)"
+    },
+    "rulePort": {
+      "en": "Port or ports (e.g. 80, 443)",
+      "pl": "Port lub porty (np. 80, 443)"
+    },
+    "rulePortOptional": {
+      "en": " — optional",
+      "pl": " - opcjonalnie"
+    },
+    "rulePortPlaceholder": {
+      "en": "8080",
+      "pl": "8080"
+    },
+    "ruleProtocol": {
+      "en": "Protocol",
+      "pl": "Protokół (Protocol)"
+    },
+    "protocolAny": {
+      "en": "Any",
+      "pl": "Dowolny (Any)"
+    },
+    "ruleSource": {
+      "en": "Allowed source IP / subnet",
+      "pl": "Dozwolony źródłowy adres IP / podsieć"
+    },
+    "ruleSourcePlaceholder": {
+      "en": "Anywhere (or e.g. 192.168.1.50)",
+      "pl": "Anywhere (lub np. 192.168.1.50)"
+    },
+    "confirmDeleteUfwRule": {
+      "en": "Are you sure you want to delete rule number {num}?",
+      "pl": "Czy na pewno chcesz usunąć regułę o numerze {num}?"
+    },
+    "confirmDeleteIptablesRule": {
+      "en": "Are you sure you want to delete rule {num} from chain {chain}?",
+      "pl": "Czy na pewno chcesz usunąć regułę nr {num} z łańcucha {chain}?"
+    },
+    "confirmChangePolicy": {
+      "en": "Change default policy for chain {chain} to {policy}?",
+      "pl": "Zmienić domyślną politykę łańcucha {chain} na {policy}?"
+    }
+  },
+  "services": {
+    "title": {
+      "en": "Systemd services",
+      "pl": "Usługi Systemd"
+    },
+    "searchPlaceholder": {
+      "en": "Search services…",
+      "pl": "Szukaj usług…"
+    },
+    "newService": {
+      "en": "New service",
+      "pl": "Nowa Usługa"
+    },
+    "loading": {
+      "en": "Loading service list…",
+      "pl": "Wczytywanie listy usług…"
+    },
+    "loadFailed": {
+      "en": "Failed to load services: {error}",
+      "pl": "Nie udało się wczytać usług: {error}"
+    },
+    "serviceName": {
+      "en": "Service name",
+      "pl": "Nazwa Usługi"
+    },
+    "loadState": {
+      "en": "Load state",
+      "pl": "Stan Wczytania"
+    },
+    "status": {
+      "en": "Status",
+      "pl": "Status"
+    },
+    "description": {
+      "en": "Description",
+      "pl": "Opis"
+    },
+    "control": {
+      "en": "Control",
+      "pl": "Sterowanie"
+    },
+    "statusAndLogs": {
+      "en": "Status & logs",
+      "pl": "Status i logi"
+    },
+    "stop": {
+      "en": "Stop",
+      "pl": "Zatrzymaj"
+    },
+    "start": {
+      "en": "Start",
+      "pl": "Uruchom"
+    },
+    "restart": {
+      "en": "Restart",
+      "pl": "Restartuj"
+    },
+    "empty": {
+      "en": "No matching services",
+      "pl": "Brak dopasowanych usług"
+    },
+    "statusTab": {
+      "en": "Status",
+      "pl": "Status"
+    },
+    "logsTab": {
+      "en": "Logs",
+      "pl": "Logi"
+    },
+    "filter": {
+      "en": "Filter…",
+      "pl": "Filtruj…"
+    },
+    "creatorTitle": {
+      "en": "Systemd service wizard",
+      "pl": "Kreator Usługi Systemd"
+    },
+    "nameLabel": {
+      "en": "Service name (e.g. myapp)",
+      "pl": "Nazwa usługi (np. myapp)"
+    },
+    "namePlaceholder": {
+      "en": "myapp",
+      "pl": "myapp"
+    },
+    "descLabel": {
+      "en": "Service description",
+      "pl": "Opis usługi"
+    },
+    "descPlaceholder": {
+      "en": "Program description…",
+      "pl": "Opis działania programu…"
+    },
+    "execLabel": {
+      "en": "Command to run (ExecStart)",
+      "pl": "Polecenie do uruchomienia (ExecStart)"
+    },
+    "execPlaceholder": {
+      "en": "/usr/bin/node /var/www/app.js",
+      "pl": "/usr/bin/node /var/www/app.js"
+    },
+    "runAsUser": {
+      "en": "Run as user",
+      "pl": "Użytkownik uruchamiający"
+    },
+    "restartPolicy": {
+      "en": "Restart policy",
+      "pl": "Restart (Restart policy)"
+    },
+    "restartAlways": {
+      "en": "Always",
+      "pl": "Always (Zawsze)"
+    },
+    "restartOnFailure": {
+      "en": "On failure",
+      "pl": "On-Failure (Tylko błędy)"
+    },
+    "restartNo": {
+      "en": "No",
+      "pl": "No (Nigdy)"
+    },
+    "installService": {
+      "en": "Install service",
+      "pl": "Zainstaluj usługę"
+    },
+    "installFailed": {
+      "en": "Service installation failed: {error}",
+      "pl": "Błąd instalacji usługi: {error}"
+    },
+    "actionFailed": {
+      "en": "Action {action} failed: {error}",
+      "pl": "Błąd wykonania akcji {action}: {error}"
+    }
+  },
+  "shell": {
+    "appTitle": {
+      "en": "Jarvis Server Manager",
+      "pl": "Jarvis Server Manager"
+    },
+    "appSubtitle": {
+      "en": "Complete, secure Linux server management tool",
+      "pl": "Kompletne, bezpieczne narzędzie do zarządzania systemami Linux"
+    },
+    "defaultServerLabel": {
+      "en": "Server",
+      "pl": "Serwer"
+    },
+    "workspaceLabel": {
+      "en": "Workspace",
+      "pl": "Workspace"
+    },
+    "workspacePaneCountOne": {
+      "en": "panel",
+      "pl": "panel"
+    },
+    "workspacePaneCountFew": {
+      "en": "panes",
+      "pl": "panele"
+    },
+    "workspacePaneCountMany": {
+      "en": "panes",
+      "pl": "paneli"
+    },
+    "layoutSingle": {
+      "en": "Single panel",
+      "pl": "Jeden panel"
+    },
+    "layoutSplitHorizontal": {
+      "en": "Vertical split (side by side)",
+      "pl": "Podział pionowy (obok siebie)"
+    },
+    "layoutSplitVertical": {
+      "en": "Horizontal split (stacked)",
+      "pl": "Podział poziomy (jedno nad drugim)"
+    },
+    "layoutGrid": {
+      "en": "2×2 grid",
+      "pl": "Siatka 2×2"
+    },
+    "resizeWidth": {
+      "en": "Resize panel width",
+      "pl": "Zmień szerokość paneli"
+    },
+    "resizeHeight": {
+      "en": "Resize panel height",
+      "pl": "Zmień wysokość paneli"
+    },
+    "paneSplitVertical": {
+      "en": "Split vertically",
+      "pl": "Podziel pionowo"
+    },
+    "paneSplitHorizontal": {
+      "en": "Split horizontally",
+      "pl": "Podziel poziomo"
+    },
+    "paneClose": {
+      "en": "Close panel",
+      "pl": "Zamknij panel"
+    },
+    "dropSwap": {
+      "en": "Swap",
+      "pl": "Zamień"
+    },
+    "dropChangeTab": {
+      "en": "Change tab",
+      "pl": "Zmień zakładkę"
+    },
+    "dragMovePane": {
+      "en": "Moving panel",
+      "pl": "Przenoszenie panelu"
+    },
+    "dragOpenTab": {
+      "en": "Opening tab",
+      "pl": "Otwieranie zakładki"
+    },
+    "globalBackAria": {
+      "en": "Go back",
+      "pl": "Cofnij"
+    },
+    "backToProfileList": {
+      "en": "Back to profile list (mouse back button also works)",
+      "pl": "Wróć do listy profili (działa też boczny przycisk myszy)"
+    },
+    "backNoAction": {
+      "en": "Nothing to go back to",
+      "pl": "Brak akcji do cofnięcia"
+    },
+    "backToTab": {
+      "en": "Back to: {label} (mouse back button also works)",
+      "pl": "Wróć do: {label} (działa też boczny przycisk myszy)"
+    },
+    "connectError": {
+      "en": "Connection error",
+      "pl": "Błąd połączenia"
+    },
+    "tabLabels": {
+      "dashboard": {
+        "en": "Dashboard",
+        "pl": "Dashboard"
+      },
+      "maintenance": {
+        "en": "Maintenance",
+        "pl": "Konserwacja"
+      },
+      "backups": {
+        "en": "Backups",
+        "pl": "Backupy"
+      },
+      "network": {
+        "en": "Network / Ports",
+        "pl": "Sieć / Porty"
+      },
+      "runbooks": {
+        "en": "Runbooks",
+        "pl": "Runbooki"
+      },
+      "files": {
+        "en": "Files (SFTP)",
+        "pl": "Pliki (SFTP)"
+      },
+      "services": {
+        "en": "Services",
+        "pl": "Usługi"
+      },
+      "docker": {
+        "en": "Docker",
+        "pl": "Docker"
+      },
+      "cron": {
+        "en": "Cron",
+        "pl": "Cron"
+      },
+      "users": {
+        "en": "Users",
+        "pl": "Użytkownicy"
+      },
+      "firewall": {
+        "en": "Firewall",
+        "pl": "Zapora"
+      },
+      "crowdsec": {
+        "en": "CrowdSec",
+        "pl": "CrowdSec"
+      },
+      "pangolin": {
+        "en": "Pangolin Proxy",
+        "pl": "Pangolin Proxy"
+      },
+      "logs": {
+        "en": "Logs",
+        "pl": "Logi"
+      },
+      "terminal": {
+        "en": "Terminal",
+        "pl": "Terminal"
+      }
+    }
+  },
+  "profile": {
+    "editTitle": {
+      "en": "Edit profile",
+      "pl": "Edytuj Profil"
+    },
+    "addTitle": {
+      "en": "Add new profile",
+      "pl": "Dodaj Nowy Profil"
+    },
+    "labelField": {
+      "en": "Profile name (label)",
+      "pl": "Nazwa profilu (Etykieta)"
+    },
+    "labelPlaceholder": {
+      "en": "My VPS server",
+      "pl": "Mój serwer VPS"
+    },
+    "hostField": {
+      "en": "Host address (IP or domain)",
+      "pl": "Adres hosta (IP lub Domena)"
+    },
+    "hostPlaceholder": {
+      "en": "192.168.1.100",
+      "pl": "192.168.1.100"
+    },
+    "portField": {
+      "en": "SSH port",
+      "pl": "Port SSH"
+    },
+    "userField": {
+      "en": "SSH user",
+      "pl": "Użytkownik SSH"
+    },
+    "userPlaceholder": {
+      "en": "root",
+      "pl": "root"
+    },
+    "authMethod": {
+      "en": "Authentication method",
+      "pl": "Metoda autoryzacji"
+    },
+    "authPassword": {
+      "en": "Text password",
+      "pl": "Hasło tekstowe"
+    },
+    "authKey": {
+      "en": "SSH private key",
+      "pl": "Klucz prywatny SSH"
+    },
+    "passwordField": {
+      "en": "SSH password (stored in Windows Credential Manager)",
+      "pl": "Hasło SSH (zostanie zapisane w Windows Credential Manager)"
+    },
+    "keyPathField": {
+      "en": "Private key path (e.g. C:\\Users\\user\\.ssh\\id_rsa)",
+      "pl": "Ścieżka do klucza prywatnego (np. C:\\Users\\user\\.ssh\\id_rsa)"
+    },
+    "keyPathPlaceholder": {
+      "en": "C:\\Users\\Name\\.ssh\\id_rsa",
+      "pl": "C:\\Users\\Nazwa\\.ssh\\id_rsa"
+    },
+    "keyPassphraseField": {
+      "en": "Key passphrase (if required)",
+      "pl": "Hasło do klucza (Passphrase) - jeśli wymagane"
+    },
+    "saveProfile": {
+      "en": "Save profile",
+      "pl": "Zapisz Profil"
+    },
+    "savedProfiles": {
+      "en": "Saved profiles",
+      "pl": "Zapisane Profile"
+    },
+    "newProfile": {
+      "en": "New profile",
+      "pl": "Nowy Profil"
+    },
+    "noProfiles": {
+      "en": "No saved servers",
+      "pl": "Brak zapisanych serwerów"
+    },
+    "createFirst": {
+      "en": "Create first profile",
+      "pl": "Utwórz pierwszy profil"
+    },
+    "editAction": {
+      "en": "Edit",
+      "pl": "Edytuj"
+    },
+    "deleteAction": {
+      "en": "Delete",
+      "pl": "Usuń"
+    },
+    "confirmDelete": {
+      "en": "Are you sure you want to delete this connection profile?",
+      "pl": "Czy na pewno chcesz usunąć ten profil połączenia?"
+    },
+    "requiredFields": {
+      "en": "Fill in required fields (Label, Host, User)",
+      "pl": "Wypełnij wymagane pola (Etykieta, Host, Użytkownik)"
+    },
+    "saveFailed": {
+      "en": "Failed to save profile: {error}",
+      "pl": "Nie udało się zapisać profilu: {error}"
+    },
+    "loadFailed": {
+      "en": "Failed to load profiles: {error}",
+      "pl": "Błąd pobierania profili: {error}"
+    }
+  },
+  "pane": {
+    "splitVertical": {
+      "en": "Split vertically",
+      "pl": "Podziel pionowo"
+    },
+    "splitHorizontal": {
+      "en": "Split horizontally",
+      "pl": "Podziel poziomo"
+    },
+    "close": {
+      "en": "Close panel",
+      "pl": "Zamknij panel"
+    },
+    "changeTab": {
+      "en": "Change tab",
+      "pl": "Zmień zakładkę"
+    },
+    "swap": {
+      "en": "Swap",
+      "pl": "Zamień"
+    },
+    "resizeWidth": {
+      "en": "Resize panel width",
+      "pl": "Zmień szerokość paneli"
+    },
+    "resizeHeight": {
+      "en": "Resize panel height",
+      "pl": "Zmień wysokość paneli"
+    },
+    "tabSelector": {
+      "en": "Panel tab selector",
+      "pl": "Selektor zakładki panelu"
+    }
+  },
+  "sidebar": {
+    "brandName": {
+      "en": "JARVIS",
+      "pl": "JARVIS"
+    },
+    "expandSidebar": {
+      "en": "Expand sidebar",
+      "pl": "Rozwiń pasek"
+    },
+    "collapseSidebar": {
+      "en": "Collapse sidebar",
+      "pl": "Zwiń pasek"
+    },
+    "switchServer": {
+      "en": "Switch server",
+      "pl": "Przełącz serwer"
+    },
+    "hostLabel": {
+      "en": "HOST:",
+      "pl": "HOST:"
+    },
+    "statusLabel": {
+      "en": "STATUS:",
+      "pl": "STATUS:"
+    },
+    "tunnelLabel": {
+      "en": "TUNNEL:",
+      "pl": "TUNNEL:"
+    },
+    "tunnelValue": {
+      "en": "SSH/SFTP",
+      "pl": "SSH/SFTP"
+    },
+    "collapse": {
+      "en": "Collapse",
+      "pl": "Zwiń"
+    },
+    "disconnect": {
+      "en": "Disconnect",
+      "pl": "Rozłącz"
+    },
+    "expandSidebarFooter": {
+      "en": "Expand sidebar",
+      "pl": "Rozwiń pasek boczny"
+    },
+    "collapseSidebarFooter": {
+      "en": "Collapse sidebar",
+      "pl": "Zwiń pasek boczny"
+    }
+  },
+  "backNav": {
+    "default": {
+      "en": "Undo last action",
+      "pl": "Cofnij ostatnią akcję"
+    },
+    "fileManager": {
+      "closePermModal": {
+        "en": "Close permissions dialog",
+        "pl": "Zamknij okno uprawnień"
+      },
+      "cancelRename": {
+        "en": "Cancel rename",
+        "pl": "Anuluj zmianę nazwy"
+      },
+      "cancelNewFile": {
+        "en": "Cancel file creation",
+        "pl": "Anuluj tworzenie pliku"
+      },
+      "cancelNewDir": {
+        "en": "Cancel folder creation",
+        "pl": "Anuluj tworzenie folderu"
+      },
+      "closeEditor": {
+        "en": "Close file editor",
+        "pl": "Zamknij edytor pliku"
+      },
+      "default": {
+        "en": "Back in file manager",
+        "pl": "Cofnij w menedżerze plików"
+      }
+    },
+    "sftp": {
+      "cancelConflict": {
+        "en": "Cancel conflict resolution",
+        "pl": "Anuluj rozwiązywanie konfliktu"
+      },
+      "closeContextMenu": {
+        "en": "Close context menu",
+        "pl": "Zamknij menu kontekstowe"
+      },
+      "cancelMove": {
+        "en": "Cancel file move",
+        "pl": "Anuluj przenoszenie plików"
+      },
+      "goParent": {
+        "en": "Back to parent folder",
+        "pl": "Wróć do folderu nadrzędnego"
+      }
+    }
+  },
+  "alerts": {
+    "panelTitle": {
+      "en": "Desktop alerts",
+      "pl": "Alerty desktopowe"
+    },
+    "enabled": {
+      "en": "Enabled",
+      "pl": "Włączone"
+    },
+    "cpuThreshold": {
+      "en": "CPU (%)",
+      "pl": "CPU (%)"
+    },
+    "ramThreshold": {
+      "en": "RAM (%)",
+      "pl": "RAM (%)"
+    },
+    "diskThreshold": {
+      "en": "Disk (%)",
+      "pl": "Dysk (%)"
+    },
+    "saveFailed": {
+      "en": "Failed to save alert thresholds: {error}",
+      "pl": "Nie udało się zapisać progów alertów: {error}"
+    },
+    "statsLoadFailed": {
+      "en": "Could not fetch stats: {error}",
+      "pl": "Nie można pobrać statystyk: {error}"
+    },
+    "cpuTitle": {
+      "en": "Jarvis: high CPU — {profile}",
+      "pl": "Jarvis: wysokie CPU — {profile}"
+    },
+    "cpuBody": {
+      "en": "CPU load: {value}% (threshold: {threshold}%)",
+      "pl": "Obciążenie CPU: {value}% (próg: {threshold}%)"
+    },
+    "ramTitle": {
+      "en": "Jarvis: high memory — {profile}",
+      "pl": "Jarvis: wysoka pamięć — {profile}"
+    },
+    "ramBody": {
+      "en": "RAM: {value}% (threshold: {threshold}%)",
+      "pl": "RAM: {value}% (próg: {threshold}%)"
+    },
+    "diskTitle": {
+      "en": "Jarvis: low disk space — {profile}",
+      "pl": "Jarvis: mało miejsca na dysku — {profile}"
+    },
+    "diskBody": {
+      "en": "Disk: {value}% (threshold: {threshold}%)",
+      "pl": "Dysk: {value}% (próg: {threshold}%)"
+    }
+  },
+  "sftp": {
+    "title": {
+      "en": "SFTP file manager",
+      "pl": "Menedżer plików SFTP"
+    },
+    "uploadFiles": {
+      "en": "Upload files",
+      "pl": "Wyślij pliki"
+    },
+    "uploadFolder": {
+      "en": "Upload folder",
+      "pl": "Wyślij folder"
+    },
+    "newFile": {
+      "en": "New file",
+      "pl": "Nowy plik"
+    },
+    "newFolder": {
+      "en": "New folder",
+      "pl": "Nowy folder"
+    },
+    "searchThisFolder": {
+      "en": "Search in this folder…",
+      "pl": "Szukaj w tym katalogu…"
+    },
+    "searchSubfolders": {
+      "en": "Search in subfolders…",
+      "pl": "Szukaj w podfolderach…"
+    },
+    "searchScope": {
+      "en": "Search scope",
+      "pl": "Zakres wyszukiwania"
+    },
+    "thisFolder": {
+      "en": "This folder",
+      "pl": "Ten folder"
+    },
+    "subfolders": {
+      "en": "Subfolders",
+      "pl": "Podfoldery"
+    },
+    "hideHidden": {
+      "en": "Hide hidden",
+      "pl": "Ukryj ukryte"
+    },
+    "hideHiddenTitle": {
+      "en": "Hide files and folders starting with a dot",
+      "pl": "Ukryj pliki i foldery zaczynające się od kropki"
+    },
+    "searchFromPath": {
+      "en": "Search from path:",
+      "pl": "Szukaj od ścieżki:"
+    },
+    "currentFolder": {
+      "en": "Current folder",
+      "pl": "Bieżący folder"
+    },
+    "filtersIn": {
+      "en": "Filters list in",
+      "pl": "Filtruje listę w"
+    },
+    "searchingIn": {
+      "en": "Searching in {path}…",
+      "pl": "Szukanie w {path}…"
+    },
+    "searchDone": {
+      "en": "Done — {count} results",
+      "pl": "Zakończono — {count} wyników"
+    },
+    "searchDoneOne": {
+      "en": "Done — {count} result",
+      "pl": "Zakończono — {count} wynik"
+    },
+    "noMatches": {
+      "en": "(no matches for \"{query}\")",
+      "pl": "(brak dopasowań dla „{query}\")"
+    },
+    "searchHint": {
+      "en": "This may take a while for large directories",
+      "pl": "To może chwilę potrwać przy dużych katalogach"
+    },
+    "loadingStructure": {
+      "en": "Loading file structure…",
+      "pl": "Ładowanie struktury plików…"
+    },
+    "doubleClickOpen": {
+      "en": "Double-click to open",
+      "pl": "Dwuklik — otwórz"
+    },
+    "edit": {
+      "en": "Edit",
+      "pl": "Edytuj"
+    },
+    "editFile": {
+      "en": "Edit file",
+      "pl": "Edytuj plik"
+    },
+    "chmod": {
+      "en": "Permissions (chmod)",
+      "pl": "Uprawnienia (chmod)"
+    },
+    "deleteFile": {
+      "en": "Delete file",
+      "pl": "Usuń plik"
+    },
+    "deleteDir": {
+      "en": "Delete directory",
+      "pl": "Usuń katalog"
+    },
+    "confirmDeleteOne": {
+      "en": "Are you sure you want to delete {type} \"{name}\"?",
+      "pl": "Czy na pewno chcesz usunąć {type} \"{name}\"?"
+    },
+    "confirmDeleteMany": {
+      "en": "Delete {count} item(s)?",
+      "pl": "Usunąć {count} element(ów)?"
+    },
+    "fileType": {
+      "en": "file",
+      "pl": "plik"
+    },
+    "dirType": {
+      "en": "directory",
+      "pl": "katalog"
+    },
+    "emptyDir": {
+      "en": "Directory is empty — drag files to upload",
+      "pl": "Katalog jest pusty — przeciągnij pliki aby wysłać"
+    },
+    "emptySearch": {
+      "en": "No results for \"{query}\"",
+      "pl": "Brak wyników dla „{query}\""
+    },
+    "emptySearchIn": {
+      "en": "No results for \"{query}\" in {path}",
+      "pl": "Brak wyników dla „{query}\" w {path}"
+    },
+    "dropToUpload": {
+      "en": "Drop files to upload to server",
+      "pl": "Upuść pliki aby wysłać na serwer"
+    },
+    "moveHint": {
+      "en": "Click target folder",
+      "pl": "Kliknij folder docelowy"
+    },
+    "moveToSelf": {
+      "en": "Cannot move folder into itself or a subfolder.",
+      "pl": "Nie można przenieść folderu do samego siebie lub podfolderu."
+    },
+    "bulkToolbar": {
+      "en": "Bulk actions",
+      "pl": "Akcje grupowe"
+    },
+    "bulkSelected": {
+      "en": "Selected:",
+      "pl": "Zaznaczone:"
+    },
+    "bulkElement": {
+      "en": "item",
+      "pl": "element"
+    },
+    "bulkElements": {
+      "en": "items",
+      "pl": "elementów"
+    },
+    "bulkDownload": {
+      "en": "Download selected",
+      "pl": "Pobierz zaznaczone"
+    },
+    "bulkMove": {
+      "en": "Move selected",
+      "pl": "Przenieś zaznaczone"
+    },
+    "bulkDelete": {
+      "en": "Delete selected",
+      "pl": "Usuń zaznaczone"
+    },
+    "bulkDownloadHint": {
+      "en": "Select files to download",
+      "pl": "Zaznacz pliki, aby pobrać"
+    },
+    "bulkMoveHint": {
+      "en": "Select files to move",
+      "pl": "Zaznacz pliki, aby przenieść"
+    },
+    "bulkDeleteHint": {
+      "en": "Select files to delete",
+      "pl": "Zaznacz pliki, aby usunąć"
+    },
+    "deselectAllCount": {
+      "en": "Deselect all ({count})",
+      "pl": "Odznacz wszystko ({count})"
+    },
+    "conflictTitle": {
+      "en": "File name conflict",
+      "pl": "Konflikt nazw plików"
+    },
+    "conflictDesc": {
+      "en": "{count} file(s) already exist in this directory. What should we do?",
+      "pl": "{count} plik(ów) już istnieje w tym katalogu. Co zrobić?"
+    },
+    "conflictOverwrite": {
+      "en": "Overwrite existing",
+      "pl": "Nadpisz istniejące"
+    },
+    "conflictSkip": {
+      "en": "Skip existing",
+      "pl": "Pomiń istniejące"
+    },
+    "conflictRename": {
+      "en": "Rename (append .1)",
+      "pl": "Zmień nazwę (dopisz .1)"
+    },
+    "conflictMore": {
+      "en": "…and {count} more",
+      "pl": "…i {count} więcej"
+    },
+    "transferTitle": {
+      "en": "SFTP transfers",
+      "pl": "Transfery SFTP"
+    },
+    "transferCompleted": {
+      "en": "{completed}/{total} completed",
+      "pl": "{completed}/{total} ukończono"
+    },
+    "transferFailed": {
+      "en": "{count} errors",
+      "pl": "{count} błędów"
+    },
+    "transferCancel": {
+      "en": "Cancel",
+      "pl": "Anuluj"
+    },
+    "transferRetry": {
+      "en": "Retry failed",
+      "pl": "Ponów nieudane"
+    },
+    "transferClear": {
+      "en": "Clear completed",
+      "pl": "Wyczyść zakończone"
+    },
+    "transferEmpty": {
+      "en": "No active transfers",
+      "pl": "Brak aktywnych transferów"
+    },
+    "kindUpload": {
+      "en": "Uploading",
+      "pl": "Wysyłanie"
+    },
+    "kindDownload": {
+      "en": "Downloading",
+      "pl": "Pobieranie"
+    },
+    "kindMove": {
+      "en": "Moving",
+      "pl": "Przenoszenie"
+    },
+    "kindDelete": {
+      "en": "Deleting",
+      "pl": "Usuwanie"
+    },
+    "statusQueued": {
+      "en": "Queued",
+      "pl": "W kolejce"
+    },
+    "statusRunning": {
+      "en": "In progress",
+      "pl": "W toku"
+    },
+    "statusCompleted": {
+      "en": "Completed",
+      "pl": "Zakończono"
+    },
+    "statusFailed": {
+      "en": "Failed",
+      "pl": "Błąd"
+    },
+    "statusCancelled": {
+      "en": "Cancelled",
+      "pl": "Anulowano"
+    },
+    "errorSearch": {
+      "en": "Search error: {error}",
+      "pl": "Błąd wyszukiwania: {error}"
+    },
+    "errorList": {
+      "en": "Could not read directory: {error}",
+      "pl": "Nie można odczytać katalogu: {error}"
+    },
+    "errorDownload": {
+      "en": "Download error: {error}",
+      "pl": "Błąd pobierania: {error}"
+    },
+    "errorDelete": {
+      "en": "Delete error: {error}",
+      "pl": "Błąd usuwania: {error}"
+    },
+    "errorMove": {
+      "en": "Move error: {error}",
+      "pl": "Błąd przenoszenia: {error}"
+    },
+    "errorUpload": {
+      "en": "Upload error: {error}",
+      "pl": "Błąd wysyłania: {error}"
+    },
+    "errorPickFiles": {
+      "en": "File picker error: {error}",
+      "pl": "Błąd wyboru plików: {error}"
+    },
+    "errorPickFolder": {
+      "en": "Folder picker error: {error}",
+      "pl": "Błąd wyboru folderu: {error}"
+    }
+  },
+  "dashboard": {
+    "title": {
+      "en": "Main dashboard",
+      "pl": "Panel Główny"
+    },
+    "os": {
+      "en": "Operating system",
+      "pl": "System Operacyjny"
+    },
+    "uptime": {
+      "en": "Uptime",
+      "pl": "Czas Uruchomienia (Uptime)"
+    },
+    "hostname": {
+      "en": "Hostname",
+      "pl": "Nazwa Hosta"
+    },
+    "cpu": {
+      "en": "Processor (CPU)",
+      "pl": "Procesor (CPU)"
+    },
+    "ram": {
+      "en": "Memory (RAM)",
+      "pl": "Pamięć operacyjna"
+    },
+    "disk": {
+      "en": "Disk space",
+      "pl": "Przestrzeń dyskowa"
+    },
+    "chartTitle": {
+      "en": "CPU & RAM load history",
+      "pl": "Historia obciążenia CPU & RAM"
+    },
+    "networkSpeed": {
+      "en": "Network speed (I/O)",
+      "pl": "Prędkość sieciowa (I/O)"
+    },
+    "download": {
+      "en": "DOWNLOAD",
+      "pl": "POBIERANIE"
+    },
+    "upload": {
+      "en": "UPLOAD",
+      "pl": "WYSYŁANIE"
+    },
+    "loadAverage": {
+      "en": "Load average",
+      "pl": "Load average"
+    },
+    "loadPeriods": {
+      "en": "1 min / 5 min / 15 min",
+      "pl": "1 min / 5 min / 15 min"
+    },
+    "swap": {
+      "en": "Swap",
+      "pl": "Swap"
+    },
+    "swapUsage": {
+      "en": "{pct}% used",
+      "pl": "{pct}% użycia"
+    },
+    "diskPartitions": {
+      "en": "Disk partitions",
+      "pl": "Partycje dyskowe"
+    },
+    "mount": {
+      "en": "Mount",
+      "pl": "Montowanie"
+    },
+    "usage": {
+      "en": "Usage",
+      "pl": "Użycie"
+    },
+    "inode": {
+      "en": "Inode",
+      "pl": "Inode"
+    },
+    "topProcesses": {
+      "en": "Top processes (RAM)",
+      "pl": "Top procesy (RAM)"
+    },
+    "pid": {
+      "en": "PID",
+      "pl": "PID"
+    },
+    "user": {
+      "en": "User",
+      "pl": "Użytk."
+    },
+    "command": {
+      "en": "Command",
+      "pl": "Komenda"
+    },
+    "proxyTitle": {
+      "en": "Pangolin Proxy (7 days)",
+      "pl": "Pangolin Proxy (7 dni)"
+    },
+    "proxyConnected": {
+      "en": "Connected",
+      "pl": "Połączono"
+    },
+    "proxyLoading": {
+      "en": "Loading proxy stats…",
+      "pl": "Wczytywanie statystyk proxy..."
+    },
+    "proxyNotConfigured": {
+      "en": "Configure Pangolin in the Pangolin Proxy tab to see traffic stats.",
+      "pl": "Skonfiguruj Pangolin w zakładce „Pangolin Proxy”, aby zobaczyć statystyki ruchu."
+    },
+    "requests": {
+      "en": "Requests",
+      "pl": "Zapytania"
+    },
+    "allowed": {
+      "en": "Allowed",
+      "pl": "Dozwolone"
+    },
+    "blocked": {
+      "en": "Blocked",
+      "pl": "Zablokowane"
+    },
+    "blockRate": {
+      "en": "Block rate",
+      "pl": "Współcz. blokad"
+    },
+    "topCountries": {
+      "en": "Top countries",
+      "pl": "Top kraje"
+    }
+  },
+  "files": {
+    "editing": {
+      "en": "Editing:",
+      "pl": "Edytujesz:"
+    },
+    "savedBadge": {
+      "en": "● Saved",
+      "pl": "● Zapisano"
+    },
+    "savingBadge": {
+      "en": "● Saving…",
+      "pl": "● Zapisywanie..."
+    },
+    "dirtyBadge": {
+      "en": "● Unsaved changes",
+      "pl": "● Niezapisane zmiany"
+    },
+    "errorBadge": {
+      "en": "● Save error",
+      "pl": "● Błąd zapisu"
+    },
+    "autoSave": {
+      "en": "Auto-save",
+      "pl": "Auto-zapis"
+    },
+    "save": {
+      "en": "Save",
+      "pl": "Zapisz"
+    },
+    "close": {
+      "en": "Close",
+      "pl": "Zamknij"
+    },
+    "permTitle": {
+      "en": "Permissions for:",
+      "pl": "Uprawnienia dla:"
+    },
+    "octalValue": {
+      "en": "Octal value",
+      "pl": "Wartość oktalna"
+    },
+    "recursiveChmod": {
+      "en": "Apply recursively (chmod -R)",
+      "pl": "Zastosuj rekurencyjnie (chmod -R)"
+    },
+    "savingPerm": {
+      "en": "Saving…",
+      "pl": "Zapisywanie..."
+    },
+    "createFileTitle": {
+      "en": "Create new file",
+      "pl": "Utwórz nowy plik"
+    },
+    "createFilePlaceholder": {
+      "en": "File name (e.g. config.json)",
+      "pl": "Nazwa pliku (np. config.json)"
+    },
+    "createDirTitle": {
+      "en": "Create new folder",
+      "pl": "Utwórz nowy folder"
+    },
+    "createDirPlaceholder": {
+      "en": "Folder name",
+      "pl": "Nazwa folderu"
+    },
+    "renameTitle": {
+      "en": "Rename / move",
+      "pl": "Zmień nazwę / Przenieś"
+    },
+    "renamePlaceholder": {
+      "en": "New name",
+      "pl": "Nowa nazwa"
+    },
+    "renameBtn": {
+      "en": "Rename",
+      "pl": "Zmień"
+    },
+    "fileTooLarge": {
+      "en": "File is too large to edit ({size} MB). Use download instead.",
+      "pl": "Plik jest za duży do edycji ({size} MB). Użyj pobierania."
+    },
+    "readError": {
+      "en": "File read error: {error}",
+      "pl": "Błąd odczytu pliku: {error}"
+    },
+    "writeError": {
+      "en": "File write error: {error}",
+      "pl": "Błąd zapisu pliku: {error}"
+    },
+    "autoSaveError": {
+      "en": "Auto-save error: {error}",
+      "pl": "Błąd automatycznego zapisu: {error}"
+    },
+    "createFileError": {
+      "en": "File creation error: {error}",
+      "pl": "Błąd tworzenia pliku: {error}"
+    },
+    "createDirError": {
+      "en": "Folder creation error: {error}",
+      "pl": "Błąd tworzenia folderu: {error}"
+    },
+    "renameError": {
+      "en": "Rename error: {error}",
+      "pl": "Błąd zmiany nazwy: {error}"
+    },
+    "chmodError": {
+      "en": "Permission change error: {error}",
+      "pl": "Błąd zmiany uprawnień: {error}"
+    },
+    "sudoRequired": {
+      "en": "Sudo password required to change permissions:",
+      "pl": "Wymagane hasło sudo do zmiany uprawnień:"
+    },
+    "sudoError": {
+      "en": "Sudo password or execution error: {error}",
+      "pl": "Błąd hasła sudo lub wykonania: {error}"
+    },
+    "sudoMissing": {
+      "en": "Error: sudo password required",
+      "pl": "Błąd: wymagane hasło sudo"
+    }
+  },
+  "docker": {
+    "title": {
+      "en": "Docker",
+      "pl": "Docker"
+    },
+    "notInstalled": {
+      "en": "Docker is not installed",
+      "pl": "Docker nie jest zainstalowany"
+    },
+    "notInstalledDesc": {
+      "en": "Docker Engine was not found on this server. Install Docker to use containerization.",
+      "pl": "Na tym serwerze nie znaleziono Docker Engine. Zainstaluj Docker, aby korzystać z konteneryzacji."
+    },
+    "installLink": {
+      "en": "Docker installation guide →",
+      "pl": "Instrukcja instalacji Docker →"
+    },
+    "statActive": {
+      "en": "running",
+      "pl": "aktywne"
+    },
+    "statStopped": {
+      "en": "stopped",
+      "pl": "zatrzymane"
+    },
+    "statImages": {
+      "en": "images",
+      "pl": "obrazów"
+    },
+    "statNetworks": {
+      "en": "networks",
+      "pl": "sieci"
+    },
+    "tabContainers": {
+      "en": "Containers",
+      "pl": "Kontenery"
+    },
+    "tabImages": {
+      "en": "Images",
+      "pl": "Obrazy"
+    },
+    "tabNetworks": {
+      "en": "Networks",
+      "pl": "Sieci"
+    },
+    "tabCompose": {
+      "en": "Compose",
+      "pl": "Compose"
+    },
+    "tabVolumes": {
+      "en": "Volumes",
+      "pl": "Wolumeny"
+    },
+    "searchContainers": {
+      "en": "Search containers…",
+      "pl": "Szukaj kontenerów..."
+    },
+    "searchImages": {
+      "en": "Search images…",
+      "pl": "Szukaj obrazów..."
+    },
+    "searchNetworks": {
+      "en": "Search networks…",
+      "pl": "Szukaj sieci..."
+    },
+    "searchCompose": {
+      "en": "Search Compose projects…",
+      "pl": "Szukaj projektów Compose..."
+    },
+    "searchVolumes": {
+      "en": "Search volumes…",
+      "pl": "Szukaj wolumenów..."
+    },
+    "selectedCount": {
+      "en": "Selected: {count}",
+      "pl": "Zaznaczono: {count}"
+    },
+    "loadingContainers": {
+      "en": "Loading containers…",
+      "pl": "Wczytywanie kontenerów..."
+    },
+    "loadingImages": {
+      "en": "Loading images…",
+      "pl": "Wczytywanie obrazów..."
+    },
+    "loadingNetworks": {
+      "en": "Loading networks…",
+      "pl": "Wczytywanie sieci..."
+    },
+    "loadingCompose": {
+      "en": "Loading Compose projects…",
+      "pl": "Wczytywanie projektów Compose..."
+    },
+    "loadingVolumes": {
+      "en": "Loading volumes…",
+      "pl": "Wczytywanie wolumenów..."
+    },
+    "emptyContainers": {
+      "en": "No containers. Create one with docker run or Docker Compose.",
+      "pl": "Brak kontenerów. Utwórz nowy kontener za pomocą docker run lub Docker Compose."
+    },
+    "emptyNetworks": {
+      "en": "No Docker networks",
+      "pl": "Brak sieci Docker"
+    },
+    "emptyCompose": {
+      "en": "No Docker Compose projects. Create a new project with the button above.",
+      "pl": "Brak projektów Docker Compose. Utwórz nowy projekt przyciskiem powyżej."
+    },
+    "emptyVolumes": {
+      "en": "No Docker volumes",
+      "pl": "Brak wolumenów Docker"
+    },
+    "colName": {
+      "en": "Name",
+      "pl": "Nazwa"
+    },
+    "colImage": {
+      "en": "Image",
+      "pl": "Obraz"
+    },
+    "colStatus": {
+      "en": "Status",
+      "pl": "Status"
+    },
+    "colPorts": {
+      "en": "Ports",
+      "pl": "Porty"
+    },
+    "colCreated": {
+      "en": "Created",
+      "pl": "Utworzono"
+    },
+    "colRepository": {
+      "en": "Repository",
+      "pl": "Repozytorium"
+    },
+    "colTag": {
+      "en": "Tag",
+      "pl": "Tag"
+    },
+    "colSize": {
+      "en": "Size",
+      "pl": "Rozmiar"
+    },
+    "colDriver": {
+      "en": "Driver",
+      "pl": "Driver"
+    },
+    "colScope": {
+      "en": "Scope",
+      "pl": "Zakres"
+    },
+    "colProject": {
+      "en": "Project",
+      "pl": "Projekt"
+    },
+    "colConfigFiles": {
+      "en": "Config files",
+      "pl": "Pliki konfiguracji"
+    },
+    "colMountpoint": {
+      "en": "Mount point",
+      "pl": "Punkt montowania"
+    },
+    "operations": {
+      "en": "Operations",
+      "pl": "Operacje"
+    },
+    "inspectTitle": {
+      "en": "Inspect: {name}",
+      "pl": "Inspekcja: {name}"
+    },
+    "inspectNetworkTitle": {
+      "en": "Network inspect: {name}",
+      "pl": "Inspekcja sieci: {name}"
+    },
+    "inspectVolumeTitle": {
+      "en": "Volume inspect: {name}",
+      "pl": "Inspekcja wolumenu: {name}"
+    },
+    "stop": {
+      "en": "Stop",
+      "pl": "Zatrzymaj"
+    },
+    "start": {
+      "en": "Start",
+      "pl": "Uruchom"
+    },
+    "restart": {
+      "en": "Restart",
+      "pl": "Restartuj"
+    },
+    "remove": {
+      "en": "Remove",
+      "pl": "Usuń"
+    },
+    "modify": {
+      "en": "Modify (Portainer-like)",
+      "pl": "Modyfikuj (Portainer-like)"
+    },
+    "inspect": {
+      "en": "Inspect",
+      "pl": "Inspekcja"
+    },
+    "logs": {
+      "en": "Logs",
+      "pl": "Logi"
+    },
+    "exec": {
+      "en": "Run command",
+      "pl": "Wykonaj komendę"
+    },
+    "interactiveShell": {
+      "en": "Interactive shell",
+      "pl": "Interaktywny shell"
+    },
+    "browseContent": {
+      "en": "Browse contents",
+      "pl": "Przeglądaj zawartość"
+    },
+    "unused": {
+      "en": "Unused",
+      "pl": "Nieużywany"
+    },
+    "pullImage": {
+      "en": "Pull image",
+      "pl": "Pobierz obraz"
+    },
+    "pruneImages": {
+      "en": "Prune unused images",
+      "pl": "Wyczyść nieużywane"
+    },
+    "createNetwork": {
+      "en": "Create network",
+      "pl": "Utwórz sieć"
+    },
+    "newComposeProject": {
+      "en": "New Compose project",
+      "pl": "Nowy projekt Compose"
+    },
+    "changeNetwork": {
+      "en": "Change network",
+      "pl": "Zmień sieć"
+    },
+    "composeUp": {
+      "en": "Up",
+      "pl": "Up"
+    },
+    "composeDown": {
+      "en": "Down",
+      "pl": "Down"
+    },
+    "composeStart": {
+      "en": "Start",
+      "pl": "Start"
+    },
+    "composeStop": {
+      "en": "Stop",
+      "pl": "Stop"
+    },
+    "composeRestart": {
+      "en": "Restart",
+      "pl": "Restart"
+    },
+    "composePull": {
+      "en": "Pull",
+      "pl": "Pull"
+    },
+    "composePs": {
+      "en": "PS",
+      "pl": "PS"
+    },
+    "composeLogs": {
+      "en": "Logs",
+      "pl": "Logi"
+    },
+    "composeEdit": {
+      "en": "Edit",
+      "pl": "Edytuj"
+    },
+    "composeApply": {
+      "en": "Apply and run",
+      "pl": "Zastosuj i uruchom"
+    },
+    "composeSaving": {
+      "en": "Saving…",
+      "pl": "Zapisuję..."
+    },
+    "bulkStart": {
+      "en": "Start",
+      "pl": "Start"
+    },
+    "bulkStop": {
+      "en": "Stop",
+      "pl": "Stop"
+    },
+    "bulkRestart": {
+      "en": "Restart",
+      "pl": "Restart"
+    },
+    "bulkRemove": {
+      "en": "Remove",
+      "pl": "Usuń"
+    },
+    "sudoTitle": {
+      "en": "Sudo authentication required",
+      "pl": "Wymagane uwierzytelnienie Sudo"
+    },
+    "sudoDesc": {
+      "en": "This operation requires root privileges. Enter your user password (sudo):",
+      "pl": "Ta operacja wymaga uprawnień roota. Wprowadź swoje hasło użytkownika (sudo):"
+    },
+    "passwordPlaceholder": {
+      "en": "Enter password…",
+      "pl": "Wpisz hasło…"
+    },
+    "confirmTitle": {
+      "en": "Confirm operation",
+      "pl": "Potwierdź operację"
+    },
+    "confirmYes": {
+      "en": "Yes, execute",
+      "pl": "Tak, wykonaj"
+    },
+    "logsTitle": {
+      "en": "Logs: {name}",
+      "pl": "Logi: {name}"
+    },
+    "logsStream": {
+      "en": "Stream logs",
+      "pl": "Streamuj logi"
+    },
+    "logsStop": {
+      "en": "Stop streaming",
+      "pl": "Zatrzymaj stream"
+    },
+    "logsDownload": {
+      "en": "Download logs",
+      "pl": "Pobierz logi"
+    },
+    "logsClear": {
+      "en": "Clear",
+      "pl": "Wyczyść"
+    },
+    "shellTitle": {
+      "en": "Interactive shell: {name}",
+      "pl": "Interaktywny shell: {name}"
+    },
+    "shellDesc": {
+      "en": "Choose a shell available in the container.",
+      "pl": "Wybierz powłokę dostępną w kontenerze."
+    },
+    "shellLabel": {
+      "en": "Shell",
+      "pl": "Powłoka"
+    },
+    "shellOpen": {
+      "en": "Open shell",
+      "pl": "Otwórz shell"
+    },
+    "execTitle": {
+      "en": "Run command: {name}",
+      "pl": "Wykonaj komendę: {name}"
+    },
+    "execDesc": {
+      "en": "Run a command inside the container.",
+      "pl": "Uruchom polecenie wewnątrz kontenera."
+    },
+    "execRun": {
+      "en": "Run",
+      "pl": "Uruchom"
+    },
+    "execOutput": {
+      "en": "Output",
+      "pl": "Wynik"
+    },
+    "pullTitle": {
+      "en": "Pull Docker image",
+      "pl": "Pobierz obraz Docker"
+    },
+    "pullLabel": {
+      "en": "Image name (e.g. nginx:latest, redis:7-alpine)",
+      "pl": "Nazwa obrazu (np. nginx:latest, redis:7-alpine)"
+    },
+    "pullProgress": {
+      "en": "Pulling…",
+      "pl": "Pobieranie..."
+    },
+    "pullSubmit": {
+      "en": "Pull",
+      "pl": "Pobierz"
+    },
+    "createNetworkTitle": {
+      "en": "Create Docker network",
+      "pl": "Utwórz sieć Docker"
+    },
+    "networkName": {
+      "en": "Network name",
+      "pl": "Nazwa sieci"
+    },
+    "networkDriver": {
+      "en": "Network driver",
+      "pl": "Driver sieci"
+    },
+    "driverBridge": {
+      "en": "Bridge (default)",
+      "pl": "Bridge (domyślny)"
+    },
+    "driverOverlay": {
+      "en": "Overlay",
+      "pl": "Overlay"
+    },
+    "driverHost": {
+      "en": "Host",
+      "pl": "Host"
+    },
+    "driverNone": {
+      "en": "None",
+      "pl": "None"
+    },
+    "newComposeTitle": {
+      "en": "New Compose project",
+      "pl": "Nowy projekt Compose"
+    },
+    "newComposeDesc": {
+      "en": "Choose a directory to create the project in and enter a folder name.",
+      "pl": "Wybierz katalog, w którym utworzyć projekt, i podaj nazwę folderu."
+    },
+    "dirPickerEmpty": {
+      "en": "No subdirectories in this folder",
+      "pl": "Brak podkatalogów w tym folderze"
+    },
+    "dirPickerEmptyVolume": {
+      "en": "Directory empty or no access",
+      "pl": "Katalog pusty lub brak dostępu"
+    },
+    "projectFolder": {
+      "en": "New project folder name",
+      "pl": "Nazwa nowego folderu projektu"
+    },
+    "goUp": {
+      "en": "Go up",
+      "pl": "W górę"
+    },
+    "composeEditorTitle": {
+      "en": "Compose editor",
+      "pl": "Edytor Compose"
+    },
+    "composePullTitle": {
+      "en": "Pull images: {name}",
+      "pl": "Pull obrazów: {name}"
+    },
+    "composePullDone": {
+      "en": "Done",
+      "pl": "Ukończono"
+    },
+    "composePullError": {
+      "en": "Error",
+      "pl": "Błąd"
+    },
+    "fileEditorTitle": {
+      "en": "Edit: {name}",
+      "pl": "Edycja: {name}"
+    },
+    "volumeBrowserTitle": {
+      "en": "Volume: {name}",
+      "pl": "Wolumen: {name}"
+    },
+    "modifyTitle": {
+      "en": "Modify container",
+      "pl": "Modyfikuj kontener"
+    },
+    "modifyName": {
+      "en": "Name",
+      "pl": "Nazwa"
+    },
+    "modifyImage": {
+      "en": "Image",
+      "pl": "Obraz"
+    },
+    "modifyRestartPolicy": {
+      "en": "Restart policy",
+      "pl": "Restart Policy"
+    },
+    "modifyPortMapping": {
+      "en": "Port mapping",
+      "pl": "Mapowanie portów"
+    },
+    "modifyHostPort": {
+      "en": "Host port",
+      "pl": "Port hosta"
+    },
+    "modifyContainerPort": {
+      "en": "Container port",
+      "pl": "Port kontenera"
+    },
+    "modifyAddPort": {
+      "en": "Add port",
+      "pl": "Dodaj port"
+    },
+    "modifyVolumes": {
+      "en": "Volumes / mounts",
+      "pl": "Wolumeny / montowania"
+    },
+    "modifyHostPath": {
+      "en": "Host path",
+      "pl": "Ścieżka hosta"
+    },
+    "modifyContainerPath": {
+      "en": "Container path",
+      "pl": "Ścieżka kontenera"
+    },
+    "modifyAddVolume": {
+      "en": "Add mount",
+      "pl": "Dodaj montowanie"
+    },
+    "modifyEnv": {
+      "en": "Environment variables",
+      "pl": "Zmienne środowiskowe"
+    },
+    "modifyEnvKey": {
+      "en": "Key",
+      "pl": "Klucz"
+    },
+    "modifyEnvValue": {
+      "en": "Value",
+      "pl": "Wartość"
+    },
+    "modifyAddEnv": {
+      "en": "Add variable",
+      "pl": "Dodaj zmienną"
+    },
+    "modifyCmd": {
+      "en": "CMD",
+      "pl": "CMD"
+    },
+    "modifyEntrypoint": {
+      "en": "Entrypoint",
+      "pl": "Entrypoint"
+    },
+    "modifyNetworks": {
+      "en": "Networks (first = primary)",
+      "pl": "Sieci (pierwsza = podstawowa)"
+    },
+    "modifyApply": {
+      "en": "Apply changes",
+      "pl": "Zastosuj zmiany"
+    },
+    "composeNetworkTitle": {
+      "en": "Change project network",
+      "pl": "Zmień sieć projektu"
+    },
+    "composeNetworkDesc": {
+      "en": "A networks.default section with the selected external network will be added.",
+      "pl": "Zostanie dodana sekcja networks.default z wybraną siecią zewnętrzną."
+    },
+    "composeNetworkSelect": {
+      "en": "External network",
+      "pl": "Sieć zewnętrzna"
+    },
+    "composeNetworkPlaceholder": {
+      "en": "— select network —",
+      "pl": "— wybierz sieć —"
+    },
+    "composeLogsTitle": {
+      "en": "Compose logs: {name}",
+      "pl": "Logi Compose: {name}"
+    },
+    "confirmRemoveContainer": {
+      "en": "Remove container \"{name}\"? This cannot be undone.",
+      "pl": "Usunąć kontener \"{name}\"? Ta operacja jest nieodwracalna."
+    },
+    "confirmRemoveImage": {
+      "en": "Remove image \"{name}\"?",
+      "pl": "Usunąć obraz \"{name}\"?"
+    },
+    "confirmPruneImages": {
+      "en": "Remove all unused images? This will free disk space.",
+      "pl": "Usunąć wszystkie nieużywane obrazy? Zwolni to przestrzeń dyskową."
+    },
+    "confirmRemoveNetwork": {
+      "en": "Remove network \"{name}\"?",
+      "pl": "Usunąć sieć \"{name}\"?"
+    },
+    "confirmRemoveVolume": {
+      "en": "Remove volume \"{name}\"?",
+      "pl": "Usunąć wolumen \"{name}\"?"
+    },
+    "containerStarted": {
+      "en": "Container started",
+      "pl": "Kontener uruchomiony"
+    },
+    "containerStopped": {
+      "en": "Container stopped",
+      "pl": "Kontener zatrzymany"
+    },
+    "containerRestarted": {
+      "en": "Container restarted",
+      "pl": "Kontener zrestartowany"
+    },
+    "containerRemoved": {
+      "en": "Container removed",
+      "pl": "Kontener usunięty"
+    },
+    "imagePulled": {
+      "en": "Image \"{name}\" pulled successfully",
+      "pl": "Obraz \"{name}\" pobrany pomyślnie"
+    },
+    "imageRemoved": {
+      "en": "Image removed",
+      "pl": "Obraz usunięty"
+    },
+    "imagesPruned": {
+      "en": "Unused images removed. {output}",
+      "pl": "Nieużywane obrazy usunięte. {output}"
+    },
+    "networkCreated": {
+      "en": "Network created",
+      "pl": "Sieć utworzona"
+    },
+    "networkRemoved": {
+      "en": "Network removed",
+      "pl": "Sieć usunięta"
+    },
+    "volumeRemoved": {
+      "en": "Volume removed",
+      "pl": "Wolumen usunięty"
+    },
+    "projectCreated": {
+      "en": "Project \"{name}\" created at {path}",
+      "pl": "Projekt \"{name}\" utworzony w {path}"
+    },
+    "composeDone": {
+      "en": "Compose {action} — done",
+      "pl": "Compose {action} — wykonano"
+    },
+    "composeNetworkUpdated": {
+      "en": "Compose project network updated!",
+      "pl": "Sieć projektu compose zaktualizowana!"
+    },
+    "containerModified": {
+      "en": "Container modified successfully!",
+      "pl": "Kontener zmodyfikowany pomyślnie!"
+    },
+    "fileSaved": {
+      "en": "File saved successfully",
+      "pl": "Plik zapisany pomyślnie"
+    },
+    "checkFailed": {
+      "en": "Docker check error: {error}",
+      "pl": "Błąd sprawdzania Docker: {error}"
+    },
+    "daemonNotRunning": {
+      "en": "Docker is installed but the daemon is not running. Start it with: systemctl start docker",
+      "pl": "Docker jest zainstalowany, ale demon nie jest uruchomiony. Uruchom go za pomocą: systemctl start docker"
+    },
+    "loadContainersFailed": {
+      "en": "Failed to load containers: {error}",
+      "pl": "Błąd wczytywania kontenerów: {error}"
+    },
+    "loadImagesFailed": {
+      "en": "Failed to load images: {error}",
+      "pl": "Błąd wczytywania obrazów: {error}"
+    },
+    "loadNetworksFailed": {
+      "en": "Failed to load networks: {error}",
+      "pl": "Błąd wczytywania sieci: {error}"
+    },
+    "loadComposeFailed": {
+      "en": "Failed to load Compose projects: {error}",
+      "pl": "Błąd wczytywania projektów Compose: {error}"
+    },
+    "loadVolumesFailed": {
+      "en": "Failed to load volumes: {error}",
+      "pl": "Błąd wczytywania wolumenów: {error}"
+    },
+    "inspectFailed": {
+      "en": "Inspect error: {error}",
+      "pl": "Błąd inspekcji: {error}"
+    },
+    "logsStreamFailed": {
+      "en": "Failed to start log streaming: {error}",
+      "pl": "Błąd rozpoczęcia streamowania logów: {error}"
+    },
+    "logsDownloadFailed": {
+      "en": "Log download error: {error}",
+      "pl": "Błąd pobierania logów: {error}"
+    },
+    "execFailed": {
+      "en": "Error: {error}",
+      "pl": "Błąd: {error}"
+    },
+    "pullFailed": {
+      "en": "Pull error: {error}",
+      "pl": "Błąd pobierania: {error}"
+    },
+    "pruneFailed": {
+      "en": "Prune error: {error}",
+      "pl": "Błąd usuwania części obrazów: {error}"
+    },
+    "removeNetworkFailed": {
+      "en": "Network removal error: {error}",
+      "pl": "Błąd usuwania sieci: {error}"
+    },
+    "composeActionFailed": {
+      "en": "Compose error: {error}",
+      "pl": "Błąd Compose: {error}"
+    },
+    "dirPickerFailed": {
+      "en": "Directory browser error: {error}",
+      "pl": "Błąd otwierania przeglądarki katalogów: {error}"
+    },
+    "dirLoadFailed": {
+      "en": "Directory load error: {error}",
+      "pl": "Błąd wczytywania katalogu: {error}"
+    },
+    "folderLoadFailed": {
+      "en": "Folder load error: {error}",
+      "pl": "Błąd wczytywania folderu: {error}"
+    },
+    "fileReadFailed": {
+      "en": "File read error: {error}",
+      "pl": "Błąd odczytu pliku: {error}"
+    },
+    "saveComposeFailed": {
+      "en": "Compose save error: {error}",
+      "pl": "Błąd zapisu compose: {error}"
+    },
+    "modifyFailed": {
+      "en": "Modify error: {error}",
+      "pl": "Błąd modyfikacji: {error}"
+    },
+    "volumePathFailed": {
+      "en": "Cannot read volume path: {error}",
+      "pl": "Nie można odczytać ścieżki wolumenu: {error}"
+    },
+    "composeNetworkFailed": {
+      "en": "Compose network change error: {error}",
+      "pl": "Błąd zmiany sieci compose: {error}"
+    },
+    "yamlSyntaxError": {
+      "en": "YAML syntax error",
+      "pl": "Błąd składni YAML"
+    },
+    "tomlSyntaxError": {
+      "en": "TOML syntax error",
+      "pl": "Błąd składni TOML"
+    },
+    "shellBash": {
+      "en": "bash",
+      "pl": "bash"
+    },
+    "shellAsh": {
+      "en": "ash (Alpine)",
+      "pl": "ash (Alpine)"
+    },
+    "shellZsh": {
+      "en": "zsh",
+      "pl": "zsh"
+    },
+    "protocolTcp": {
+      "en": "TCP",
+      "pl": "TCP"
+    },
+    "protocolUdp": {
+      "en": "UDP",
+      "pl": "UDP"
+    },
+    "policyAlways": {
+      "en": "always",
+      "pl": "always"
+    },
+    "policyUnlessStopped": {
+      "en": "unless-stopped",
+      "pl": "unless-stopped"
+    },
+    "policyOnFailure": {
+      "en": "on-failure",
+      "pl": "on-failure"
+    },
+    "policyNo": {
+      "en": "no",
+      "pl": "no"
+    },
+    "removeUnusedImage": {
+      "en": "Remove unused image",
+      "pl": "Usuń nieużywany obraz"
+    },
+    "removeNetworkBtn": {
+      "en": "Remove network",
+      "pl": "Usuń sieć"
+    },
+    "removeVolumeBtn": {
+      "en": "Remove volume",
+      "pl": "Usuń wolumen"
+    },
+    "removeSelected": {
+      "en": "Remove selected",
+      "pl": "Usuń wybrane"
+    },
+    "deleteImageTitle": {
+      "en": "Delete image",
+      "pl": "Usuń obraz"
+    },
+    "deleteNetworkTitle": {
+      "en": "Delete network",
+      "pl": "Usuń sieć"
+    },
+    "deleteVolumeTitle": {
+      "en": "Delete volume",
+      "pl": "Usuń wolumen"
+    },
+    "openInTerminal": {
+      "en": "Open in terminal",
+      "pl": "Otwórz w terminalu"
+    },
+    "exportLogs": {
+      "en": "Export logs",
+      "pl": "Eksportuj logi"
+    },
+    "tailLines": {
+      "en": "Tail lines",
+      "pl": "Liczba linii"
+    },
+    "followLogs": {
+      "en": "Follow",
+      "pl": "Śledź"
+    },
+    "autoRefresh": {
+      "en": "Auto-refresh",
+      "pl": "Auto-odświeżanie"
+    },
+    "projectName": {
+      "en": "Project name",
+      "pl": "Nazwa projektu"
+    },
+    "serviceName": {
+      "en": "Service name",
+      "pl": "Nazwa usługi"
+    },
+    "composeStatus": {
+      "en": "Status",
+      "pl": "Status"
+    },
+    "composeConfig": {
+      "en": "Config",
+      "pl": "Konfiguracja"
+    },
+    "volumeDriver": {
+      "en": "Driver",
+      "pl": "Sterownik"
+    },
+    "volumeLabels": {
+      "en": "Labels",
+      "pl": "Etykiety"
+    },
+    "createdAt": {
+      "en": "Created at",
+      "pl": "Utworzono"
+    },
+    "runningFor": {
+      "en": "Running for",
+      "pl": "Działa od"
+    },
+    "health": {
+      "en": "Health",
+      "pl": "Zdrowie"
+    },
+    "exitCode": {
+      "en": "Exit code",
+      "pl": "Kod wyjścia"
+    },
+    "commandCol": {
+      "en": "Command",
+      "pl": "Polecenie"
+    },
+    "id": {
+      "en": "ID",
+      "pl": "ID"
+    },
+    "digest": {
+      "en": "Digest",
+      "pl": "Digest"
+    },
+    "sharedSize": {
+      "en": "Shared size",
+      "pl": "Współdzielony rozmiar"
+    },
+    "uniqueSize": {
+      "en": "Unique size",
+      "pl": "Unikalny rozmiar"
+    },
+    "containersUsing": {
+      "en": "Containers",
+      "pl": "Kontenery"
+    },
+    "ipv4": {
+      "en": "IPv4",
+      "pl": "IPv4"
+    },
+    "ipv6": {
+      "en": "IPv6",
+      "pl": "IPv6"
+    },
+    "gateway": {
+      "en": "Gateway",
+      "pl": "Brama"
+    },
+    "subnet": {
+      "en": "Subnet",
+      "pl": "Podsieć"
+    },
+    "internal": {
+      "en": "Internal",
+      "pl": "Wewnętrzna"
+    },
+    "attachable": {
+      "en": "Attachable",
+      "pl": "Dołączalna"
+    },
+    "ingress": {
+      "en": "Ingress",
+      "pl": "Ingress"
+    },
+    "options": {
+      "en": "Options",
+      "pl": "Opcje"
+    },
+    "labels": {
+      "en": "Labels",
+      "pl": "Etykiety"
+    },
+    "mountType": {
+      "en": "Type",
+      "pl": "Typ"
+    },
+    "mountSource": {
+      "en": "Source",
+      "pl": "Źródło"
+    },
+    "mountDestination": {
+      "en": "Destination",
+      "pl": "Cel"
+    },
+    "mountMode": {
+      "en": "Mode",
+      "pl": "Tryb"
+    },
+    "mountRw": {
+      "en": "RW",
+      "pl": "RW"
+    },
+    "mountRo": {
+      "en": "RO",
+      "pl": "RO"
+    },
+    "propagation": {
+      "en": "Propagation",
+      "pl": "Propagacja"
+    },
+    "copyId": {
+      "en": "Copy ID",
+      "pl": "Kopiuj ID"
+    },
+    "copyName": {
+      "en": "Copy name",
+      "pl": "Kopiuj nazwę"
+    },
+    "filterRunning": {
+      "en": "Running only",
+      "pl": "Tylko uruchomione"
+    },
+    "filterStopped": {
+      "en": "Stopped only",
+      "pl": "Tylko zatrzymane"
+    },
+    "showAll": {
+      "en": "Show all",
+      "pl": "Pokaż wszystkie"
+    },
+    "quickActions": {
+      "en": "Quick actions",
+      "pl": "Szybkie akcje"
+    },
+    "resourceUsage": {
+      "en": "Resource usage",
+      "pl": "Użycie zasobów"
+    },
+    "cpuUsage": {
+      "en": "CPU",
+      "pl": "CPU"
+    },
+    "memUsage": {
+      "en": "Memory",
+      "pl": "Pamięć"
+    },
+    "netIo": {
+      "en": "Network I/O",
+      "pl": "Sieć I/O"
+    },
+    "blockIo": {
+      "en": "Block I/O",
+      "pl": "Dysk I/O"
+    },
+    "pids": {
+      "en": "PIDs",
+      "pl": "PIDs"
+    },
+    "publishPorts": {
+      "en": "Publish ports",
+      "pl": "Publikuj porty"
+    },
+    "exposePorts": {
+      "en": "Expose ports",
+      "pl": "Udostępnij porty"
+    },
+    "privileged": {
+      "en": "Privileged",
+      "pl": "Uprzywilejowany"
+    },
+    "readonlyRootfs": {
+      "en": "Read-only rootfs",
+      "pl": "Rootfs tylko do odczytu"
+    },
+    "autoRemove": {
+      "en": "Auto-remove",
+      "pl": "Auto-usuwanie"
+    },
+    "tty": {
+      "en": "TTY",
+      "pl": "TTY"
+    },
+    "stdinOpen": {
+      "en": "Interactive",
+      "pl": "Interaktywny"
+    },
+    "workingDir": {
+      "en": "Working directory",
+      "pl": "Katalog roboczy"
+    },
+    "user": {
+      "en": "User",
+      "pl": "Użytkownik"
+    },
+    "hostname": {
+      "en": "Hostname",
+      "pl": "Nazwa hosta"
+    },
+    "domainname": {
+      "en": "Domain name",
+      "pl": "Domena"
+    },
+    "macAddress": {
+      "en": "MAC address",
+      "pl": "Adres MAC"
+    },
+    "memoryLimit": {
+      "en": "Memory limit",
+      "pl": "Limit pamięci"
+    },
+    "cpuShares": {
+      "en": "CPU shares",
+      "pl": "Udział CPU"
+    },
+    "cpuQuota": {
+      "en": "CPU quota",
+      "pl": "Limit CPU"
+    },
+    "devices": {
+      "en": "Devices",
+      "pl": "Urządzenia"
+    },
+    "capAdd": {
+      "en": "Add capabilities",
+      "pl": "Dodaj uprawnienia"
+    },
+    "capDrop": {
+      "en": "Drop capabilities",
+      "pl": "Usuń uprawnienia"
+    },
+    "securityOpt": {
+      "en": "Security options",
+      "pl": "Opcje bezpieczeństwa"
+    },
+    "sysctls": {
+      "en": "Sysctls",
+      "pl": "Sysctls"
+    },
+    "ulimits": {
+      "en": "Ulimits",
+      "pl": "Limity"
+    },
+    "logDriver": {
+      "en": "Log driver",
+      "pl": "Sterownik logów"
+    },
+    "logOpts": {
+      "en": "Log options",
+      "pl": "Opcje logów"
+    },
+    "dependsOn": {
+      "en": "Depends on",
+      "pl": "Zależności"
+    },
+    "healthcheck": {
+      "en": "Health check",
+      "pl": "Sprawdzanie zdrowia"
+    },
+    "interval": {
+      "en": "Interval",
+      "pl": "Interwał"
+    },
+    "timeout": {
+      "en": "Timeout",
+      "pl": "Limit czasu"
+    },
+    "retries": {
+      "en": "Retries",
+      "pl": "Ponowienia"
+    },
+    "startPeriod": {
+      "en": "Start period",
+      "pl": "Okres startu"
+    },
+    "test": {
+      "en": "Test command",
+      "pl": "Polecenie testu"
+    },
+    "pullStreamErrorMarker": {
+      "en": "Error response from daemon",
+      "pl": "Error response from daemon"
+    },
+    "composeEditFileTitle": {
+      "en": "Edit compose file",
+      "pl": "Edytuj plik compose"
+    },
+    "composeProjectLogsTitle": {
+      "en": "Show project logs",
+      "pl": "Pokaż logi projektu"
+    }
+  },
+  "crowdsec": {
+    "title": {
+      "en": "Security (CrowdSec)",
+      "pl": "Bezpieczeństwo (CrowdSec)"
+    },
+    "checking": {
+      "en": "CHECKING...",
+      "pl": "SPRAWDZANIE..."
+    },
+    "active": {
+      "en": "ACTIVE",
+      "pl": "AKTYWNY"
+    },
+    "inactive": {
+      "en": "INACTIVE",
+      "pl": "NIEAKTYWNY"
+    },
+    "authTitle": {
+      "en": "Sudo authentication required",
+      "pl": "Wymagane uwierzytelnienie Sudo"
+    },
+    "authDesc": {
+      "en": "The CrowdSec tab requires a sudo password to communicate with the server. No background operations will run until you provide it.",
+      "pl": "Zakładka CrowdSec wymaga hasła sudo do komunikacji z serwerem. Dopóki go nie podasz, nie będą wykonywane żadne operacje w tle."
+    },
+    "provideSudo": {
+      "en": "Enter sudo password",
+      "pl": "Podaj hasło sudo"
+    },
+    "detecting": {
+      "en": "Detecting CrowdSec environment…",
+      "pl": "Trwa wykrywanie środowiska CrowdSec..."
+    },
+    "onboardingTitle": {
+      "en": "Secure your server with CrowdSec",
+      "pl": "Zabezpiecz swój serwer z CrowdSec"
+    },
+    "onboardingDesc": {
+      "en": "CrowdSec is a modern collaborative IPS. It analyzes server logs for intrusion attempts, port scans and malicious activity, blocks attackers and shares their addresses with a global threat database.",
+      "pl": "CrowdSec to nowoczesny, oparty na współpracy system ochrony IPS. Analizuje logi Twojego serwera w poszukiwaniu prób włamań, skanowania portów i innych szkodliwych aktywności, a następnie blokuje napastników i dzieli się ich adresami z globalną bazą zagrożeń."
+    },
+    "featLogsTitle": {
+      "en": "Log analysis",
+      "pl": "Analiza Logów"
+    },
+    "featLogsDesc": {
+      "en": "Monitors system and service logs (SSH, Web, Mail) in real time.",
+      "pl": "Monitoruje logi systemowe i logi usług (SSH, Web, Mail) w czasie rzeczywistym."
+    },
+    "featReputationTitle": {
+      "en": "IP reputation network",
+      "pl": "Sieć Reputacji IP"
+    },
+    "featReputationDesc": {
+      "en": "Downloads and updates a database of malicious IPs verified by the CrowdSec community.",
+      "pl": "Pobiera i aktualizuje bazę złośliwych adresów IP zweryfikowanych przez społeczność CrowdSec."
+    },
+    "featBouncersTitle": {
+      "en": "Bouncers (blocks)",
+      "pl": "Bouncery (Blokady)"
+    },
+    "featBouncersDesc": {
+      "en": "Automatically integrates with the server firewall (e.g. UFW/iptables), rejecting attacks.",
+      "pl": "Automatycznie integruje się z zaporą ogniową serwera (np. UFW/iptables), odrzucając ataki."
+    },
+    "setupQuestion": {
+      "en": "How do you want to configure CrowdSec?",
+      "pl": "Jak chcesz skonfigurować CrowdSec?"
+    },
+    "methodBareMetal": {
+      "en": "Method 1: Direct installation (Bare-metal)",
+      "pl": "Metoda 1: Instalacja bezpośrednia (Bare-metal)"
+    },
+    "methodBareMetalDesc": {
+      "en": "Installs CrowdSec and an associated firewall bouncer (iptables) directly on the server (requires APT-based distro, e.g. Debian/Ubuntu).",
+      "pl": "Zainstaluje CrowdSec i powiązanego Bouncera zapory (iptables) bezpośrednio na serwerze (wymaga dystrybucji opartej o APT, np. Debian/Ubuntu)."
+    },
+    "installDirect": {
+      "en": "Install directly",
+      "pl": "Zainstaluj bezpośrednio"
+    },
+    "installing": {
+      "en": "Installing…",
+      "pl": "Instalowanie..."
+    },
+    "methodDocker": {
+      "en": "Method 2: Run in Docker",
+      "pl": "Metoda 2: Uruchomienie w Dockerze"
+    },
+    "methodDockerDesc": {
+      "en": "If you prefer Docker, run CrowdSec in a container. Ensure the container is named crowdsec or open settings to specify another name.",
+      "pl": "Jeśli wolisz Docker, uruchom CrowdSec w kontenerze. Upewnij się, że kontener ma nazwę crowdsec lub otwórz ustawienia, aby podać inną nazwę."
+    },
+    "configureManual": {
+      "en": "Configure connection manually",
+      "pl": "Skonfiguruj połączenie ręcznie"
+    },
+    "tabDashboard": {
+      "en": "Overview",
+      "pl": "Podgląd"
+    },
+    "tabDecisions": {
+      "en": "Decisions (Bans)",
+      "pl": "Decyzje (Bany)"
+    },
+    "tabWhitelist": {
+      "en": "Whitelist",
+      "pl": "Biała lista"
+    },
+    "tabAlerts": {
+      "en": "Alerts",
+      "pl": "Alerty"
+    },
+    "tabBouncers": {
+      "en": "Bouncers",
+      "pl": "Bouncery"
+    },
+    "tabMetrics": {
+      "en": "Log metrics",
+      "pl": "Metryki logów"
+    },
+    "tabHub": {
+      "en": "CrowdSec Hub",
+      "pl": "CrowdSec Hub"
+    },
+    "serviceStatus": {
+      "en": "Service status",
+      "pl": "Status Usługi"
+    },
+    "checkingStatus": {
+      "en": "Checking status…",
+      "pl": "Sprawdzanie statusu..."
+    },
+    "online": {
+      "en": "Running (Online)",
+      "pl": "Działa (Online)"
+    },
+    "offline": {
+      "en": "Stopped (Offline)",
+      "pl": "Zatrzymana (Offline)"
+    },
+    "lapiVersion": {
+      "en": "LAPI version: {version}",
+      "pl": "LAPI Wersja: {version}"
+    },
+    "checkingVersion": {
+      "en": "Checking…",
+      "pl": "Sprawdzanie..."
+    },
+    "serviceStart": {
+      "en": "Start",
+      "pl": "Uruchom"
+    },
+    "serviceStop": {
+      "en": "Stop",
+      "pl": "Zatrzymaj"
+    },
+    "serviceRestart": {
+      "en": "Restart",
+      "pl": "Restartuj"
+    },
+    "dbSummary": {
+      "en": "Database summary",
+      "pl": "Podsumowanie Bazy"
+    },
+    "activeBans": {
+      "en": "Active bans",
+      "pl": "Aktywne Bany"
+    },
+    "bouncersCount": {
+      "en": "Bouncers",
+      "pl": "Bouncery"
+    },
+    "alertHistory": {
+      "en": "Alert history",
+      "pl": "Historia Alertów"
+    },
+    "whitelistCount": {
+      "en": "Whitelist",
+      "pl": "Biała lista"
+    },
+    "logProcessing": {
+      "en": "Log processing",
+      "pl": "Przetwarzanie logów"
+    },
+    "parseSuccess": {
+      "en": "Parsing success rate",
+      "pl": "Skuteczność Parsowania"
+    },
+    "totalRead": {
+      "en": "Total:",
+      "pl": "Suma:"
+    },
+    "skipped": {
+      "en": "Skipped:",
+      "pl": "Pominięte:"
+    },
+    "decisionsTitle": {
+      "en": "Active decisions (bans)",
+      "pl": "Aktywne decyzje (bany)"
+    },
+    "addBan": {
+      "en": "Add ban",
+      "pl": "Dodaj ban"
+    },
+    "removeAllBans": {
+      "en": "Remove all bans",
+      "pl": "Usuń wszystkie bany"
+    },
+    "colValue": {
+      "en": "IP / range",
+      "pl": "Wartość"
+    },
+    "colType": {
+      "en": "Type",
+      "pl": "Typ"
+    },
+    "colReason": {
+      "en": "Reason",
+      "pl": "Powód"
+    },
+    "colDuration": {
+      "en": "Duration",
+      "pl": "Czas trwania"
+    },
+    "colUntil": {
+      "en": "Until",
+      "pl": "Do"
+    },
+    "unban": {
+      "en": "Unban",
+      "pl": "Odbanuj"
+    },
+    "emptyDecisions": {
+      "en": "No active blocks (bans). Your server is safe.",
+      "pl": "Brak aktywnych blokad (banów). Twój serwer jest bezpieczny."
+    },
+    "noInstantDecisions": {
+      "en": "No immediate decisions applied.",
+      "pl": "Brak nałożonych natychmiastowych decyzji."
+    },
+    "whitelistAddTitle": {
+      "en": "Add to whitelist",
+      "pl": "Dodaj do Białej Listy"
+    },
+    "whitelistAddDesc": {
+      "en": "Adding an IP or CIDR subnet will make CrowdSec ignore all their activity. Saves to selected YAML file or LAPI allowlist. Active bans for that IP are removed automatically.",
+      "pl": "Dodanie adresu IP lub podsieci CIDR sprawi, że CrowdSec zignoruje wszelkie ich działania. Zapis nastąpi do wybranego pliku YAML lub bezpośrednio do Local API (LAPI) wybranej allowlisty. Jeśli dane IP jest obecnie zbanowane, ban zostanie automatycznie zdjęty."
+    },
+    "saveLocation": {
+      "en": "Save location",
+      "pl": "Lokalizacja zapisu"
+    },
+    "yamlFile": {
+      "en": "Local file (jarvis-whitelist.yaml)",
+      "pl": "Plik lokalny (jarvis-whitelist.yaml)"
+    },
+    "lapiAllowlist": {
+      "en": "LAPI Allowlist: {name}",
+      "pl": "LAPI Allowlist: {name}"
+    },
+    "entryType": {
+      "en": "Entry type",
+      "pl": "Typ wpisu"
+    },
+    "entryIp": {
+      "en": "Single IP (e.g. 192.168.1.50)",
+      "pl": "Pojedynczy adres IP (np. 192.168.1.50)"
+    },
+    "entryCidr": {
+      "en": "CIDR subnet (e.g. 192.168.1.0/24)",
+      "pl": "Podsieć CIDR (np. 192.168.1.0/24)"
+    },
+    "ipOrCidr": {
+      "en": "IP address or subnet",
+      "pl": "Adres IP lub Podsieć"
+    },
+    "activeWhitelist": {
+      "en": "Active exclusions (whitelist)",
+      "pl": "Aktywne Wykluczenia (Biała lista)"
+    },
+    "colAddress": {
+      "en": "IP address / subnet",
+      "pl": "Adres IP / Podsieć"
+    },
+    "colSource": {
+      "en": "Source",
+      "pl": "Źródło"
+    },
+    "tagSystem": {
+      "en": "System",
+      "pl": "Systemowy"
+    },
+    "tagManaged": {
+      "en": "Jarvis",
+      "pl": "Jarvis"
+    },
+    "tagLapi": {
+      "en": "LAPI",
+      "pl": "LAPI"
+    },
+    "tagCustom": {
+      "en": "Custom",
+      "pl": "Własny"
+    },
+    "emptyWhitelist": {
+      "en": "No active whitelist exclusions.",
+      "pl": "Brak aktywnych wykluczeń (białej listy)."
+    },
+    "alertsTitle": {
+      "en": "Security alerts",
+      "pl": "Alerty bezpieczeństwa"
+    },
+    "colId": {
+      "en": "ID",
+      "pl": "ID"
+    },
+    "colScenario": {
+      "en": "Scenario",
+      "pl": "Scenariusz"
+    },
+    "colEvents": {
+      "en": "Events",
+      "pl": "Zdarzenia"
+    },
+    "colCreated": {
+      "en": "Created",
+      "pl": "Utworzono"
+    },
+    "alertDetails": {
+      "en": "Details",
+      "pl": "Szczegóły"
+    },
+    "emptyAlerts": {
+      "en": "No alert history. Server logs are clean.",
+      "pl": "Brak historii alertów. Logi serwera są czyste."
+    },
+    "bouncersDesc": {
+      "en": "List of bouncers (agents receiving decisions and applying firewall blocks).",
+      "pl": "Lista bouncerów (agentów odbierających decyzje i nakładających blokady w firewallu)."
+    },
+    "colBouncerName": {
+      "en": "Name",
+      "pl": "Nazwa"
+    },
+    "colBouncerIp": {
+      "en": "IP address",
+      "pl": "IP Adres"
+    },
+    "colBouncerType": {
+      "en": "Type (engine)",
+      "pl": "Typ (Silnik)"
+    },
+    "colBouncerVersion": {
+      "en": "Version",
+      "pl": "Wersja"
+    },
+    "colLastSeen": {
+      "en": "Last activity",
+      "pl": "Ostatnia Aktywność"
+    },
+    "emptyBouncers": {
+      "en": "No registered bouncers. Without a bouncer, CrowdSec blocks are not physically applied to the firewall.",
+      "pl": "Brak zarejestrowanych bouncerów. Bez bouncera, blokady CrowdSec nie są fizycznie nakładane na zaporę sieciową."
+    },
+    "registerBouncer": {
+      "en": "Register bouncer",
+      "pl": "Zarejestruj bouncera"
+    },
+    "cleanupInactive": {
+      "en": "Clean up inactive",
+      "pl": "Wyczyść nieaktywne"
+    },
+    "metricsTitle": {
+      "en": "Monitored log files (acquisition)",
+      "pl": "Monitorowane Pliki Logów (Acquisition)"
+    },
+    "colFilePath": {
+      "en": "File location",
+      "pl": "Lokalizacja Pliku"
+    },
+    "colLinesRead": {
+      "en": "Lines read",
+      "pl": "Linie przeczytane"
+    },
+    "colLinesParsed": {
+      "en": "Lines parsed",
+      "pl": "Linie sparsowane"
+    },
+    "colUnparsed": {
+      "en": "Unparsed",
+      "pl": "Niesparsowane"
+    },
+    "colSuccessRate": {
+      "en": "Success rate",
+      "pl": "Wskaźnik sukcesu"
+    },
+    "emptyMetrics": {
+      "en": "No metrics. No active log streams.",
+      "pl": "Brak metryk. Brak aktywnych strumieni logów."
+    },
+    "hubTitle": {
+      "en": "CrowdSec Hub items",
+      "pl": "Elementy CrowdSec Hub"
+    },
+    "colHubType": {
+      "en": "Type",
+      "pl": "Typ"
+    },
+    "colHubName": {
+      "en": "Name",
+      "pl": "Nazwa"
+    },
+    "colHubStatus": {
+      "en": "Status",
+      "pl": "Status"
+    },
+    "colHubVersion": {
+      "en": "Version",
+      "pl": "Wersja"
+    },
+    "emptyHub": {
+      "en": "No items fetched from CrowdSec Hub.",
+      "pl": "Brak pobranych elementów z CrowdSec Hub."
+    },
+    "settingsTitle": {
+      "en": "CrowdSec connection settings",
+      "pl": "Ustawienia połączenia CrowdSec"
+    },
+    "settingsDesc": {
+      "en": "Configure how CrowdSec commands are invoked on this server. Settings are saved in this connection profile.",
+      "pl": "Skonfiguruj metodę wywoływania poleceń CrowdSec na tym serwerze. Ustawienia zostaną zapisane w tym profilu połączenia."
+    },
+    "connectionMode": {
+      "en": "Connection mode",
+      "pl": "Tryb połączenia"
+    },
+    "modeAuto": {
+      "en": "Auto-detect",
+      "pl": "Auto-detekcja"
+    },
+    "modeBareMetal": {
+      "en": "Native (Systemd / Bare-metal)",
+      "pl": "Natywny (Systemd / Bare-metal)"
+    },
+    "modeDocker": {
+      "en": "Docker (inside container)",
+      "pl": "Docker (Wewnątrz kontenera)"
+    },
+    "dockerContainerName": {
+      "en": "Docker container name",
+      "pl": "Nazwa kontenera Docker"
+    },
+    "customPrefix": {
+      "en": "Custom command prefix (optional — e.g. for K8s, Podman)",
+      "pl": "Niestandardowy prefiks polecenia (Opcjonalny - np. do K8s, podmana)"
+    },
+    "testConnection": {
+      "en": "Test connection",
+      "pl": "Testuj Połączenie"
+    },
+    "testing": {
+      "en": "Testing…",
+      "pl": "Testowanie..."
+    },
+    "testConnectionSuccess": {
+      "en": "Connection successful. CrowdSec version: {version}",
+      "pl": "Połączenie pomyślne. Wersja CrowdSec: {version}"
+    },
+    "testConnectionUnexpected": {
+      "en": "Unexpected response from CrowdSec: {response}",
+      "pl": "Nieoczekiwana odpowiedź od CrowdSec: {response}"
+    },
+    "testConnectionFailed": {
+      "en": "Connection test failed: {error}",
+      "pl": "Test połączenia nieudany: {error}"
+    },
+    "saveSettings": {
+      "en": "Save settings",
+      "pl": "Zapisz Ustawienia"
+    },
+    "banModalTitle": {
+      "en": "Apply manual ban",
+      "pl": "Nałóż manualną blokadę (Ban)"
+    },
+    "banModalDesc": {
+      "en": "Enter details to manually block an IP or subnet in CrowdSec.",
+      "pl": "Wpisz dane, aby ręcznie zablokować adres IP lub podsieć w systemie CrowdSec."
+    },
+    "banScope": {
+      "en": "Block scope",
+      "pl": "Zakres blokady"
+    },
+    "banScopeIp": {
+      "en": "Single IP (e.g. 185.220.101.5)",
+      "pl": "Pojedyncze IP (np. 185.220.101.5)"
+    },
+    "banScopeRange": {
+      "en": "CIDR subnet (e.g. 185.220.101.0/24)",
+      "pl": "Podsieć CIDR (np. 185.220.101.0/24)"
+    },
+    "banAddress": {
+      "en": "IP address / range",
+      "pl": "Adres IP / Zakres"
+    },
+    "banDuration": {
+      "en": "Block duration",
+      "pl": "Czas trwania blokady"
+    },
+    "banDuration4h": {
+      "en": "4 hours (default)",
+      "pl": "4 godziny (Domyślnie)"
+    },
+    "banReason": {
+      "en": "Block reason",
+      "pl": "Powód blokady"
+    },
+    "banReasonDefault": {
+      "en": "Manual block",
+      "pl": "Ręczna blokada"
+    },
+    "addBanBtn": {
+      "en": "Add block",
+      "pl": "Dodaj Blokadę"
+    },
+    "bouncerModalTitle": {
+      "en": "Register new bouncer",
+      "pl": "Zarejestruj nowego Bouncera"
+    },
+    "bouncerModalDesc": {
+      "en": "Name the new agent to generate a unique API key for bouncer authorization (e.g. crowdsec-nginx-bouncer).",
+      "pl": "Nadaj nazwę dla nowego agenta, aby wygenerować unikalny klucz API niezbędny do autoryzacji bouncera (np. crowdsec-nginx-bouncer)."
+    },
+    "bouncerName": {
+      "en": "Bouncer name",
+      "pl": "Nazwa Bouncera"
+    },
+    "generateKey": {
+      "en": "Generate key",
+      "pl": "Generuj Klucz"
+    },
+    "keyModalTitle": {
+      "en": "Bouncer API key generated!",
+      "pl": "Klucz API Bouncera został wygenerowany!"
+    },
+    "keyModalDesc": {
+      "en": "Copy and save the API key below. It will be shown only once. You will need it in the bouncer configuration file.",
+      "pl": "Skopiuj i zapisz poniższy klucz API. Zostanie wyświetlony tylko raz. Będzie potrzebny w pliku konfiguracyjnym bouncera."
+    },
+    "keyModalClose": {
+      "en": "Close and done",
+      "pl": "Zamknij i Gotowe"
+    },
+    "alertDetailTitle": {
+      "en": "Alert details #{id}",
+      "pl": "Szczegóły Alertu #{id}"
+    },
+    "alertScenario": {
+      "en": "Scenario",
+      "pl": "Scenariusz"
+    },
+    "alertAttackerIp": {
+      "en": "Attacker IP",
+      "pl": "Atakujący IP"
+    },
+    "alertMessage": {
+      "en": "Description / message",
+      "pl": "Opis/Wiadomość"
+    },
+    "alertEvents": {
+      "en": "Event count",
+      "pl": "Liczba Zdarzeń"
+    },
+    "alertDecisions": {
+      "en": "Decisions linked to alert",
+      "pl": "Decyzje powiązane z alertem"
+    },
+    "alertShowDetails": {
+      "en": "Show alert details",
+      "pl": "Pokaż szczegóły alertu"
+    },
+    "enabledUpper": {
+      "en": "ENABLED",
+      "pl": "WŁĄCZONY"
+    },
+    "disabledUpper": {
+      "en": "DISABLED",
+      "pl": "WYŁĄCZONY"
+    },
+    "manualBanReason": {
+      "en": "Manual block by administrator",
+      "pl": "Ręczne zablokowanie przez administratora"
+    },
+    "maliciousBehavior": {
+      "en": "Malicious behavior detected",
+      "pl": "Wykryto zachowanie złośliwe"
+    },
+    "confirmUnban": {
+      "en": "Are you sure you want to remove the ban (unban) for IP {ip}?",
+      "pl": "Czy na pewno chcesz usunąć blokadę (unban) dla IP {ip}?"
+    },
+    "confirmRemoveAllBans": {
+      "en": "Are you sure you want to remove ALL active CrowdSec blocks?",
+      "pl": "Czy na pewno chcesz usunąć WSZYSTKIE aktywne blokady w CrowdSec?"
+    },
+    "confirmCleanupBouncers": {
+      "en": "Clean up bouncers that have not communicated for over 45 minutes?",
+      "pl": "Czy chcesz wyczyścić bouncery, które nie komunikowały się od ponad 45 minut?"
+    },
+    "confirmRemoveBouncer": {
+      "en": "Remove this bouncer",
+      "pl": "Usuń tego bouncera"
+    },
+    "connectionAuto": {
+      "en": "Automatic ({mode})",
+      "pl": "Automatyczny ({mode})"
+    },
+    "connectionDocker": {
+      "en": "Docker container",
+      "pl": "Kontener Docker"
+    },
+    "connectionBareMetal": {
+      "en": "Bare-metal (Systemd)",
+      "pl": "Bare-metal (Systemd)"
+    },
+    "detectFailed": {
+      "en": "Environment detection error: {error}",
+      "pl": "Błąd podczas detekcji środowiska: {error}"
+    },
+    "loadFailed": {
+      "en": "Failed to load CrowdSec data: {error}",
+      "pl": "Błąd wczytywania danych CrowdSec: {error}"
+    },
+    "actionFailed": {
+      "en": "Action failed: {error}",
+      "pl": "Błąd wykonania akcji: {error}"
+    },
+    "serviceActionFailed": {
+      "en": "Service {action} failed: {error}",
+      "pl": "Błąd wykonania {action} usługi: {error}"
+    },
+    "addBanFailed": {
+      "en": "Failed to add ban: {error}",
+      "pl": "Nie udało się dodać bana: {error}"
+    },
+    "unbanFailed": {
+      "en": "Failed to unban {ip}: {error}",
+      "pl": "Nie udało się zdjąć bana z {ip}: {error}"
+    },
+    "removeAllFailed": {
+      "en": "Failed to remove all bans: {error}",
+      "pl": "Błąd podczas usuwania wszystkich banów: {error}"
+    },
+    "installFailed": {
+      "en": "CrowdSec installation error: {error}",
+      "pl": "Błąd instalacji CrowdSec: {error}"
+    },
+    "addBouncerFailed": {
+      "en": "Failed to add bouncer: {error}",
+      "pl": "Nie udało się dodać bouncera: {error}"
+    },
+    "cleanupBouncersFailed": {
+      "en": "Failed to clean up inactive bouncers: {error}",
+      "pl": "Nie udało się wyczyścić nieaktywnych bouncerów: {error}"
+    },
+    "whitelistSaveFailed": {
+      "en": "Whitelist save error: {error}",
+      "pl": "Błąd podczas zapisywania białej listy: {error}"
+    },
+    "whitelistRemoveFailed": {
+      "en": "Whitelist removal error: {error}",
+      "pl": "Błąd podczas usuwania elementu z białej listy: {error}"
+    },
+    "lapiAddFailed": {
+      "en": "LAPI allowlist add error: {error}",
+      "pl": "Błąd podczas dodawania elementu do LAPI allowlisty: {error}"
+    },
+    "lapiRemoveFailed": {
+      "en": "LAPI allowlist remove error: {error}",
+      "pl": "Błąd podczas usuwania elementu z LAPI allowlisty: {error}"
+    },
+    "decisionsLoadFailed": {
+      "en": "Failed to load decisions: {error}",
+      "pl": "Błąd pobierania decyzji: {error}"
+    },
+    "alertsLoadFailed": {
+      "en": "Failed to load alerts: {error}",
+      "pl": "Błąd pobierania alertów: {error}"
+    },
+    "bouncersLoadFailed": {
+      "en": "Failed to load bouncers: {error}",
+      "pl": "Błąd pobierania bouncerów: {error}"
+    },
+    "metricsLoadFailed": {
+      "en": "Failed to load metrics: {error}",
+      "pl": "Błąd pobierania metryk: {error}"
+    },
+    "hubLoadFailed": {
+      "en": "Failed to load hub list: {error}",
+      "pl": "Błąd pobierania hub list: {error}"
+    },
+    "lapiUnsupported": {
+      "en": "LAPI allowlists not supported or could not be fetched: {error}",
+      "pl": "LAPI allowlisty nie są obsługiwane lub nie udało się ich pobrać: {error}"
+    },
+    "sudoOpsDesc": {
+      "en": "CrowdSec operations require root privileges on the server. Enter your user password (sudo):",
+      "pl": "Operacje CrowdSec wymagają uprawnień roota na serwerze. Wprowadź hasło użytkownika (sudo):"
+    },
+    "addToWhitelist": {
+      "en": "Add to whitelist",
+      "pl": "Dodaj do białej listy"
+    },
+    "removeEntry": {
+      "en": "Remove",
+      "pl": "Usuń"
+    },
+    "viewAlert": {
+      "en": "View",
+      "pl": "Podgląd"
+    },
+    "eventsCount": {
+      "en": "Events count",
+      "pl": "Liczba Zdarzeń"
+    },
+    "createdAt": {
+      "en": "Created at",
+      "pl": "Data utworzenia"
+    },
+    "updatedAt": {
+      "en": "Updated at",
+      "pl": "Data aktualizacji"
+    },
+    "simulation": {
+      "en": "Simulation",
+      "pl": "Symulacja"
+    },
+    "remediation": {
+      "en": "Remediation",
+      "pl": "Remediacja"
+    },
+    "origin": {
+      "en": "Origin",
+      "pl": "Pochodzenie"
+    },
+    "scope": {
+      "en": "Scope",
+      "pl": "Zakres"
+    },
+    "country": {
+      "en": "Country",
+      "pl": "Kraj"
+    },
+    "asNumber": {
+      "en": "AS number",
+      "pl": "Numer AS"
+    },
+    "communityBlock": {
+      "en": "Community block",
+      "pl": "Blokada społeczności"
+    },
+    "localDecision": {
+      "en": "Local decision",
+      "pl": "Decyzja lokalna"
+    },
+    "refreshHub": {
+      "en": "Refresh Hub",
+      "pl": "Odśwież Hub"
+    },
+    "upgradeHub": {
+      "en": "Upgrade Hub",
+      "pl": "Aktualizuj Hub"
+    },
+    "installCollection": {
+      "en": "Install collection",
+      "pl": "Zainstaluj kolekcję"
+    },
+    "removeCollection": {
+      "en": "Remove collection",
+      "pl": "Usuń kolekcję"
+    },
+    "hubParsers": {
+      "en": "Parsers",
+      "pl": "Parsery"
+    },
+    "hubScenarios": {
+      "en": "Scenarios",
+      "pl": "Scenariusze"
+    },
+    "hubCollections": {
+      "en": "Collections",
+      "pl": "Kolekcje"
+    },
+    "hubPostoverflows": {
+      "en": "Post-overflows",
+      "pl": "Post-overflows"
+    },
+    "hubEnabled": {
+      "en": "Enabled",
+      "pl": "Włączone"
+    },
+    "hubDisabled": {
+      "en": "Disabled",
+      "pl": "Wyłączone"
+    },
+    "hubLocal": {
+      "en": "Local",
+      "pl": "Lokalne"
+    },
+    "hubRemote": {
+      "en": "Remote",
+      "pl": "Zdalne"
+    },
+    "hubTainted": {
+      "en": "Tainted",
+      "pl": "Zmodyfikowane"
+    },
+    "hubUpToDate": {
+      "en": "Up to date",
+      "pl": "Aktualne"
+    },
+    "hubUpdateAvailable": {
+      "en": "Update available",
+      "pl": "Dostępna aktualizacja"
+    },
+    "searchDecisionsPlaceholder": {
+      "en": "Search by IP or reason…",
+      "pl": "Szukaj po adresie IP lub powodzie…"
+    },
+    "searchAlertsPlaceholder": {
+      "en": "Search alerts by IP or scenario…",
+      "pl": "Szukaj alertów po IP lub scenariuszu…"
+    },
+    "searchHubPlaceholder": {
+      "en": "Search parsers or scenarios…",
+      "pl": "Szukaj parserów lub scenariuszy…"
+    },
+    "banDuration24h": {
+      "en": "24 hours",
+      "pl": "24 godziny"
+    },
+    "banDuration48h": {
+      "en": "48 hours",
+      "pl": "48 godzin"
+    },
+    "banDuration7d": {
+      "en": "7 days",
+      "pl": "7 dni"
+    },
+    "banDuration1h": {
+      "en": "1 hour",
+      "pl": "1 godzina"
+    },
+    "never": {
+      "en": "Never",
+      "pl": "Nigdy"
+    },
+    "parsedLabel": {
+      "en": "Parsed:",
+      "pl": "Przetworzone:"
+    }
+  },
+  "pangolin": {
+    "title": {
+      "en": "Pangolin Zero-Trust Proxy",
+      "pl": "Pangolin Zero-Trust Proxy"
+    },
+    "subtitle": {
+      "en": "Identity gateway and secure remote tunnel",
+      "pl": "Brama tożsamości i zabezpieczony tunel zdalny"
+    },
+    "tabStats": {
+      "en": "Statistics",
+      "pl": "Statystyki"
+    },
+    "tabAudit": {
+      "en": "Audit",
+      "pl": "Audyt"
+    },
+    "tabResources": {
+      "en": "Tunnels / resources",
+      "pl": "TUNELE / ZASOBY"
+    },
+    "tabAccess": {
+      "en": "Access control",
+      "pl": "Kontrola Dostępu"
+    },
+    "tabDevices": {
+      "en": "Devices",
+      "pl": "Urządzenia"
+    },
+    "tabSettings": {
+      "en": "API settings",
+      "pl": "Ustawienia API"
+    },
+    "tabLockedHint": {
+      "en": "Configure and verify Pangolin connection to unlock this tab",
+      "pl": "Skonfiguruj i zweryfikuj połączenie z Pangolin, aby odblokować tę zakładkę"
+    },
+    "loadingConfig": {
+      "en": "Loading Pangolin configuration…",
+      "pl": "Wczytywanie konfiguracji Pangolin..."
+    },
+    "statTotal": {
+      "en": "Total",
+      "pl": "Łącznie"
+    },
+    "statBlocked": {
+      "en": "Blocked",
+      "pl": "Zablokowane"
+    },
+    "statAllowed": {
+      "en": "Allowed",
+      "pl": "Zaakceptowane"
+    },
+    "statBlockRate": {
+      "en": "Blocks",
+      "pl": "Blokady"
+    },
+    "trafficOverTime": {
+      "en": "Traffic over time",
+      "pl": "Ruch w czasie"
+    },
+    "timeRange": {
+      "en": "Time range",
+      "pl": "Przedział czasowy"
+    },
+    "range24h": {
+      "en": "24h",
+      "pl": "24h"
+    },
+    "range7d": {
+      "en": "7 days",
+      "pl": "7 dni"
+    },
+    "range30d": {
+      "en": "30 days",
+      "pl": "30 dni"
+    },
+    "refreshChart": {
+      "en": "Refresh chart",
+      "pl": "Odśwież wykres"
+    },
+    "noAnalytics": {
+      "en": "No analytics data for the selected period.",
+      "pl": "Brak danych analitycznych dla wybranego okresu."
+    },
+    "requestsByCountry": {
+      "en": "Requests by country",
+      "pl": "Żądania według kraju"
+    },
+    "topCountries": {
+      "en": "Top countries",
+      "pl": "Top kraje"
+    },
+    "country": {
+      "en": "Country",
+      "pl": "Kraj"
+    },
+    "totalLabel": {
+      "en": "Total:",
+      "pl": "Łącznie:"
+    },
+    "allowedLabel": {
+      "en": "Allowed:",
+      "pl": "Dozwolone:"
+    },
+    "blockedLabel": {
+      "en": "Blocked:",
+      "pl": "Zablokowane:"
+    },
+    "noGeoData": {
+      "en": "No geographic data.",
+      "pl": "Brak danych geograficznych."
+    },
+    "auditTitle": {
+      "en": "Audit logs (Pangolin Proxy)",
+      "pl": "Logi Audytu (Pangolin Proxy)"
+    },
+    "colTimestamp": {
+      "en": "Timestamp",
+      "pl": "Timestamp"
+    },
+    "colAction": {
+      "en": "Action",
+      "pl": "Action"
+    },
+    "colLocation": {
+      "en": "Location",
+      "pl": "Location"
+    },
+    "colResource": {
+      "en": "Resource",
+      "pl": "Resource"
+    },
+    "colHost": {
+      "en": "Host",
+      "pl": "Host"
+    },
+    "colPath": {
+      "en": "Path",
+      "pl": "Path"
+    },
+    "colMethod": {
+      "en": "Method",
+      "pl": "Method"
+    },
+    "colReason": {
+      "en": "Reason",
+      "pl": "Reason"
+    },
+    "colActor": {
+      "en": "Actor",
+      "pl": "Actor"
+    },
+    "filterAction": {
+      "en": "Filter Action",
+      "pl": "Filtruj Action"
+    },
+    "filterLocation": {
+      "en": "Filter Location",
+      "pl": "Filtruj Location"
+    },
+    "filterResource": {
+      "en": "Filter Resource",
+      "pl": "Filtruj Resource"
+    },
+    "filterHost": {
+      "en": "Filter Host",
+      "pl": "Filtruj Host"
+    },
+    "filterPath": {
+      "en": "Filter Path",
+      "pl": "Filtruj Path"
+    },
+    "filterMethod": {
+      "en": "Filter Method",
+      "pl": "Filtruj Method"
+    },
+    "filterReason": {
+      "en": "Filter Reason",
+      "pl": "Filtruj Reason"
+    },
+    "filterActor": {
+      "en": "Filter Actor",
+      "pl": "Filtruj Actor"
+    },
+    "filterAllowed": {
+      "en": "Allowed",
+      "pl": "Dozwolone"
+    },
+    "filterBlocked": {
+      "en": "Blocked",
+      "pl": "Zablokowane"
+    },
+    "loadingResources": {
+      "en": "Loading resources…",
+      "pl": "Ładowanie zasobów..."
+    },
+    "loadingAudit": {
+      "en": "Loading audit logs…",
+      "pl": "Wczytywanie logów audytu..."
+    },
+    "emptyAudit": {
+      "en": "No log entries match the filters.",
+      "pl": "Brak wpisów logów pasujących do filtrów."
+    },
+    "totalLogs": {
+      "en": "Total: {count} logs",
+      "pl": "Łącznie: {count} logów"
+    },
+    "pageOffset": {
+      "en": "Offset: {start} - {end}",
+      "pl": "Offset: {start} - {end}"
+    },
+    "auditDetailTitle": {
+      "en": "Audit request details",
+      "pl": "Szczegóły zapytania audytu"
+    },
+    "detailTime": {
+      "en": "Request time:",
+      "pl": "Czas zapytania:"
+    },
+    "detailTxId": {
+      "en": "Transaction ID:",
+      "pl": "ID transakcji:"
+    },
+    "detailUrl": {
+      "en": "Full URL:",
+      "pl": "Pełny URL:"
+    },
+    "detailMethod": {
+      "en": "Method:",
+      "pl": "Metoda:"
+    },
+    "detailAuth": {
+      "en": "Authorization:",
+      "pl": "Autoryzacja:"
+    },
+    "detailReason": {
+      "en": "Decision reason:",
+      "pl": "Powód decyzji:"
+    },
+    "detailActor": {
+      "en": "Actor / user:",
+      "pl": "Aktor / Użytkownik:"
+    },
+    "detailSourceIp": {
+      "en": "Source IP:",
+      "pl": "Adres IP źródłowy:"
+    },
+    "detailResource": {
+      "en": "Linked resource:",
+      "pl": "Zasób powiązany:"
+    },
+    "detailResourceIds": {
+      "en": "Public resource ID: {pub} | Private resource ID: {priv}",
+      "pl": "ID zasobu publicznego: {pub} | ID zasobu prywatnego: {priv}"
+    },
+    "detailNone": {
+      "en": "None",
+      "pl": "Brak"
+    },
+    "detailUserAgent": {
+      "en": "User Agent:",
+      "pl": "User Agent:"
+    },
+    "detailHeaders": {
+      "en": "HTTP headers",
+      "pl": "Nagłówki HTTP (Headers)"
+    },
+    "detailTls": {
+      "en": "TLS session info",
+      "pl": "Informacje o sesji TLS"
+    },
+    "resourcesTitle": {
+      "en": "Tunnel and resource configuration",
+      "pl": "Konfiguracja Tuneli i Zasobów"
+    },
+    "tunnelsTitle": {
+      "en": "WireGuard tunnels / exit nodes (Sites)",
+      "pl": "Tunele WireGuard / Exit Nodes (Sites)"
+    },
+    "newTunnel": {
+      "en": "New tunnel",
+      "pl": "Nowy tunel"
+    },
+    "colLabel": {
+      "en": "Label (name)",
+      "pl": "Etykieta (Nazwa)"
+    },
+    "colNiceId": {
+      "en": "Nice ID",
+      "pl": "Nice ID"
+    },
+    "colTunnelType": {
+      "en": "Type",
+      "pl": "Typ"
+    },
+    "colSubnet": {
+      "en": "Subnet",
+      "pl": "Podsieć / Subnet"
+    },
+    "colTunnelAddress": {
+      "en": "Tunnel address",
+      "pl": "Adres tunelu"
+    },
+    "colPublicKey": {
+      "en": "Public key",
+      "pl": "Klucz publiczny"
+    },
+    "emptyTunnels": {
+      "en": "No tunnels configured.",
+      "pl": "Brak skonfigurowanych tuneli."
+    },
+    "privResourcesTitle": {
+      "en": "Private resources (Site Resources)",
+      "pl": "Zasoby Prywatne (Site Resources)"
+    },
+    "newPrivResource": {
+      "en": "New private resource",
+      "pl": "Nowy zasób prywatny"
+    },
+    "colMode": {
+      "en": "Mode",
+      "pl": "Tryb"
+    },
+    "colDestination": {
+      "en": "Destination",
+      "pl": "Cel (Destination)"
+    },
+    "colTcpPorts": {
+      "en": "TCP ports",
+      "pl": "Porty TCP"
+    },
+    "colUdpPorts": {
+      "en": "UDP ports",
+      "pl": "Porty UDP"
+    },
+    "emptyPrivResources": {
+      "en": "No private resources configured.",
+      "pl": "Brak skonfigurowanych zasobów prywatnych."
+    },
+    "pubResourcesTitle": {
+      "en": "Public resources (protected HTTP / TCP / UDP domains)",
+      "pl": "Zasoby Publiczne (Chronione Domeny HTTP / TCP / UDP)"
+    },
+    "newPubResource": {
+      "en": "New public resource",
+      "pl": "Nowy zasób publiczny"
+    },
+    "colResourceName": {
+      "en": "Resource name",
+      "pl": "Nazwa zasobu"
+    },
+    "colMethodMode": {
+      "en": "Method / mode",
+      "pl": "Metoda / Tryb"
+    },
+    "colDomains": {
+      "en": "Domains / subdomain",
+      "pl": "Domeny / Subdomena"
+    },
+    "colProxyPort": {
+      "en": "Proxy port",
+      "pl": "Port Proxy"
+    },
+    "colSticky": {
+      "en": "Sticky session",
+      "pl": "Sticky Session"
+    },
+    "emptyPubResources": {
+      "en": "No public resources configured.",
+      "pl": "Brak skonfigurowanych zasobów publicznych."
+    },
+    "accessTitle": {
+      "en": "Access control",
+      "pl": "Kontrola Dostępu"
+    },
+    "accessUsers": {
+      "en": "Users",
+      "pl": "Użytkownicy"
+    },
+    "accessRoles": {
+      "en": "Security roles",
+      "pl": "Role Bezpieczeństwa"
+    },
+    "accessIdps": {
+      "en": "Identity providers",
+      "pl": "Dostawcy tożsamości"
+    },
+    "accessInvitations": {
+      "en": "Invitations",
+      "pl": "Zaproszenia"
+    },
+    "orgUsers": {
+      "en": "Active organization users",
+      "pl": "Aktywni Użytkownicy Organizacji"
+    },
+    "inviteUser": {
+      "en": "Invite user",
+      "pl": "Zaproś użytkownika"
+    },
+    "inviteUserTitle": {
+      "en": "Invite user to organization",
+      "pl": "Zaproś użytkownika do organizacji"
+    },
+    "sendInvitation": {
+      "en": "Send invitation",
+      "pl": "Wyślij zaproszenie"
+    },
+    "sentInvitations": {
+      "en": "Sent user invitations",
+      "pl": "Wysłane Zaproszenia Użytkowników"
+    },
+    "emptyInvitations": {
+      "en": "No open invitations.",
+      "pl": "Brak otwartych zaproszeń."
+    },
+    "emptyUsers": {
+      "en": "No users.",
+      "pl": "Brak użytkowników."
+    },
+    "emptyRoles": {
+      "en": "No roles.",
+      "pl": "Brak ról."
+    },
+    "emptyIdps": {
+      "en": "No OIDC identity providers. Local accounts only.",
+      "pl": "Brak dostawców tożsamości OIDC. Logowanie tylko kontami lokalnymi."
+    },
+    "saveRole": {
+      "en": "Save role",
+      "pl": "Zapisz Rolę"
+    },
+    "newRole": {
+      "en": "New role",
+      "pl": "Nowa rola"
+    },
+    "roleName": {
+      "en": "Role name",
+      "pl": "Nazwa roli"
+    },
+    "roleDesc": {
+      "en": "Description",
+      "pl": "Opis"
+    },
+    "roleOwner": {
+      "en": "Owner (actor)",
+      "pl": "Właściciel (Aktor)"
+    },
+    "sshAccess": {
+      "en": "Allow SSH access",
+      "pl": "Zezwól na dostęp SSH"
+    },
+    "sshConsole": {
+      "en": "Console connection (SSH)",
+      "pl": "Połączenie konsoli (SSH)"
+    },
+    "sshSudoNone": {
+      "en": "No sudo (standard user)",
+      "pl": "Brak Sudo (Użytkownik standardowy)"
+    },
+    "sshSudoFull": {
+      "en": "Full sudo (root privileges)",
+      "pl": "Pełne Sudo (Pełne uprawnienia root)"
+    },
+    "sshSudoCommands": {
+      "en": "Sudo for specific commands only",
+      "pl": "Sudo tylko dla określonych komend"
+    },
+    "deviceTrust": {
+      "en": "Require device approval (MFA/Device Trust)",
+      "pl": "Wymagaj akceptacji urządzeń (MFA/Device Trust)"
+    },
+    "clientsTitle": {
+      "en": "Devices",
+      "pl": "Urządzenia"
+    },
+    "trustedDevices": {
+      "en": "Trusted user devices",
+      "pl": "Zaufane Urządzenia Użytkowników"
+    },
+    "registeredDevices": {
+      "en": "Registered endpoint devices",
+      "pl": "Zarejestrowane urządzenia końcowe"
+    },
+    "machineTokens": {
+      "en": "Machine access tokens (API keys / tokens)",
+      "pl": "Maszynowe tokeny dostępu (API keys / Tokens)"
+    },
+    "emptyDevices": {
+      "en": "No registered devices.",
+      "pl": "Brak zarejestrowanych urządzeń."
+    },
+    "emptyTokens": {
+      "en": "No generated access keys.",
+      "pl": "Brak wygenerowanych kluczy dostępu."
+    },
+    "deviceName": {
+      "en": "Device name",
+      "pl": "Nazwa urządzenia"
+    },
+    "deviceVerification": {
+      "en": "Device verification",
+      "pl": "Weryfikacja urządzeń"
+    },
+    "archive": {
+      "en": "Archive",
+      "pl": "Archiwizuj"
+    },
+    "restore": {
+      "en": "Restore",
+      "pl": "Przywróć"
+    },
+    "anonymousGuest": {
+      "en": "Anonymous guest",
+      "pl": "Anonimowy Gość"
+    },
+    "settingsIntro": {
+      "en": "Configure connection to your Pangolin management panel so Jarvis can fetch logs, statistics and manage tunnels and access rules.",
+      "pl": "Skonfiguruj połączenie z Twoim panelem zarządzania Pangolin, aby Jarvis mógł pobierać logi, statystyki oraz zarządzać tunelami i regułami dostępu."
+    },
+    "apiUrl": {
+      "en": "API URL",
+      "pl": "Adres API"
+    },
+    "apiUrlHint": {
+      "en": "Main admin panel address or self-hosted Pangolin API.",
+      "pl": "Adres głównego panelu administracyjnego lub self-hosted Pangolin API."
+    },
+    "orgId": {
+      "en": "Organization ID",
+      "pl": "ID Organizacji"
+    },
+    "orgIdHint": {
+      "en": "Organization identifier for org-scoped keys.",
+      "pl": "Identyfikator organizacji dla kluczy o ograniczonym zasięgu (Org-scoped keys)."
+    },
+    "orgIdManual": {
+      "en": "Enter organization ID manually if list was not fetched",
+      "pl": "Wpisz ID organizacji ręcznie, jeśli nie pobrano listy"
+    },
+    "orgSelect": {
+      "en": "Select the organization to manage with this panel.",
+      "pl": "Wybierz organizację, którą chcesz zarządzać za pomocą tego panelu."
+    },
+    "apiKey": {
+      "en": "API key",
+      "pl": "Klucz API"
+    },
+    "apiKeyIntro": {
+      "en": "Bearer token with Integration API permissions.",
+      "pl": "Bearer token z uprawnieniami Integration API."
+    },
+    "apiKeySaved": {
+      "en": "Key is already saved in the system credential store.",
+      "pl": "Klucz jest już zapisany w bazie poświadczeń systemowych."
+    },
+    "apiKeyHint": {
+      "en": "Key will be saved in the secure credential manager (Keyring).",
+      "pl": "Klucz zostanie zapisany w bezpiecznym menedżerze poświadczeń (Keyring)."
+    },
+    "saveVerify": {
+      "en": "Save and verify connection…",
+      "pl": "Zapisywanie i weryfikacja połączenia..."
+    },
+    "refreshConnection": {
+      "en": "Refresh connection",
+      "pl": "Odśwież połączenie"
+    },
+    "connectionSuccess": {
+      "en": "Connection successful! Organizations detected and loaded.",
+      "pl": "Połączenie pomyślne! Wykryto i wczytano organizacje."
+    },
+    "connectionSuccessOrg": {
+      "en": "Connection successful for organization: {org}",
+      "pl": "Połączenie pomyślne dla organizacji: {org}"
+    },
+    "limitedKeyWarning": {
+      "en": "Limited-scope key detected (no root admin access). Enter organization ID manually below.",
+      "pl": "Wykryto klucz o ograniczonym zasięgu (brak dostępu administratora root). Wpisz ID organizacji ręcznie w polu poniżej."
+    },
+    "invalidKeyError": {
+      "en": "Invalid API key or organization ID (access denied). Ensure the data is correct.",
+      "pl": "Nieprawidłowy klucz API lub ID organizacji (brak dostępu). Upewnij się, że dane są poprawne."
+    },
+    "connectionError": {
+      "en": "Connection error: {error}",
+      "pl": "Błąd połączenia: {error}"
+    },
+    "configLoadFailed": {
+      "en": "Failed to load configuration: {error}",
+      "pl": "Błąd wczytywania konfiguracji: {error}"
+    },
+    "configSaveFailed": {
+      "en": "Failed to save: {error}",
+      "pl": "Nie udało się zapisać: {error}"
+    },
+    "noApiKey": {
+      "en": "No API key. Configure connection.",
+      "pl": "Brak klucza API. Skonfiguruj połączenie."
+    },
+    "confirmDeleteTunnel": {
+      "en": "Are you sure you want to delete this tunnel? All linked resources will be disconnected.",
+      "pl": "Czy na pewno chcesz usunąć ten tunel? Wszystkie powiązane zasoby zostaną rozłączone."
+    },
+    "confirmDeletePriv": {
+      "en": "Are you sure you want to delete this private resource?",
+      "pl": "Czy na pewno chcesz usunąć ten zasób prywatny?"
+    },
+    "confirmDeletePub": {
+      "en": "Are you sure you want to delete this public resource?",
+      "pl": "Czy na pewno chcesz usunąć ten zasób publiczny?"
+    },
+    "confirmDeleteRole": {
+      "en": "Are you sure you want to delete this role?",
+      "pl": "Czy na pewno chcesz usunąć tę rolę?"
+    },
+    "confirmDeleteDevice": {
+      "en": "Are you sure you want to permanently delete this device?",
+      "pl": "Czy na pewno chcesz bezpowrotnie usunąć to urządzenie?"
+    },
+    "confirmCancelInvite": {
+      "en": "Cancel this invitation?",
+      "pl": "Czy chcesz anulować to zaproszenie?"
+    },
+    "confirmRevokeToken": {
+      "en": "Remove and revoke this access token?",
+      "pl": "Czy chcesz usunąć i unieważnić ten token dostępu?"
+    },
+    "deleteTunnelFailed": {
+      "en": "Failed to delete tunnel: {error}",
+      "pl": "Nie udało się usunąć tunelu: {error}"
+    },
+    "saveResourceFailed": {
+      "en": "Failed to save resource: {error}",
+      "pl": "Nie udało się zapisać zasobu: {error}"
+    },
+    "savePubResourceFailed": {
+      "en": "Failed to save public resource: {error}",
+      "pl": "Nie udało się zapisać zasobu publicznego: {error}"
+    },
+    "deleteResourceFailed": {
+      "en": "Failed to delete resource: {error}",
+      "pl": "Nie udało się usunąć zasobu: {error}"
+    },
+    "deleteFailed": {
+      "en": "Failed to delete: {error}",
+      "pl": "Nie udało się usunąć: {error}"
+    },
+    "roleSaveFailed": {
+      "en": "Failed to save role: {error}",
+      "pl": "Błąd zapisu roli: {error}"
+    },
+    "roleDeleteFailed": {
+      "en": "Failed to delete role: {error}",
+      "pl": "Błąd usuwania roli: {error}"
+    },
+    "tokenDeleteFailed": {
+      "en": "Failed to delete token: {error}",
+      "pl": "Błąd usuwania tokenu: {error}"
+    },
+    "deviceDeleteFailed": {
+      "en": "Failed to delete device: {error}",
+      "pl": "Błąd usuwania urządzenia: {error}"
+    },
+    "archiveFailed": {
+      "en": "Archive error: {error}",
+      "pl": "Błąd archiwizacji: {error}"
+    },
+    "cancelFailed": {
+      "en": "Cancel error: {error}",
+      "pl": "Błąd anulowania: {error}"
+    },
+    "openInBrowser": {
+      "en": "Click to open in browser",
+      "pl": "Kliknij, aby otworzyć w przeglądarce"
+    },
+    "pubBadge": {
+      "en": "PUB",
+      "pl": "PUB"
+    },
+    "privBadge": {
+      "en": "PRIV",
+      "pl": "PRIV"
+    },
+    "enabled": {
+      "en": "Enabled",
+      "pl": "Włączone"
+    },
+    "disabled": {
+      "en": "Disabled",
+      "pl": "Wyłączone"
+    },
+    "enabledFem": {
+      "en": "Enabled",
+      "pl": "Włączona"
+    },
+    "disabledFem": {
+      "en": "Disabled",
+      "pl": "Wyłączona"
+    },
+    "enabledNeut": {
+      "en": "Enabled",
+      "pl": "Włączony"
+    },
+    "disabledNeut": {
+      "en": "Disabled",
+      "pl": "Wyłączony"
+    },
+    "mainDomain": {
+      "en": "Primary domain *",
+      "pl": "Domena główna *"
+    },
+    "connectionType": {
+      "en": "Connection type *",
+      "pl": "Typ połączenia *"
+    },
+    "exitSite": {
+      "en": "Exit tunnel (Site) *",
+      "pl": "Tunel Wyjściowy (Site) *"
+    },
+    "ipSubnet": {
+      "en": "IP addressing / subnet",
+      "pl": "Adresacja / Podsieć IP (Subnet)"
+    },
+    "cidrPorts": {
+      "en": "CIDR subnet (TCP/UDP)",
+      "pl": "Podsieć CIDR (TCP/UDP)"
+    },
+    "scheme": {
+      "en": "Protocol (scheme)",
+      "pl": "Protokół (Scheme)"
+    },
+    "ignoreSsl": {
+      "en": "Ignore backend SSL errors",
+      "pl": "Ignoruj błędy SSL backendu"
+    },
+    "destinationPort": {
+      "en": "Destination port",
+      "pl": "Port docelowy"
+    },
+    "proxyPort": {
+      "en": "Proxy port",
+      "pl": "Port proxy"
+    },
+    "selectDomain": {
+      "en": "Select domain…",
+      "pl": "Wybierz domenę..."
+    },
+    "pathExample": {
+      "en": "Path (e.g. /v1/...)",
+      "pl": "Ścieżka (np. /v1/...)"
+    },
+    "technicalAccess": {
+      "en": "Technical server access…",
+      "pl": "Dostęp techniczny do serwerów..."
+    },
+    "userId": {
+      "en": "User ID",
+      "pl": "ID Użytkownika"
+    },
+    "email": {
+      "en": "Email",
+      "pl": "Email"
+    },
+    "role": {
+      "en": "Role",
+      "pl": "Rola"
+    },
+    "status": {
+      "en": "Status",
+      "pl": "Status"
+    },
+    "created": {
+      "en": "Created",
+      "pl": "Utworzono"
+    },
+    "expires": {
+      "en": "Expires",
+      "pl": "Wygasa"
+    },
+    "lastSeen": {
+      "en": "Last seen",
+      "pl": "Ostatnio widziany"
+    },
+    "archived": {
+      "en": "Archived",
+      "pl": "Zarchiwizowany"
+    },
+    "active": {
+      "en": "Active",
+      "pl": "Aktywny"
+    },
+    "pending": {
+      "en": "Pending",
+      "pl": "Oczekujący"
+    },
+    "revoked": {
+      "en": "Revoked",
+      "pl": "Unieważniony"
+    },
+    "generateToken": {
+      "en": "Generate token",
+      "pl": "Generuj token"
+    },
+    "copyToken": {
+      "en": "Copy token",
+      "pl": "Kopiuj token"
+    },
+    "revokeToken": {
+      "en": "Revoke token",
+      "pl": "Unieważnij token"
+    },
+    "newTunnelBtn": {
+      "en": "Create tunnel",
+      "pl": "Utwórz tunel"
+    },
+    "newPrivBtn": {
+      "en": "Create private resource",
+      "pl": "Utwórz zasób prywatny"
+    },
+    "newPubBtn": {
+      "en": "Create public resource",
+      "pl": "Utwórz zasób publiczny"
+    },
+    "editResource": {
+      "en": "Edit resource",
+      "pl": "Edytuj zasób"
+    },
+    "saveResource": {
+      "en": "Save Resource",
+      "pl": "Zapisz Zasób"
+    },
+    "deleteResource": {
+      "en": "Delete resource",
+      "pl": "Usuń zasób"
+    },
+    "wireguard": {
+      "en": "WireGuard",
+      "pl": "WireGuard"
+    },
+    "newt": {
+      "en": "Newt",
+      "pl": "Newt"
+    },
+    "local": {
+      "en": "Local",
+      "pl": "Local"
+    },
+    "modeHost": {
+      "en": "Host",
+      "pl": "Host"
+    },
+    "modeCidr": {
+      "en": "CIDR",
+      "pl": "CIDR"
+    },
+    "modeHttp": {
+      "en": "HTTP",
+      "pl": "HTTP"
+    },
+    "modeSsh": {
+      "en": "SSH",
+      "pl": "SSH"
+    },
+    "modeRdp": {
+      "en": "RDP",
+      "pl": "RDP"
+    },
+    "modeVnc": {
+      "en": "VNC",
+      "pl": "VNC"
+    },
+    "modeTcp": {
+      "en": "TCP",
+      "pl": "TCP"
+    },
+    "modeUdp": {
+      "en": "UDP",
+      "pl": "UDP"
+    },
+    "block": {
+      "en": "Block",
+      "pl": "Zablokuj"
+    },
+    "allow": {
+      "en": "Allow",
+      "pl": "Zezwól"
+    },
+    "challenge": {
+      "en": "Challenge",
+      "pl": "Wyzwanie"
+    },
+    "redirect": {
+      "en": "Redirect",
+      "pl": "Przekierowanie"
+    },
+    "passAuth": {
+      "en": "Pass auth",
+      "pl": "Przekaż auth"
+    },
+    "rateLimit": {
+      "en": "Rate limit",
+      "pl": "Limit szybkości"
+    },
+    "waf": {
+      "en": "WAF",
+      "pl": "WAF"
+    },
+    "geoBlock": {
+      "en": "Geo block",
+      "pl": "Blokada geo"
+    },
+    "ipBlock": {
+      "en": "IP block",
+      "pl": "Blokada IP"
+    },
+    "ruleMatch": {
+      "en": "Rule match",
+      "pl": "Dopasowanie reguły"
+    },
+    "defaultDeny": {
+      "en": "Default deny",
+      "pl": "Domyślna odmowa"
+    },
+    "defaultAllow": {
+      "en": "Default allow",
+      "pl": "Domyślne zezwolenie"
+    },
+    "mfaRequired": {
+      "en": "MFA required",
+      "pl": "Wymagane MFA"
+    },
+    "deviceUntrusted": {
+      "en": "Untrusted device",
+      "pl": "Niezaufane urządzenie"
+    },
+    "sessionExpired": {
+      "en": "Session expired",
+      "pl": "Sesja wygasła"
+    },
+    "invalidCredentials": {
+      "en": "Invalid credentials",
+      "pl": "Nieprawidłowe poświadczenia"
+    },
+    "policyDenied": {
+      "en": "Policy denied",
+      "pl": "Polityka odrzucona"
+    },
+    "resourceUnavailable": {
+      "en": "Resource unavailable",
+      "pl": "Zasób niedostępny"
+    },
+    "upstreamError": {
+      "en": "Upstream error",
+      "pl": "Błąd upstream"
+    },
+    "certificateError": {
+      "en": "Certificate error",
+      "pl": "Błąd certyfikatu"
+    },
+    "timeoutError": {
+      "en": "Timeout",
+      "pl": "Limit czasu"
+    },
+    "unknownReason": {
+      "en": "Unknown",
+      "pl": "Nieznany"
+    },
+    "prevPage": {
+      "en": "Previous",
+      "pl": "Poprzednia"
+    },
+    "nextPage": {
+      "en": "Next",
+      "pl": "Następna"
+    },
+    "pageSize": {
+      "en": "Page size",
+      "pl": "Rozmiar strony"
+    },
+    "exportCsv": {
+      "en": "Export CSV",
+      "pl": "Eksportuj CSV"
+    },
+    "copyJson": {
+      "en": "Copy JSON",
+      "pl": "Kopiuj JSON"
+    },
+    "viewRaw": {
+      "en": "View raw",
+      "pl": "Surowe dane"
+    },
+    "closeDetail": {
+      "en": "Close details",
+      "pl": "Zamknij szczegóły"
+    },
+    "loadingChart": {
+      "en": "Loading chart…",
+      "pl": "Ładowanie wykresu…"
+    },
+    "chartAllowed": {
+      "en": "Allowed",
+      "pl": "Dozwolone"
+    },
+    "chartBlocked": {
+      "en": "Blocked",
+      "pl": "Zablokowane"
+    },
+    "mapHint": {
+      "en": "Hover a country for details",
+      "pl": "Najedź na kraj, aby zobaczyć szczegóły"
+    },
+    "requestsShort": {
+      "en": "Requests",
+      "pl": "Zapytania"
+    },
+    "percentOfTotal": {
+      "en": "{pct}% of total",
+      "pl": "{pct}% całości"
+    },
+    "auditExport": {
+      "en": "Export audit log",
+      "pl": "Eksportuj log audytu"
+    },
+    "liveTail": {
+      "en": "Live tail",
+      "pl": "Na żywo"
+    },
+    "pauseTail": {
+      "en": "Pause",
+      "pl": "Pauza"
+    },
+    "clearFilters": {
+      "en": "Clear filters",
+      "pl": "Wyczyść filtry"
+    },
+    "applyFilters": {
+      "en": "Apply filters",
+      "pl": "Zastosuj filtry"
+    },
+    "searchLogs": {
+      "en": "Search logs…",
+      "pl": "Szukaj w logach…"
+    },
+    "filterDateFrom": {
+      "en": "From",
+      "pl": "Od"
+    },
+    "filterDateTo": {
+      "en": "To",
+      "pl": "Do"
+    },
+    "allResources": {
+      "en": "All resources",
+      "pl": "Wszystkie zasoby"
+    },
+    "allActions": {
+      "en": "All actions",
+      "pl": "Wszystkie akcje"
+    },
+    "allMethods": {
+      "en": "All methods",
+      "pl": "Wszystkie metody"
+    },
+    "httpGet": {
+      "en": "GET",
+      "pl": "GET"
+    },
+    "httpPost": {
+      "en": "POST",
+      "pl": "POST"
+    },
+    "httpPut": {
+      "en": "PUT",
+      "pl": "PUT"
+    },
+    "httpDelete": {
+      "en": "DELETE",
+      "pl": "DELETE"
+    },
+    "httpPatch": {
+      "en": "PATCH",
+      "pl": "PATCH"
+    },
+    "httpHead": {
+      "en": "HEAD",
+      "pl": "HEAD"
+    },
+    "httpOptions": {
+      "en": "OPTIONS",
+      "pl": "OPTIONS"
+    },
+    "sslEnabled": {
+      "en": "SSL enabled",
+      "pl": "SSL włączone"
+    },
+    "sslDisabled": {
+      "en": "SSL disabled",
+      "pl": "SSL wyłączone"
+    },
+    "healthOk": {
+      "en": "Healthy",
+      "pl": "Zdrowy"
+    },
+    "healthDegraded": {
+      "en": "Degraded",
+      "pl": "Obniżony"
+    },
+    "healthDown": {
+      "en": "Down",
+      "pl": "Niedostępny"
+    },
+    "siteOnline": {
+      "en": "Site online",
+      "pl": "Site online"
+    },
+    "siteOffline": {
+      "en": "Site offline",
+      "pl": "Site offline"
+    },
+    "resourceOnline": {
+      "en": "Resource online",
+      "pl": "Zasób online"
+    },
+    "resourceOffline": {
+      "en": "Resource offline",
+      "pl": "Zasób offline"
+    },
+    "confirmArchiveDevice": {
+      "en": "Archive this device?",
+      "pl": "Czy na pewno chcesz zarchiwizować to urządzenie?"
+    },
+    "confirmBlockIp": {
+      "en": "Block this IP?",
+      "pl": "Czy na pewno chcesz zablokować ten adres IP?"
+    },
+    "confirmUnblockIp": {
+      "en": "Unblock this IP?",
+      "pl": "Czy na pewno chcesz odblokować ten adres IP?"
+    },
+    "tunnelCreateFailed": {
+      "en": "Failed to create tunnel: {error}",
+      "pl": "Nie udało się utworzyć tunelu: {error}"
+    },
+    "inviteFailed": {
+      "en": "Failed to send invitation: {error}",
+      "pl": "Nie udało się wysłać zaproszenia: {error}"
+    },
+    "inviteCancelled": {
+      "en": "Invitation cancelled",
+      "pl": "Zaproszenie anulowane"
+    },
+    "tokenGenerated": {
+      "en": "Token generated",
+      "pl": "Token wygenerowany"
+    },
+    "copied": {
+      "en": "Copied",
+      "pl": "Skopiowano"
+    },
+    "saving": {
+      "en": "Saving…",
+      "pl": "Zapisywanie…"
+    },
+    "verifying": {
+      "en": "Verifying…",
+      "pl": "Weryfikacja…"
+    },
+    "connected": {
+      "en": "Connected",
+      "pl": "Połączono"
+    },
+    "disconnected": {
+      "en": "Disconnected",
+      "pl": "Rozłączono"
+    },
+    "notConfigured": {
+      "en": "Not configured",
+      "pl": "Nieskonfigurowane"
+    },
+    "configureNow": {
+      "en": "Configure now",
+      "pl": "Skonfiguruj teraz"
+    },
+    "learnMore": {
+      "en": "Learn more",
+      "pl": "Dowiedz się więcej"
+    },
+    "documentation": {
+      "en": "Documentation",
+      "pl": "Dokumentacja"
+    },
+    "apiDocs": {
+      "en": "API documentation",
+      "pl": "Dokumentacja API"
+    },
+    "orgSettings": {
+      "en": "Organization settings",
+      "pl": "Ustawienia organizacji"
+    },
+    "userManagement": {
+      "en": "User management",
+      "pl": "Zarządzanie użytkownikami"
+    },
+    "securityPolicies": {
+      "en": "Security policies",
+      "pl": "Polityki bezpieczeństwa"
+    },
+    "auditRetention": {
+      "en": "Audit retention",
+      "pl": "Retencja audytu"
+    },
+    "webhookSettings": {
+      "en": "Webhooks",
+      "pl": "Webhooki"
+    },
+    "notificationSettings": {
+      "en": "Notifications",
+      "pl": "Powiadomienia"
+    },
+    "branding": {
+      "en": "Branding",
+      "pl": "Branding"
+    },
+    "customDomain": {
+      "en": "Custom domain",
+      "pl": "Własna domena"
+    },
+    "sslCertificate": {
+      "en": "SSL certificate",
+      "pl": "Certyfikat SSL"
+    },
+    "renewCert": {
+      "en": "Renew certificate",
+      "pl": "Odnów certyfikat"
+    },
+    "dnsRecords": {
+      "en": "DNS records",
+      "pl": "Rekordy DNS"
+    },
+    "verifyDomain": {
+      "en": "Verify domain",
+      "pl": "Zweryfikuj domenę"
+    },
+    "domainVerified": {
+      "en": "Domain verified",
+      "pl": "Domena zweryfikowana"
+    },
+    "domainPending": {
+      "en": "Domain pending verification",
+      "pl": "Domena oczekuje weryfikacji"
+    },
+    "tooltipRequestsTraffic": {
+      "en": "{count} requests · {pct}% of traffic",
+      "pl": "{count} zapytań · {pct}% ruchu"
+    },
+    "filterReasonPlaceholder": {
+      "en": "Decision reason…",
+      "pl": "Powód decyzji…"
+    },
+    "roleDescPlaceholder": {
+      "en": "Technical access to servers…",
+      "pl": "Dostęp techniczny do serwerów…"
+    },
+    "roleHomeDir": {
+      "en": "Automatically create home directory (/home)",
+      "pl": "Automatycznie utwórz katalog domowy (/home)"
+    },
+    "never": {
+      "en": "Never",
+      "pl": "Nigdy"
+    },
+    "resourceNameLabel": {
+      "en": "Resource name *",
+      "pl": "Nazwa zasobu *"
+    },
+    "resourceNamePlaceholder": {
+      "en": "e.g. PG Database",
+      "pl": "Np. Baza Danych PG"
+    },
+    "resourceModeLabel": {
+      "en": "Resource mode *",
+      "pl": "Tryb zasobu *"
+    },
+    "modeSingleHostDesc": {
+      "en": "Single Host (TCP/UDP)",
+      "pl": "Pojedynczy Host (TCP/UDP)"
+    },
+    "modeCidrDesc": {
+      "en": "CIDR Subnet (TCP/UDP)",
+      "pl": "Podsieć CIDR (TCP/UDP)"
+    },
+    "modeWebServerDesc": {
+      "en": "Web Server (HTTP/HTTPS)",
+      "pl": "Serwer WWW (HTTP/HTTPS)"
+    },
+    "modeConsoleDesc": {
+      "en": "Console Connection (SSH)",
+      "pl": "Połączenie konsoli (SSH)"
+    },
+    "destAddressLabel": {
+      "en": "Destination address (IP / Domain) *",
+      "pl": "Adres docelowy (IP / Domena) *"
+    },
+    "destPortLabel": {
+      "en": "Destination port *",
+      "pl": "Port docelowy *"
+    },
+    "tcpPortsLabel": {
+      "en": "TCP Ports (e.g. 80,443,8000-9000)",
+      "pl": "Porty TCP (Np. 80,443,8000-9000)"
+    },
+    "udpPortsLabel": {
+      "en": "UDP Ports",
+      "pl": "Porty UDP"
+    },
+    "blockIcmpLabel": {
+      "en": "Block ICMP traffic (Ping)",
+      "pl": "Zablokuj ruch ICMP (Ping)"
+    },
+    "assignToTunnels": {
+      "en": "Assign to tunnels (Exit Nodes) *",
+      "pl": "Przypisz do tuneli (Exit Nodes) *"
+    },
+    "proxyPortLabel": {
+      "en": "Pangolin Proxy Port *",
+      "pl": "Port Proxy w Pangolin *"
+    },
+    "subdomainLabel": {
+      "en": "Subdomain",
+      "pl": "Subdomena"
+    },
+    "postAuthPathRedirect": {
+      "en": "Post-Auth Path Redirect",
+      "pl": "Ścieżka przekierowania po zalogowaniu (Post-Auth)"
+    },
+    "forwardTarget": {
+      "en": "Forward Target",
+      "pl": "Cel przekierowania (Forward Target)"
+    },
+    "selectTunnel": {
+      "en": "Select tunnel…",
+      "pl": "Wybierz tunel..."
+    },
+    "targetIpLabel": {
+      "en": "Destination IP / Host *",
+      "pl": "Adres IP / Host docelowy *"
+    },
+    "targetIpPlaceholder": {
+      "en": "e.g. 192.168.1.100 or hostname",
+      "pl": "192.168.1.100 lub nazwa-hosta"
+    },
+    "pubResNamePlaceholder": {
+      "en": "e.g. Admin HTTP Panel",
+      "pl": "Np. Panel Admina HTTP"
+    },
+    "pubResModeHttp": {
+      "en": "HTTP Web App",
+      "pl": "HTTP Web App"
+    },
+    "pubResModeSsh": {
+      "en": "Remote SSH Terminal",
+      "pl": "Zdalny terminal SSH"
+    },
+    "pubResModeRdp": {
+      "en": "Remote Desktop RDP",
+      "pl": "Pulpit zdalny RDP"
+    },
+    "pubResModeVnc": {
+      "en": "Remote Desktop VNC",
+      "pl": "Pulpit zdalny VNC"
+    },
+    "pubResModeTcp": {
+      "en": "Raw TCP Tunnel",
+      "pl": "Czysty TCP Tunnel"
+    },
+    "pubResModeUdp": {
+      "en": "Raw UDP Tunnel",
+      "pl": "Czysty UDP Tunnel"
+    },
+    "deviceApprovalRequired": {
+      "en": "Required",
+      "pl": "Wymagana"
+    },
+    "deviceApprovalDisabled": {
+      "en": "Not required",
+      "pl": "Niewymagana"
+    },
+    "tabUsers": {
+      "en": "Users",
+      "pl": "Użytkownicy"
+    },
+    "tabRoles": {
+      "en": "Roles",
+      "pl": "Role"
+    },
+    "tabIdps": {
+      "en": "Identity Providers",
+      "pl": "Dostawcy Tożsamości"
+    },
+    "tabInvitations": {
+      "en": "Invitations",
+      "pl": "Zaproszenia"
+    },
+    "usernameEmailLabel": {
+      "en": "Email (Username)",
+      "pl": "E-mail (Username)"
+    },
+    "fullNameLabel": {
+      "en": "Name / Surname",
+      "pl": "Nazwisko / Nazwa"
+    },
+    "auth2faLabel": {
+      "en": "2FA Authentication",
+      "pl": "Uwierzytelnienie 2FA"
+    },
+    "sshSudoPermsLabel": {
+      "en": "SSH Sudo Permissions",
+      "pl": "Uprawnienia Sudo SSH"
+    },
+    "providerIdLabel": {
+      "en": "Provider ID",
+      "pl": "ID dostawcy"
+    },
+    "inviteeEmailLabel": {
+      "en": "Invitee email",
+      "pl": "E-mail zaproszonego"
+    },
+    "invitationCodeLabel": {
+      "en": "Invitation code / link",
+      "pl": "Kod / Link zaproszenia"
+    },
+    "inviteEmailLabel": {
+      "en": "Email address *",
+      "pl": "Adres e-mail *"
+    },
+    "assignInitialRoles": {
+      "en": "Assign initial roles:",
+      "pl": "Przypisz role startowe:"
+    },
+    "roleNamePlaceholder": {
+      "en": "e.g. IT Administrators",
+      "pl": "Np. Administratorzy IT"
+    },
+    "roleDescLabel": {
+      "en": "Role description",
+      "pl": "Opis roli"
+    },
+    "unixGroupsLabel": {
+      "en": "UNIX system groups on server:",
+      "pl": "Grupy UNIX systemowe na serwerze:"
+    },
+    "tabTokens": {
+      "en": "Machine Access Tokens",
+      "pl": "Tokeny API Maszynowe"
+    },
+    "archivedPlur": {
+      "en": "Archived",
+      "pl": "Zarchiwizowane"
+    },
+    "clientBlocked": {
+      "en": "Blocked",
+      "pl": "Zablokowany"
+    },
+    "clientAllowed": {
+      "en": "Allowed",
+      "pl": "Dozwolony"
+    },
+    "tokenLabel": {
+      "en": "Token label",
+      "pl": "Etykieta tokenu"
+    },
+    "tokenId": {
+      "en": "Token ID",
+      "pl": "ID Tokenu"
+    },
+    "keyPrefix": {
+      "en": "Key (Prefix)",
+      "pl": "Klucz (Prefix)"
+    },
+    "integrationApiTitle": {
+      "en": "Pangolin Integration API configuration",
+      "pl": "Konfiguracja integracji Pangolin Integration API"
+    },
+    "apiKeyPlaceholder": {
+      "en": "Paste API key (Root or Org Key)",
+      "pl": "Wklej klucz API (Root lub Org Key)"
+    },
+    "activeOrganization": {
+      "en": "Active Organization",
+      "pl": "Aktywna Organizacja"
+    },
+    "noAdditionalReason": {
+      "en": "No additional details",
+      "pl": "Brak dodatkowych szczegółów"
+    },
+    "countryPrefix": {
+      "en": "Country:",
+      "pl": "Kraj:"
+    },
+    "machineOther": {
+      "en": "Machine (Token)",
+      "pl": "Maszyna (Token)"
+    },
+    "unblock": {
+      "en": "Unblock",
+      "pl": "Odblokuj"
+    },
+    "blockAction": {
+      "en": "Block",
+      "pl": "Zablokuj"
+    },
+    "noLabel": {
+      "en": "No label",
+      "pl": "Brak etykiety"
+    }
+  },
+  "pangolinWorldMap": {
+    "ariaLabel": {
+      "en": "Traffic map by country",
+      "pl": "Mapa ruchu według krajów"
+    },
+    "countryAriaLabel": {
+      "en": "{name}",
+      "pl": "{name}"
+    },
+    "empty": {
+      "en": "No geographic data",
+      "pl": "Brak danych geograficznych"
+    }
+  }
+}

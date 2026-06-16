@@ -5,6 +5,12 @@
     RefreshCw, Download, RotateCw, AlertTriangle, Package, Loader2, Power,
   } from 'lucide-svelte';
   import SudoModal from './SudoModal.svelte';
+  import { get } from 'svelte/store';
+  import { LL } from '$lib/i18n/i18n-svelte';
+  import {
+    formatInvokeError,
+    isSudoPasswordRequired,
+  } from '$lib/i18n/backendErrors';
 
   let isLoading = $state(false);
   let isRunningAction = $state(false);
@@ -28,12 +34,12 @@
   async function withSudo(action: () => Promise<void>) {
     try {
       await action();
-    } catch (err: any) {
-      if (err.toString() === 'SUDO_PASSWORD_REQUIRED') {
+    } catch (err: unknown) {
+      if (isSudoPasswordRequired(err)) {
         pendingAction = () => withSudo(action);
         showSudoModal = true;
       } else {
-        errorMsg = err.toString();
+        errorMsg = formatInvokeError(err);
       }
     }
   }
@@ -66,8 +72,8 @@
       } catch {
         unattendedEnabled = null;
       }
-    } catch (err: any) {
-      errorMsg = 'Nie udało się pobrać statusu: ' + err.toString();
+    } catch (err: unknown) {
+      errorMsg = get(LL).maintenance.statusLoadFailed({ error: formatInvokeError(err) });
     } finally {
       isLoading = false;
     }
@@ -81,8 +87,8 @@
         actionOutput = await exec('DEBIAN_FRONTEND=noninteractive apt-get update -y 2>&1', true);
         showOutput = true;
         await loadStatus();
-      } catch (err: any) {
-        actionOutput = err.toString();
+      } catch (err: unknown) {
+        actionOutput = formatInvokeError(err);
         showOutput = true;
       } finally {
         isRunningAction = false;
@@ -92,7 +98,7 @@
   }
 
   async function runAptUpgrade() {
-    if (!confirm(`Zaktualizować ${upgradableCount} pakiet(ów)? Operacja może potrwać kilka minut.`)) {
+    if (!confirm(get(LL).maintenance.confirmUpgrade({ count: upgradableCount }))) {
       return;
     }
     isRunningAction = true;
@@ -105,8 +111,8 @@
         );
         showOutput = true;
         await loadStatus();
-      } catch (err: any) {
-        actionOutput = err.toString();
+      } catch (err: unknown) {
+        actionOutput = formatInvokeError(err);
         showOutput = true;
       } finally {
         isRunningAction = false;
@@ -116,15 +122,15 @@
   }
 
   async function runReboot() {
-    if (!confirm('Czy na pewno zrestartować serwer? Połączenie zostanie przerwane.')) return;
+    if (!confirm(get(LL).maintenance.confirmReboot())) return;
     isRunningAction = true;
     await withSudo(async () => {
       try {
         await exec('nohup bash -c "sleep 2 && reboot" >/dev/null 2>&1 &', true);
-        actionOutput = 'Serwer restartuje się... Połączenie zostanie utracone.';
+        actionOutput = get(LL).maintenance.rebooting();
         showOutput = true;
-      } catch (err: any) {
-        actionOutput = err.toString();
+      } catch (err: unknown) {
+        actionOutput = formatInvokeError(err);
         showOutput = true;
       } finally {
         isRunningAction = false;
@@ -138,10 +144,10 @@
 
 <div class="maintenance manager-shell scrollable fade-in">
   <header class="manager-header">
-    <h1 class="page-title">Konserwacja systemu</h1>
+    <h1 class="page-title">{$LL.maintenance.title()}</h1>
     <div class="header-actions">
       <button class="secondary btn-compact" disabled={isLoading} onclick={loadStatus}>
-        <RefreshCw size={14} class={isLoading ? 'spin' : ''} /> Odśwież
+        <RefreshCw size={14} class={isLoading ? 'spin' : ''} /> {$LL.common.refresh()}
       </button>
     </div>
   </header>
@@ -154,49 +160,49 @@
     <div class="status-card glass">
       <div class="card-top">
         <Package size={18} class="accent-amber-text" />
-        <span>Pakiety do aktualizacji</span>
+        <span>{$LL.maintenance.packagesToUpdate()}</span>
       </div>
       <div class="big-val mono-val">{upgradableCount}</div>
-      <p class="card-desc">Wykryte przez apt list --upgradable</p>
+      <p class="card-desc">{$LL.maintenance.detectedByApt()}</p>
     </div>
 
     <div class="status-card glass {rebootRequired ? 'warn' : ''}">
       <div class="card-top">
         <Power size={18} class={rebootRequired ? 'accent-red-text' : 'accent-green-text'} />
-        <span>Wymagany restart</span>
+        <span>{$LL.maintenance.rebootRequired()}</span>
       </div>
-      <div class="big-val">{rebootRequired ? 'TAK' : 'NIE'}</div>
+      <div class="big-val">{rebootRequired ? $LL.common.yesUpper() : $LL.common.noUpper()}</div>
       {#if rebootReason}
         <p class="card-desc mono-val">{rebootReason.slice(0, 120)}</p>
       {:else}
-        <p class="card-desc">Brak pliku /var/run/reboot-required</p>
+        <p class="card-desc">{$LL.maintenance.noRebootFile()}</p>
       {/if}
     </div>
 
     <div class="status-card glass">
       <div class="card-top">
         <Download size={18} class="accent-green-text" />
-        <span>Automatyczne aktualizacje</span>
+        <span>{$LL.maintenance.autoUpdates()}</span>
       </div>
       <div class="big-val">
         {#if unattendedEnabled === null}
-          ?
+          {$LL.common.unknownQ()}
         {:else if unattendedEnabled}
-          WŁĄCZONE
+          {$LL.common.enabledUpper()}
         {:else}
-          WYŁĄCZONE
+          {$LL.common.disabledUpper()}
         {/if}
       </div>
-      <p class="card-desc">Pakiet unattended-upgrades</p>
+      <p class="card-desc">{$LL.maintenance.unattendedPackage()}</p>
     </div>
   </section>
 
   <section class="actions-panel glass">
-    <h3>Akcje</h3>
+    <h3>{$LL.maintenance.actions()}</h3>
     <div class="action-buttons">
       <button class="secondary btn-compact" disabled={isRunningAction} onclick={runAptUpdate}>
         {#if isRunningAction}<Loader2 size={14} class="spin" />{:else}<RefreshCw size={14} />{/if}
-        apt update
+        {$LL.maintenance.aptUpdate()}
       </button>
       <button
         class="primary btn-compact"
@@ -204,33 +210,33 @@
         onclick={runAptUpgrade}
       >
         {#if isRunningAction}<Loader2 size={14} class="spin" />{:else}<Download size={14} />{/if}
-        apt upgrade ({upgradableCount})
+        {$LL.maintenance.aptUpgrade({ count: upgradableCount })}
       </button>
       <button
         class="danger btn-compact"
         disabled={isRunningAction}
         onclick={runReboot}
       >
-        <RotateCw size={14} /> Restart serwera
+        <RotateCw size={14} /> {$LL.maintenance.rebootServer()}
       </button>
     </div>
     {#if rebootRequired}
       <div class="warn-banner">
         <AlertTriangle size={16} />
-        <span>Kernel lub kluczowe pakiety wymagają restartu serwera.</span>
+        <span>{$LL.maintenance.rebootWarning()}</span>
       </div>
     {/if}
   </section>
 
   {#if upgradableList.length > 0}
     <section class="packages-panel glass">
-      <h3>Pakiety oczekujące ({upgradableList.length})</h3>
+      <h3>{$LL.maintenance.pendingPackages({ count: upgradableList.length })}</h3>
       <div class="packages-list mono-val">
         {#each upgradableList.slice(0, 50) as pkg}
           <div class="pkg-line">{pkg.split('/')[0]}</div>
         {/each}
         {#if upgradableList.length > 50}
-          <div class="pkg-more">... i {upgradableList.length - 50} więcej</div>
+          <div class="pkg-more">{$LL.maintenance.andMore({ count: upgradableList.length - 50 })}</div>
         {/if}
       </div>
     </section>
@@ -239,8 +245,8 @@
   {#if showOutput && actionOutput}
     <section class="output-panel glass">
       <div class="output-header">
-        <h3>Wynik operacji</h3>
-        <button class="secondary btn-compact" onclick={() => (showOutput = false)}>Zamknij</button>
+        <h3>{$LL.maintenance.operationResult()}</h3>
+        <button class="secondary btn-compact" onclick={() => (showOutput = false)}>{$LL.common.close()}</button>
       </div>
       <pre class="output-content">{actionOutput}</pre>
     </section>

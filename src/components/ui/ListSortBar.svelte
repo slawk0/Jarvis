@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { SortDir } from '$lib/sort/sortUtils';
+  import { LL } from '$lib/i18n/i18n-svelte';
 
   interface Column {
     id: string;
@@ -17,7 +18,7 @@
 </script>
 
 <div class="list-sort-bar">
-  <span class="sort-label">Sortuj:</span>
+  <span class="sort-label">{$LL.common.sortBy()}</span>
   {#each columns as col}
     <button
       type="button"

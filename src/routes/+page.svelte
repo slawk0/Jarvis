@@ -30,6 +30,10 @@
     getBackDescription,
     navigateBack,
   } from '$lib/backNavigation.svelte';
+  import { get } from 'svelte/store';
+  import { LL } from '$lib/i18n/i18n-svelte';
+  import { getNavLabel, getNavLabels, TAB_IDS } from '$lib/i18n/nav';
+  import { formatInvokeError } from '$lib/i18n/backendErrors';
 
   // Komponenty
   import Sidebar from '../components/Sidebar.svelte';
@@ -71,23 +75,7 @@
 
   // ────────────── Sidebar Tab Metadata ──────────────
 
-  const TAB_LABELS: Record<string, string> = {
-    dashboard: 'Dashboard',
-    maintenance: 'Konserwacja',
-    backups: 'Backupy',
-    network: 'Sieć / Porty',
-    runbooks: 'Runbooki',
-    files: 'Pliki (SFTP)',
-    services: 'Usługi',
-    docker: 'Docker',
-    cron: 'Cron',
-    users: 'Użytkownicy',
-    firewall: 'Zapora',
-    crowdsec: 'CrowdSec',
-    pangolin: 'Pangolin Proxy',
-    logs: 'Logi',
-    terminal: 'Terminal',
-  };
+  const navLabels = $derived(getNavLabels(get(LL)));
 
   // ────────────── Connection State ──────────────
 
@@ -95,9 +83,9 @@
   let isConnecting = $state(false);
   let connectError = $state('');
   let serverStats = $state<any>(null);
-  let currentHostname = $state('Serwer');
+  let currentHostname = $state('');
   let currentProfileId = $state('');
-  let currentProfileLabel = $state('Serwer');
+  let currentProfileLabel = $state('');
   let isSwitching = $state(false);
 
   // ────────────── Sidebar State ──────────────
@@ -582,17 +570,17 @@
   function getBackTooltip(): string {
     if (!isConnected) {
       return showCreateProfile
-        ? 'Wróć do listy profili (działa też boczny przycisk myszy)'
-        : 'Brak akcji do cofnięcia';
+        ? get(LL).shell.backToProfileList()
+        : get(LL).shell.backNoAction();
     }
-    const handler = getBackDescription('');
-    if (handler) return `${handler} (działa też boczny przycisk myszy)`;
+    const handler = getBackDescription();
+    if (handler) return handler;
     if (tabHistory.length > 0) {
       const prev = tabHistory[tabHistory.length - 1];
-      const label = TAB_LABELS[prev] ?? prev;
-      return `Wróć do: ${label} (działa też boczny przycisk myszy)`;
+      const label = getNavLabel(get(LL), prev);
+      return get(LL).shell.backToTab({ label });
     }
-    return 'Brak akcji do cofnięcia';
+    return get(LL).shell.backNoAction();
   }
 
   function performBack(): boolean {
@@ -657,13 +645,13 @@
     try {
       profiles = await invoke('get_profiles');
     } catch (err) {
-      console.error('Błąd pobierania profili:', err);
+      console.error(get(LL).profile.loadFailed({ error: formatInvokeError(err) }));
     }
   }
 
   async function handleSaveProfile() {
     if (!profileLabel || !profileHost || !profileUsername) {
-      alert('Wypełnij wymagane pola (Etykieta, Host, Użytkownik)');
+      alert(get(LL).profile.requiredFields());
       return;
     }
 
@@ -696,8 +684,8 @@
       showCreateProfile = false;
 
       await loadProfiles();
-    } catch (err: any) {
-      alert('Nie udało się zapisać profilu: ' + err.toString());
+    } catch (err: unknown) {
+      alert(get(LL).profile.saveFailed({ error: formatInvokeError(err) }));
     }
   }
 
@@ -720,8 +708,8 @@
       layoutMode = 'single';
       tabHistory = [];
       isConnected = true;
-    } catch (err: any) {
-      connectError = err.toString();
+    } catch (err: unknown) {
+      connectError = formatInvokeError(err);
     } finally {
       isConnecting = false;
     }
@@ -739,8 +727,8 @@
       const prof = profiles.find((p) => p.id === profileId);
       currentProfileLabel = prof?.label || stats.hostname;
       resetAlertCooldowns();
-    } catch (err: any) {
-      connectError = err.toString();
+    } catch (err: unknown) {
+      connectError = formatInvokeError(err);
     } finally {
       isSwitching = false;
     }
@@ -754,8 +742,8 @@
     } finally {
       isConnected = false;
       serverStats = null;
-      currentHostname = 'Serwer';
-      currentProfileLabel = 'Serwer';
+      currentHostname = '';
+      currentProfileLabel = '';
       tabHistory = [];
       const initialPane = createPane('dashboard');
       panes = [initialPane];
@@ -766,12 +754,12 @@
 
   async function handleDeleteProfile(id: string, event: Event) {
     event.stopPropagation();
-    if (confirm('Czy na pewno chcesz usunąć ten profil połączenia?')) {
+    if (confirm(get(LL).profile.confirmDelete())) {
       try {
         await invoke('delete_profile', { id });
         await loadProfiles();
-      } catch (err: any) {
-        alert(err.toString());
+      } catch (err: unknown) {
+        alert(formatInvokeError(err));
       }
     }
   }
@@ -799,14 +787,14 @@
     type="button"
     disabled={!canGoBackGlobal()}
     onclick={() => performBack()}
-    aria-label="Cofnij"
+    aria-label={$LL.shell.globalBackAria()}
   >
     <ArrowLeft size={16} />
     <span class="back-tooltip" role="tooltip">{getBackTooltip()}</span>
   </button>
 
   {#if isConnected}
-    <!-- GŁÓWNY WORKSPACE APLIKACJI -->
+    <!-- MAIN APPLICATION WORKSPACE -->
     <Sidebar
       activeTab={activeTab}
       bind:collapsed={sidebarCollapsed}
@@ -833,15 +821,15 @@
       <!-- Workspace Control Bar -->
       <div class="workspace-bar">
         <div class="workspace-bar-left">
-          <span class="workspace-label">Workspace</span>
-          <span class="workspace-pane-count">{panes.length} {panes.length === 1 ? 'panel' : panes.length < 5 ? 'panele' : 'paneli'}</span>
+          <span class="workspace-label">{$LL.shell.workspaceLabel()}</span>
+          <span class="workspace-pane-count">{panes.length} {panes.length === 1 ? $LL.shell.workspacePaneCountOne() : panes.length < 5 ? $LL.shell.workspacePaneCountFew() : $LL.shell.workspacePaneCountMany()}</span>
         </div>
         <div class="workspace-bar-right">
           <button
             class="layout-btn"
             class:active={layoutMode === 'single'}
             onclick={() => setLayoutPreset('single')}
-            title="Jeden panel"
+            title={$LL.shell.layoutSingle()}
           >
             <Maximize2 size={14} />
           </button>
@@ -849,7 +837,7 @@
             class="layout-btn"
             class:active={layoutMode === 'split-h'}
             onclick={() => setLayoutPreset('split-h')}
-            title="Podział pionowy (obok siebie)"
+            title={$LL.shell.layoutSplitHorizontal()}
           >
             <Columns2 size={14} />
           </button>
@@ -857,7 +845,7 @@
             class="layout-btn"
             class:active={layoutMode === 'split-v'}
             onclick={() => setLayoutPreset('split-v')}
-            title="Podział poziomy (jedno nad drugim)"
+            title={$LL.shell.layoutSplitVertical()}
           >
             <Rows2 size={14} />
           </button>
@@ -865,7 +853,7 @@
             class="layout-btn"
             class:active={layoutMode === 'grid'}
             onclick={() => setLayoutPreset('grid')}
-            title="Siatka 2×2"
+            title={$LL.shell.layoutGrid()}
           >
             <Grid2x2 size={14} />
           </button>
@@ -881,7 +869,7 @@
           <div class="resizer resizer-v"
                style="position: absolute; left: {((r.c - 1) / 120) * 100}%; top: {((r.minR - 1) / 120) * 100}%; height: {((r.maxR - r.minR) / 120) * 100}%; width: 10px; margin-left: -5px; cursor: col-resize; z-index: 50;"
                onpointerdown={(e) => { e.preventDefault(); e.stopPropagation(); resizeState = { type: 'v', line: r.c, lastLine: r.c, startClientXY: e.clientX }; }}
-               aria-label="Zmień szerokość paneli"
+               aria-label={$LL.shell.resizeWidth()}
                role="separator"
           ></div>
         {/each}
@@ -889,7 +877,7 @@
           <div class="resizer resizer-h"
                style="position: absolute; top: {((r.r - 1) / 120) * 100}%; left: {((r.minC - 1) / 120) * 100}%; width: {((r.maxC - r.minC) / 120) * 100}%; height: 10px; margin-top: -5px; cursor: row-resize; z-index: 50;"
                onpointerdown={(e) => { e.preventDefault(); e.stopPropagation(); resizeState = { type: 'h', line: r.r, lastLine: r.r, startClientXY: e.clientY }; }}
-               aria-label="Zmień wysokość paneli"
+               aria-label={$LL.shell.resizeHeight()}
                role="separator"
           ></div>
         {/each}
@@ -904,7 +892,7 @@
             data-pane-id={pane.id}
             onclick={() => focusPane(pane.id)}
             role="region"
-            aria-label={TAB_LABELS[pane.activeTab] ?? pane.activeTab}
+            aria-label={navLabels[pane.activeTab] ?? pane.activeTab}
           >
             <!-- Pane Header (only visible when multiple panes) -->
             {#if panes.length > 1}
@@ -921,7 +909,7 @@
                   onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); togglePaneSelector(pane.id); } }}
                 >
                   <GripVertical size={12} class="drag-handle" />
-                  <span class="pane-tab-name">{TAB_LABELS[pane.activeTab] ?? pane.activeTab}</span>
+                  <span class="pane-tab-name">{navLabels[pane.activeTab] ?? pane.activeTab}</span>
                   <ChevronDown size={12} />
                 </div>
 
@@ -930,14 +918,14 @@
                     <button
                       class="pane-action-btn"
                       onclick={(e: MouseEvent) => { e.stopPropagation(); splitPane(pane.id, 'h'); }}
-                      title="Podziel pionowo"
+                      title={$LL.shell.paneSplitVertical()}
                     >
                       <SplitSquareVertical size={13} />
                     </button>
                     <button
                       class="pane-action-btn"
                       onclick={(e: MouseEvent) => { e.stopPropagation(); splitPane(pane.id, 'v'); }}
-                      title="Podziel poziomo"
+                      title={$LL.shell.paneSplitHorizontal()}
                     >
                       <SplitSquareHorizontal size={13} />
                     </button>
@@ -945,7 +933,7 @@
                   <button
                     class="pane-action-btn pane-close"
                     onclick={(e: MouseEvent) => { e.stopPropagation(); closePane(pane.id); }}
-                    title="Zamknij panel"
+                    title={$LL.shell.paneClose()}
                   >
                     <X size={13} />
                   </button>
@@ -954,13 +942,13 @@
                 <!-- Pane Tab Dropdown -->
                 {#if paneSelectorOpen === pane.id}
                   <div class="pane-dropdown" role="none" onclick={(e: MouseEvent) => e.stopPropagation()}>
-                    {#each Object.entries(TAB_LABELS) as [tabId, tabLabel]}
+                    {#each TAB_IDS as tabId}
                       <button
                         class="pane-dropdown-item"
                         class:active={pane.activeTab === tabId}
                         onclick={() => selectPaneTab(pane.id, tabId)}
                       >
-                        {tabLabel}
+                        {navLabels[tabId] ?? tabId}
                       </button>
                     {/each}
                   </div>
@@ -984,7 +972,7 @@
                   <Columns2 size={16} />
                 </div>
                 <div class="drop-zone drop-zone-center" class:active={dragOverPaneId === pane.id && dragOverZone === 'center'}>
-                  <span>{customDragState?.type === 'pane' ? 'Zamień' : 'Zmień zakładkę'}</span>
+                  <span>{customDragState?.type === 'pane' ? $LL.shell.dropSwap() : $LL.shell.dropChangeTab()}</span>
                 </div>
               </div>
             {/if}
@@ -1050,20 +1038,20 @@
           class="custom-drag-ghost"
           style="left: {customDragState.currentX + 15}px; top: {customDragState.currentY + 15}px;"
         >
-          {customDragState.type === 'pane' ? 'Przenoszenie panelu' : 'Otwieranie zakładki'}
+          {customDragState.type === 'pane' ? $LL.shell.dragMovePane() : $LL.shell.dragOpenTab()}
         </div>
       {/if}
     </div>
   {:else}
-    <!-- EKRAN LOGOWANIA / PANELU ZARZĄDZANIA PROFILAMI -->
+    <!-- LOGIN SCREEN / PROFILE MANAGEMENT PANEL -->
     <div class="login-screen">
       <div class="login-glow"></div>
       
       <div class="login-container glass fade-in">
         <header class="login-header">
           <div class="logo-box">J</div>
-          <h1>Jarvis Server Manager</h1>
-          <p class="login-subtitle">Kompletne, bezpieczne narzędzie do zarządzania systemami Linux</p>
+          <h1>{$LL.shell.appTitle()}</h1>
+          <p class="login-subtitle">{$LL.shell.appSubtitle()}</p>
         </header>
 
         {#if connectError}
@@ -1076,65 +1064,65 @@
         {#if showCreateProfile}
           <!-- Formularz tworzenia/edycji profilu -->
           <div class="profile-form">
-            <h2>{currentProfileId ? 'Edytuj Profil' : 'Dodaj Nowy Profil'}</h2>
+            <h2>{currentProfileId ? $LL.profile.editTitle() : $LL.profile.addTitle()}</h2>
             
             <div class="form-group">
-              <label for="prof-label">Nazwa profilu (Etykieta)</label>
-              <input id="prof-label" type="text" placeholder="Mój serwer VPS" bind:value={profileLabel} />
+              <label for="prof-label">{$LL.profile.labelField()}</label>
+              <input id="prof-label" type="text" placeholder={$LL.profile.labelPlaceholder()} bind:value={profileLabel} />
             </div>
 
             <div class="form-row">
               <div class="form-group flex-3">
-                <label for="prof-host">Adres hosta (IP lub Domena)</label>
-                <input id="prof-host" type="text" placeholder="192.168.1.100" bind:value={profileHost} />
+                <label for="prof-host">{$LL.profile.hostField()}</label>
+                <input id="prof-host" type="text" placeholder={$LL.profile.hostPlaceholder()} bind:value={profileHost} />
               </div>
               <div class="form-group flex-1">
-                <label for="prof-port">Port SSH</label>
+                <label for="prof-port">{$LL.profile.portField()}</label>
                 <input id="prof-port" type="number" bind:value={profilePort} />
               </div>
             </div>
 
             <div class="form-group">
-              <label for="prof-user">Użytkownik SSH</label>
-              <input id="prof-user" type="text" placeholder="root" bind:value={profileUsername} />
+              <label for="prof-user">{$LL.profile.userField()}</label>
+              <input id="prof-user" type="text" placeholder={$LL.profile.userPlaceholder()} bind:value={profileUsername} />
             </div>
 
             <div class="form-group">
-              <label for="prof-authtype">Metoda autoryzacji</label>
+              <label for="prof-authtype">{$LL.profile.authMethod()}</label>
               <select id="prof-authtype" bind:value={profileAuthType}>
-                <option value="password">Hasło tekstowe</option>
-                <option value="key">Klucz prywatny SSH</option>
+                <option value="password">{$LL.profile.authPassword()}</option>
+                <option value="key">{$LL.profile.authKey()}</option>
               </select>
             </div>
 
             {#if profileAuthType === 'password'}
               <div class="form-group">
-                <label for="prof-pass">Hasło SSH (zostanie zapisane w Windows Credential Manager)</label>
+                <label for="prof-pass">{$LL.profile.passwordField()}</label>
                 <input id="prof-pass" type="password" placeholder="••••••••" bind:value={profilePassword} />
               </div>
             {:else}
               <div class="form-group">
-                <label for="prof-keypath">Ścieżka do klucza prywatnego (np. C:\Users\user\.ssh\id_rsa)</label>
-                <input id="prof-keypath" type="text" placeholder="C:\Users\Nazwa\.ssh\id_rsa" bind:value={profileKeyPath} />
+                <label for="prof-keypath">{$LL.profile.keyPathField()}</label>
+                <input id="prof-keypath" type="text" placeholder={$LL.profile.keyPathPlaceholder()} bind:value={profileKeyPath} />
               </div>
               <div class="form-group">
-                <label for="prof-keypass">Hasło do klucza (Passphrase) - jeśli wymagane</label>
+                <label for="prof-keypass">{$LL.profile.keyPassphraseField()}</label>
                 <input id="prof-keypass" type="password" placeholder="••••••••" bind:value={profileKeyPassphrase} />
               </div>
             {/if}
 
             <div class="profile-form-actions">
-              <button class="primary" onclick={handleSaveProfile}>Zapisz Profil</button>
-              <button class="secondary" onclick={() => { showCreateProfile = false; currentProfileId = ''; }}>Anuluj</button>
+              <button class="primary" onclick={handleSaveProfile}>{$LL.profile.saveProfile()}</button>
+              <button class="secondary" onclick={() => { showCreateProfile = false; currentProfileId = ''; }}>{$LL.common.cancel()}</button>
             </div>
           </div>
         {:else}
-          <!-- Lista profili połączeń -->
+          <!-- Connection profiles list -->
           <div class="profiles-section">
             <div class="section-header">
-              <h2>Zapisane Profile</h2>
+              <h2>{$LL.profile.savedProfiles()}</h2>
               <button class="secondary btn-sm" onclick={() => showCreateProfile = true}>
-                <Plus size={14} /> Nowy Profil
+                <Plus size={14} /> {$LL.profile.newProfile()}
               </button>
             </div>
 
@@ -1160,10 +1148,10 @@
                     {#if isConnecting && currentProfileId === profile.id}
                       <Loader2 class="spin accent-amber-text" size={18} />
                     {:else}
-                      <button class="icon-btn-card" onclick={(e) => editProfile(profile, e)} title="Edytuj">
+                      <button class="icon-btn-card" onclick={(e) => editProfile(profile, e)} title={$LL.profile.editAction()}>
                         <Settings size={14} />
                       </button>
-                      <button class="icon-btn-card hover-red" onclick={(e) => handleDeleteProfile(profile.id, e)} title="Usuń">
+                      <button class="icon-btn-card hover-red" onclick={(e) => handleDeleteProfile(profile.id, e)} title={$LL.profile.deleteAction()}>
                         <Trash2 size={14} />
                       </button>
                       <ChevronRight class="chevron-icon" size={18} />
@@ -1175,9 +1163,9 @@
               {#if profiles.length === 0}
                 <div class="no-profiles glass">
                   <Server size={36} class="muted-icon" />
-                  <p>Brak zapisanych serwerów</p>
+                  <p>{$LL.profile.noProfiles()}</p>
                   <button class="primary btn-sm" onclick={() => showCreateProfile = true}>
-                    <Plus size={14} /> Utwórz pierwszy profil
+                    <Plus size={14} /> {$LL.profile.createFirst()}
                   </button>
                 </div>
               {/if}

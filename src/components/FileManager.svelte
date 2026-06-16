@@ -7,6 +7,12 @@
   import type { FileInfo } from '$lib/sftp/types';
   import { getRemotePath } from '$lib/sftp/pathUtils';
   import { registerBackHandler } from '$lib/backNavigation.svelte';
+  import { get } from 'svelte/store';
+  import { LL } from '$lib/i18n/i18n-svelte';
+  import {
+    formatInvokeError,
+    isSudoPasswordRequired,
+  } from '$lib/i18n/backendErrors';
 
   let errorMsg = $state('');
   let browserPath = $state('/');
@@ -21,14 +27,14 @@
   let saveTimeout: ReturnType<typeof setTimeout> | null = null;
   let isLoading = $state(false);
 
-  // Modale
+  // Modals
   let showNewFileModal = $state(false);
   let showNewDirModal = $state(false);
   let showRenameModal = $state(false);
   let newItemName = $state('');
   let selectedFile = $state<FileInfo | null>(null);
 
-  // Modal uprawnień
+  // Permissions modal
   let showPermModal = $state(false);
   let permFile = $state<FileInfo | null>(null);
   let permOwnerRead = $state(false);
@@ -80,7 +86,7 @@
   async function handleEdit(filePath: string, file: FileInfo) {
     if (!filePath) return;
     if (file.size > MAX_EDIT_BYTES) {
-      errorMsg = `Plik jest za duży do edycji (${Math.round(file.size / 1024 / 1024)} MB). Użyj pobierania.`;
+      errorMsg = get(LL).files.fileTooLarge({ size: String(Math.round(file.size / 1024 / 1024)) });
       return;
     }
 
@@ -132,7 +138,7 @@
                   editorSaveStatus = 'saved';
                 } catch (err: unknown) {
                   editorSaveStatus = 'error';
-                  errorMsg = 'Błąd automatycznego zapisu: ' + String(err);
+                  errorMsg = get(LL).files.autoSaveError({ error: formatInvokeError(err) });
                 }
               }, 1500);
             });
@@ -140,7 +146,7 @@
         }
       }, 100);
     } catch (err: unknown) {
-      errorMsg = 'Błąd odczytu pliku: ' + String(err);
+      errorMsg = get(LL).files.readError({ error: formatInvokeError(err) });
     } finally {
       isLoading = false;
     }
@@ -154,7 +160,7 @@
       await invoke('sftp_write', { path: editingFile, content: editorInstance.getValue() });
       editorSaveStatus = 'saved';
     } catch (err: unknown) {
-      errorMsg = 'Błąd zapisu pliku: ' + String(err);
+      errorMsg = get(LL).files.writeError({ error: formatInvokeError(err) });
       editorSaveStatus = 'error';
     } finally {
       isLoading = false;
@@ -179,7 +185,7 @@
       newItemName = '';
       await browserRef?.refresh();
     } catch (err: unknown) {
-      errorMsg = 'Błąd tworzenia pliku: ' + String(err);
+      errorMsg = get(LL).files.createFileError({ error: formatInvokeError(err) });
     }
   }
 
@@ -192,7 +198,7 @@
       newItemName = '';
       await browserRef?.refresh();
     } catch (err: unknown) {
-      errorMsg = 'Błąd tworzenia folderu: ' + String(err);
+      errorMsg = get(LL).files.createDirError({ error: formatInvokeError(err) });
     }
   }
 
@@ -207,7 +213,7 @@
       selectedFile = null;
       await browserRef?.refresh();
     } catch (err: unknown) {
-      errorMsg = 'Błąd zmiany nazwy: ' + String(err);
+      errorMsg = get(LL).files.renameError({ error: formatInvokeError(err) });
     }
   }
 
@@ -266,7 +272,7 @@
       await browserRef?.refresh();
     } catch (err: unknown) {
       const errStr = String(err);
-      if (errStr.includes('SUDO_PASSWORD_REQUIRED') || errStr.toLowerCase().includes('permission denied')) {
+      if (isSudoPasswordRequired(err) || errStr.toLowerCase().includes('permission denied')) {
         try {
           const hasSudo: boolean = await invoke('has_sudo_password');
           if (hasSudo) {
@@ -279,7 +285,7 @@
         } catch {
           /* ignore */
         }
-        const sudoPass = prompt('Wymagane hasło sudo do zmiany uprawnień:');
+        const sudoPass = prompt(get(LL).files.sudoRequired());
         if (sudoPass) {
           try {
             await invoke('set_sudo_password', { password: sudoPass });
@@ -287,13 +293,13 @@
             showPermModal = false;
             await browserRef?.refresh();
           } catch (sudoErr: unknown) {
-            errorMsg = 'Błąd hasła sudo lub wykonania: ' + String(sudoErr);
+            errorMsg = get(LL).files.sudoError({ error: formatInvokeError(sudoErr) });
           }
         } else {
-          errorMsg = 'Błąd: wymagane hasło sudo';
+          errorMsg = get(LL).files.sudoMissing();
         }
       } else {
-        errorMsg = 'Błąd zmiany uprawnień: ' + errStr;
+        errorMsg = get(LL).files.chmodError({ error: formatInvokeError(err) });
       }
     } finally {
       isLoading = false;
@@ -334,12 +340,13 @@
         if (editingFile) closeEditor();
       },
       label: () => {
-        if (showPermModal) return 'Zamknij okno uprawnień';
-        if (showRenameModal) return 'Anuluj zmianę nazwy';
-        if (showNewFileModal) return 'Anuluj tworzenie pliku';
-        if (showNewDirModal) return 'Anuluj tworzenie folderu';
-        if (editingFile) return 'Zamknij edytor pliku';
-        return 'Cofnij w menedżerze plików';
+        const ll = get(LL).backNav.fileManager;
+        if (showPermModal) return ll.closePermModal();
+        if (showRenameModal) return ll.cancelRename();
+        if (showNewFileModal) return ll.cancelNewFile();
+        if (showNewDirModal) return ll.cancelNewDir();
+        if (editingFile) return ll.closeEditor();
+        return ll.default();
       },
     });
   });
@@ -377,28 +384,28 @@
       <header class="editor-header">
         <div class="editor-title">
           <FileCode size={18} class="accent-amber-text" />
-          <span>Edytujesz: <strong>{editingFile.split('/').pop()}</strong></span>
+          <span>{$LL.files.editing()} <strong>{editingFile.split('/').pop()}</strong></span>
           <span class="path-badge mono-val">{editingFile}</span>
           {#if editorSaveStatus === 'saved'}
-            <span class="save-status-badge saved">● Zapisano</span>
+            <span class="save-status-badge saved">{$LL.files.savedBadge()}</span>
           {:else if editorSaveStatus === 'saving'}
-            <span class="save-status-badge saving">● Zapisywanie...</span>
+            <span class="save-status-badge saving">{$LL.files.savingBadge()}</span>
           {:else if editorSaveStatus === 'dirty'}
-            <span class="save-status-badge dirty">● Niezapisane zmiany</span>
+            <span class="save-status-badge dirty">{$LL.files.dirtyBadge()}</span>
           {:else if editorSaveStatus === 'error'}
-            <span class="save-status-badge error">● Błąd zapisu</span>
+            <span class="save-status-badge error">{$LL.files.errorBadge()}</span>
           {/if}
         </div>
         <div class="editor-actions">
           <label class="auto-save-toggle">
             <input type="checkbox" bind:checked={autoSaveEnabled} />
-            <span>Auto-zapis</span>
+            <span>{$LL.files.autoSave()}</span>
           </label>
           <button class="primary" onclick={saveFile} disabled={isLoading || editorSaveStatus === 'saving'}>
-            <Save size={16} /> Zapisz
+            <Save size={16} /> {$LL.files.save()}
           </button>
           <button class="secondary" onclick={closeEditor}>
-            <X size={16} /> Zamknij
+            <X size={16} /> {$LL.files.close()}
           </button>
         </div>
       </header>
@@ -412,29 +419,29 @@
 {#if showPermModal && permFile}
   <div class="modal-overlay">
     <div class="modal-content glass perm-modal">
-      <h3>Uprawnienia dla: <span class="mono-val accent-name">{permFile.name}</span></h3>
+      <h3>{$LL.files.permTitle()} <span class="mono-val accent-name">{permFile.name}</span></h3>
       <div class="perm-grid">
         <div class="perm-col">
-          <h4>Właściciel</h4>
-          <label><input type="checkbox" bind:checked={permOwnerRead} onchange={updateOctalFromCheckboxes} /> Odczyt (r)</label>
-          <label><input type="checkbox" bind:checked={permOwnerWrite} onchange={updateOctalFromCheckboxes} /> Zapis (w)</label>
-          <label><input type="checkbox" bind:checked={permOwnerExec} onchange={updateOctalFromCheckboxes} /> Wykonanie (x)</label>
+          <h4>{$LL.common.owner()}</h4>
+          <label><input type="checkbox" bind:checked={permOwnerRead} onchange={updateOctalFromCheckboxes} /> {$LL.common.read()}</label>
+          <label><input type="checkbox" bind:checked={permOwnerWrite} onchange={updateOctalFromCheckboxes} /> {$LL.common.write()}</label>
+          <label><input type="checkbox" bind:checked={permOwnerExec} onchange={updateOctalFromCheckboxes} /> {$LL.common.execute()}</label>
         </div>
         <div class="perm-col">
-          <h4>Grupa</h4>
-          <label><input type="checkbox" bind:checked={permGroupRead} onchange={updateOctalFromCheckboxes} /> Odczyt (r)</label>
-          <label><input type="checkbox" bind:checked={permGroupWrite} onchange={updateOctalFromCheckboxes} /> Zapis (w)</label>
-          <label><input type="checkbox" bind:checked={permGroupExec} onchange={updateOctalFromCheckboxes} /> Wykonanie (x)</label>
+          <h4>{$LL.common.group()}</h4>
+          <label><input type="checkbox" bind:checked={permGroupRead} onchange={updateOctalFromCheckboxes} /> {$LL.common.read()}</label>
+          <label><input type="checkbox" bind:checked={permGroupWrite} onchange={updateOctalFromCheckboxes} /> {$LL.common.write()}</label>
+          <label><input type="checkbox" bind:checked={permGroupExec} onchange={updateOctalFromCheckboxes} /> {$LL.common.execute()}</label>
         </div>
         <div class="perm-col">
-          <h4>Inni</h4>
-          <label><input type="checkbox" bind:checked={permOthersRead} onchange={updateOctalFromCheckboxes} /> Odczyt (r)</label>
-          <label><input type="checkbox" bind:checked={permOthersWrite} onchange={updateOctalFromCheckboxes} /> Zapis (w)</label>
-          <label><input type="checkbox" bind:checked={permOthersExec} onchange={updateOctalFromCheckboxes} /> Wykonanie (x)</label>
+          <h4>{$LL.common.others()}</h4>
+          <label><input type="checkbox" bind:checked={permOthersRead} onchange={updateOctalFromCheckboxes} /> {$LL.common.read()}</label>
+          <label><input type="checkbox" bind:checked={permOthersWrite} onchange={updateOctalFromCheckboxes} /> {$LL.common.write()}</label>
+          <label><input type="checkbox" bind:checked={permOthersExec} onchange={updateOctalFromCheckboxes} /> {$LL.common.execute()}</label>
         </div>
       </div>
       <div class="form-group octal-group">
-        <label for="octal-input">Wartość oktalna</label>
+        <label for="octal-input">{$LL.files.octalValue()}</label>
         <input
           id="octal-input"
           type="text"
@@ -447,14 +454,14 @@
       {#if permFile.is_dir}
         <label class="recursive-label">
           <input type="checkbox" bind:checked={permRecursive} />
-          <span>Zastosuj rekurencyjnie (chmod -R)</span>
+          <span>{$LL.files.recursiveChmod()}</span>
         </label>
       {/if}
       <div class="modal-actions">
         <button class="primary" onclick={savePermissions} disabled={isLoading}>
-          {#if isLoading}<RefreshCw size={14} class="spin" /> Zapisywanie...{:else}Zapisz{/if}
+          {#if isLoading}<RefreshCw size={14} class="spin" /> {$LL.files.savingPerm()}{:else}{$LL.common.save()}{/if}
         </button>
-        <button class="secondary" onclick={() => (showPermModal = false)}>Anuluj</button>
+        <button class="secondary" onclick={() => (showPermModal = false)}>{$LL.common.cancel()}</button>
       </div>
     </div>
   </div>
@@ -463,11 +470,11 @@
 {#if showNewFileModal}
   <div class="modal-overlay">
     <div class="modal-content glass">
-      <h3>Utwórz nowy plik</h3>
-      <input type="text" placeholder="Nazwa pliku (np. config.json)" bind:value={newItemName} />
+      <h3>{$LL.files.createFileTitle()}</h3>
+      <input type="text" placeholder={$LL.files.createFilePlaceholder()} bind:value={newItemName} />
       <div class="modal-actions">
-        <button class="primary" onclick={createFile}>Utwórz</button>
-        <button class="secondary" onclick={() => { showNewFileModal = false; newItemName = ''; }}>Anuluj</button>
+        <button class="primary" onclick={createFile}>{$LL.common.create()}</button>
+        <button class="secondary" onclick={() => { showNewFileModal = false; newItemName = ''; }}>{$LL.common.cancel()}</button>
       </div>
     </div>
   </div>
@@ -476,11 +483,11 @@
 {#if showNewDirModal}
   <div class="modal-overlay">
     <div class="modal-content glass">
-      <h3>Utwórz nowy folder</h3>
-      <input type="text" placeholder="Nazwa folderu" bind:value={newItemName} />
+      <h3>{$LL.files.createDirTitle()}</h3>
+      <input type="text" placeholder={$LL.files.createDirPlaceholder()} bind:value={newItemName} />
       <div class="modal-actions">
-        <button class="primary" onclick={createDirectory}>Utwórz</button>
-        <button class="secondary" onclick={() => { showNewDirModal = false; newItemName = ''; }}>Anuluj</button>
+        <button class="primary" onclick={createDirectory}>{$LL.common.create()}</button>
+        <button class="secondary" onclick={() => { showNewDirModal = false; newItemName = ''; }}>{$LL.common.cancel()}</button>
       </div>
     </div>
   </div>
@@ -489,11 +496,11 @@
 {#if showRenameModal}
   <div class="modal-overlay">
     <div class="modal-content glass">
-      <h3>Zmień nazwę / Przenieś</h3>
-      <input type="text" placeholder="Nowa nazwa" bind:value={newItemName} />
+      <h3>{$LL.files.renameTitle()}</h3>
+      <input type="text" placeholder={$LL.files.renamePlaceholder()} bind:value={newItemName} />
       <div class="modal-actions">
-        <button class="primary" onclick={renameItem}>Zmień</button>
-        <button class="secondary" onclick={() => { showRenameModal = false; newItemName = ''; selectedFile = null; }}>Anuluj</button>
+        <button class="primary" onclick={renameItem}>{$LL.files.renameBtn()}</button>
+        <button class="secondary" onclick={() => { showRenameModal = false; newItemName = ''; selectedFile = null; }}>{$LL.common.cancel()}</button>
       </div>
     </div>
   </div>

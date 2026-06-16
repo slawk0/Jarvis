@@ -1,5 +1,7 @@
+import { get } from 'svelte/store';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import LL from '$lib/i18n/i18n-svelte';
 import type {
   BatchSummary,
   DeleteItem,
@@ -166,29 +168,31 @@ export async function cancelTransfer() {
 }
 
 export function kindLabel(kind: TransferKind): string {
+  const ll = get(LL).sftp;
   switch (kind) {
     case 'upload':
-      return 'Wysyłanie';
+      return ll.kindUpload();
     case 'download':
-      return 'Pobieranie';
+      return ll.kindDownload();
     case 'move':
-      return 'Przenoszenie';
+      return ll.kindMove();
     case 'delete':
-      return 'Usuwanie';
+      return ll.kindDelete();
   }
 }
 
 export function statusLabel(status: TransferStatus): string {
+  const ll = get(LL).sftp;
   switch (status) {
     case 'queued':
-      return 'W kolejce';
+      return ll.statusQueued();
     case 'running':
-      return 'W toku';
+      return ll.statusRunning();
     case 'completed':
-      return 'Zakończono';
+      return ll.statusCompleted();
     case 'failed':
-      return 'Błąd';
+      return ll.statusFailed();
     case 'cancelled':
-      return 'Anulowano';
+      return ll.statusCancelled();
   }
 }

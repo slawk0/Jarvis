@@ -1,3 +1,5 @@
+use crate::app_error::AppError;
+
 pub fn shell_single_quote(s: &str) -> String {
     format!("'{}'", s.replace('\'', "'\\''"))
 }
@@ -11,27 +13,27 @@ pub fn du_folder_cmd(dir_path: &str) -> String {
     )
 }
 
-pub fn parse_du_mb_line(line: &str) -> Result<u64, String> {
+pub fn parse_du_mb_line(line: &str) -> Result<u64, AppError> {
     let line = line.trim();
     if line.is_empty() {
-        return Err("Pusty wynik du".to_string());
+        return Err(AppError::new("DU_EMPTY_OUTPUT"));
     }
 
     let mut parts = line.split_whitespace();
     let mb_str = parts
         .next()
-        .ok_or_else(|| format!("Nieprawidłowy format du: {}", line))?;
+        .ok_or_else(|| AppError::with_details("DU_INVALID_FORMAT", line))?;
     let unit = parts
         .next()
-        .ok_or_else(|| format!("Nieprawidłowy format du: {}", line))?;
+        .ok_or_else(|| AppError::with_details("DU_INVALID_FORMAT", line))?;
 
     if unit != "MB" {
-        return Err(format!("Nieprawidłowy format du: {}", line));
+        return Err(AppError::with_details("DU_INVALID_FORMAT", line));
     }
 
     let mb: f64 = mb_str
         .parse()
-        .map_err(|_| format!("Nie można sparsować rozmiaru: {}", line))?;
+        .map_err(|_| AppError::with_details("DU_PARSE_FAILED", line))?;
 
     Ok((mb * 1024.0 * 1024.0).round() as u64)
 }

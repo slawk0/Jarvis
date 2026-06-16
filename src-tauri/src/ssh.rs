@@ -1,10 +1,11 @@
-use std::path::Path;
-use std::sync::Arc;
-use serde::{Serialize, Deserialize};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use crate::app_error::AppError;
 use russh::client;
 use russh::keys::PrivateKeyWithHashAlg;
 use russh_sftp::client::SftpSession;
+use serde::{Deserialize, Serialize};
+use std::path::Path;
+use std::sync::Arc;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ServerStats {
@@ -12,11 +13,11 @@ pub struct ServerStats {
     pub os: String,
     pub uptime: String,
     pub cpu_usage: f64,
-    pub ram_used: u64, // MB
-    pub ram_total: u64, // MB
-    pub disk_used: u64, // MB
-    pub disk_total: u64, // MB
-    pub network_rx: u64, // Bytes/s or total
+    pub ram_used: u64,
+    pub ram_total: u64,
+    pub disk_used: u64,
+    pub disk_total: u64,
+    pub network_rx: u64,
     pub network_tx: u64,
 }
 
@@ -89,53 +90,59 @@ impl SshConnection {
         password: Option<&str>,
         private_key_path: Option<&Path>,
         passphrase: Option<&str>,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, AppError> {
         let config = russh::client::Config::default();
         let config = Arc::new(config);
-        
+
         let addr = format!("{}:{}", host, port);
-        let socket_addrs = tokio::net::lookup_host(&addr).await
-            .map_err(|e| format!("Błąd DNS/Rozwiązywania hosta: {}", e))?
+        let socket_addrs = tokio::net::lookup_host(&addr)
+            .await
+            .map_err(|e| AppError::with_details("DNS_RESOLUTION_FAILED", e.to_string()))?
             .collect::<Vec<_>>();
-            
+
         if socket_addrs.is_empty() {
-            return Err(format!("Nie znaleziono adresu IP dla hosta: {}", host));
+            return Err(AppError::with_details("HOST_NOT_FOUND", host));
         }
-        
+
         let mut session = russh::client::connect(config, socket_addrs[0], ClientHandler)
             .await
-            .map_err(|e| format!("Błąd połączenia SSH: {}", e))?;
-            
+            .map_err(|e| AppError::with_details("SSH_CONNECTION_FAILED", e.to_string()))?;
+
         let authenticated = if let Some(key_path) = private_key_path {
-            let key = russh_keys::load_secret_key(key_path, passphrase)
-                .map_err(|e| format!("Błąd ładowania klucza prywatnego (plik {:#?}): {}", key_path, e))?;
-            
-            let hash_alg = session.best_supported_rsa_hash().await
-                .map_err(|e| format!("Błąd uzgadniania hasha RSA: {}", e))?
-                .flatten();
-                
-            let key_with_alg = PrivateKeyWithHashAlg::new(
-                Arc::new(key),
-                hash_alg
-            );
-            
-            let auth_res = session.authenticate_publickey(username, key_with_alg)
+            let key = russh_keys::load_secret_key(key_path, passphrase).map_err(|e| {
+                AppError::with_details(
+                    "SSH_PRIVATE_KEY_LOAD_FAILED",
+                    format!("{:#?}: {}", key_path, e),
+                )
+            })?;
+
+            let hash_alg = session
+                .best_supported_rsa_hash()
                 .await
-                .map_err(|e| format!("Błąd autoryzacji kluczem publicznym: {}", e))?;
+                .map_err(|e| AppError::with_details("SSH_RSA_HASH_NEGOTIATION_FAILED", e.to_string()))?
+                .flatten();
+
+            let key_with_alg = PrivateKeyWithHashAlg::new(Arc::new(key), hash_alg);
+
+            let auth_res = session
+                .authenticate_publickey(username, key_with_alg)
+                .await
+                .map_err(|e| AppError::with_details("SSH_PUBLIC_KEY_AUTH_FAILED", e.to_string()))?;
             matches!(auth_res, russh::client::AuthResult::Success)
         } else if let Some(pass) = password {
-            let auth_res = session.authenticate_password(username, pass)
+            let auth_res = session
+                .authenticate_password(username, pass)
                 .await
-                .map_err(|e| format!("Błąd autoryzacji hasłem: {}", e))?;
+                .map_err(|e| AppError::with_details("SSH_PASSWORD_AUTH_FAILED", e.to_string()))?;
             matches!(auth_res, russh::client::AuthResult::Success)
         } else {
-            return Err("Brak poświadczeń do autoryzacji (podaj hasło lub klucz prywatny)".to_string());
+            return Err(AppError::new("SSH_NO_CREDENTIALS"));
         };
-        
+
         if !authenticated {
-            return Err("Autoryzacja SSH nie powiodła się".to_string());
+            return Err(AppError::new("SSH_AUTH_FAILED"));
         }
-        
+
         Ok(SshConnection {
             session: Arc::new(tokio::sync::Mutex::new(session)),
             host: host.to_string(),
@@ -143,18 +150,22 @@ impl SshConnection {
         })
     }
 
-    pub async fn exec(&self, cmd: &str) -> Result<(i32, String, String), String> {
+    pub async fn exec(&self, cmd: &str) -> Result<(i32, String, String), AppError> {
         let session = self.session.lock().await;
-        let mut channel = session.channel_open_session().await
-            .map_err(|e| format!("Błąd otwarcia kanału: {}", e))?;
-            
-        channel.exec(true, cmd).await
-            .map_err(|e| format!("Błąd uruchomienia komendy: {}", e))?;
-            
+        let mut channel = session
+            .channel_open_session()
+            .await
+            .map_err(|e| AppError::with_details("SSH_CHANNEL_OPEN_FAILED", e.to_string()))?;
+
+        channel
+            .exec(true, cmd)
+            .await
+            .map_err(|e| AppError::with_details("SSH_COMMAND_EXEC_FAILED", e.to_string()))?;
+
         let mut stdout = Vec::new();
         let mut stderr = Vec::new();
         let mut exit_status = 0;
-        
+
         while let Some(msg) = channel.wait().await {
             match msg {
                 russh::ChannelMsg::Data { data } => {
@@ -174,14 +185,14 @@ impl SshConnection {
                 _ => {}
             }
         }
-        
+
         let stdout_str = String::from_utf8_lossy(&stdout).into_owned();
         let stderr_str = String::from_utf8_lossy(&stderr).into_owned();
-        
+
         Ok((exit_status, stdout_str, stderr_str))
     }
 
-    pub async fn get_stats(&self) -> Result<ServerStats, String> {
+    pub async fn get_stats(&self) -> Result<ServerStats, AppError> {
         let script = r#"
         echo "===HOST==="
         hostname; uname -sr; uptime -p
@@ -211,10 +222,9 @@ impl SshConnection {
         "#;
 
         let (_code, stdout, _stderr) = self.exec(script).await?;
-        
-        // Parsowanie wyjścia
+
         let lines: Vec<&str> = stdout.lines().collect();
-        
+
         let mut hostname = String::new();
         let mut os = String::new();
         let mut uptime = String::new();
@@ -225,17 +235,17 @@ impl SshConnection {
         let mut disk_total = 0;
         let mut network_rx = 0;
         let mut network_tx = 0;
-        
+
         let mut section = "";
         let mut host_line_idx = 0;
-        
+
         for line in lines {
             let line = line.trim();
             if line.starts_with("===") {
                 section = line;
                 continue;
             }
-            
+
             match section {
                 "===HOST===" => {
                     if host_line_idx == 0 {
@@ -274,7 +284,7 @@ impl SshConnection {
                 _ => {}
             }
         }
-        
+
         Ok(ServerStats {
             hostname,
             os,
@@ -289,7 +299,7 @@ impl SshConnection {
         })
     }
 
-    pub async fn get_extended_stats(&self) -> Result<ExtendedServerStats, String> {
+    pub async fn get_extended_stats(&self) -> Result<ExtendedServerStats, AppError> {
         let script = r#"
         echo "===LOAD==="
         awk '{print $1,$2,$3}' /proc/loadavg
@@ -381,36 +391,43 @@ impl SshConnection {
         })
     }
 
-    pub async fn get_sftp(&self) -> Result<SftpSession, String> {
+    pub async fn get_sftp(&self) -> Result<SftpSession, AppError> {
         let session = self.session.lock().await;
-        let channel = session.channel_open_session().await
-            .map_err(|e| format!("Błąd otwarcia kanału SFTP: {}", e))?;
-        channel.request_subsystem(true, "sftp").await
-            .map_err(|e| format!("Błąd podsystemu SFTP: {}", e))?;
-        let sftp = SftpSession::new(channel.into_stream()).await
-            .map_err(|e| format!("Błąd inicjalizacji SFTP: {}", e))?;
+        let channel = session
+            .channel_open_session()
+            .await
+            .map_err(|e| AppError::with_details("SFTP_CHANNEL_OPEN_FAILED", e.to_string()))?;
+        channel
+            .request_subsystem(true, "sftp")
+            .await
+            .map_err(|e| AppError::with_details("SFTP_SUBSYSTEM_FAILED", e.to_string()))?;
+        let sftp = SftpSession::new(channel.into_stream())
+            .await
+            .map_err(|e| AppError::with_details("SFTP_INIT_FAILED", e.to_string()))?;
         Ok(sftp)
     }
 
-    pub async fn sftp_list_dir(&self, dir_path: &str) -> Result<Vec<FileInfo>, String> {
+    pub async fn sftp_list_dir(&self, dir_path: &str) -> Result<Vec<FileInfo>, AppError> {
         let sftp = self.get_sftp().await?;
-        let entries = sftp.read_dir(dir_path).await
-            .map_err(|e| format!("Błąd odczytu katalogu {}: {}", dir_path, e))?;
-            
+        let entries = sftp
+            .read_dir(dir_path)
+            .await
+            .map_err(|e| AppError::with_details("SFTP_DIR_READ_FAILED", format!("{}: {}", dir_path, e)))?;
+
         let mut file_infos = Vec::new();
         for entry in entries {
             let name = entry.file_name().to_string();
             if name == "." || name == ".." || name.is_empty() {
                 continue;
             }
-            
+
             let metadata = entry.metadata();
             let is_dir = entry.file_type().is_dir();
-            
+
             let size = metadata.size.unwrap_or(0);
             let permissions = metadata.permissions;
             let modified = metadata.mtime.unwrap_or(0) as u64;
-            
+
             file_infos.push(FileInfo {
                 name,
                 is_dir,
@@ -420,7 +437,7 @@ impl SshConnection {
                 path: None,
             });
         }
-        
+
         file_infos.sort_by(|a, b| {
             if a.is_dir != b.is_dir {
                 b.is_dir.cmp(&a.is_dir)
@@ -428,20 +445,20 @@ impl SshConnection {
                 a.name.to_lowercase().cmp(&b.name.to_lowercase())
             }
         });
-        
+
         Ok(file_infos)
     }
 
-    pub async fn sftp_dir_size(&self, dir_path: &str) -> Result<u64, String> {
+    pub async fn sftp_dir_size(&self, dir_path: &str) -> Result<u64, AppError> {
         let cmd = crate::du_size::du_folder_cmd(dir_path);
         let (exit_code, stdout, stderr) = self.exec(&cmd).await?;
 
         if exit_code != 0 {
             let msg = stderr.trim();
             return Err(if msg.is_empty() {
-                format!("du zakończyło się kodem {}", exit_code)
+                AppError::with_details("DU_COMMAND_FAILED", exit_code.to_string())
             } else {
-                msg.to_string()
+                AppError::with_details("DU_COMMAND_FAILED", msg.to_string())
             });
         }
 
@@ -454,7 +471,7 @@ impl SshConnection {
         root: &str,
         query: &str,
         hide_hidden: bool,
-    ) -> Result<Vec<FileInfo>, String> {
+    ) -> Result<Vec<FileInfo>, AppError> {
         let trimmed = query.trim();
         if trimmed.is_empty() {
             return Ok(Vec::new());
@@ -466,57 +483,77 @@ impl SshConnection {
         if exit_code != 0 && stdout.trim().is_empty() {
             let msg = stderr.trim();
             return Err(if msg.is_empty() {
-                format!("find zakończyło się kodem {}", exit_code)
+                AppError::with_details("FIND_COMMAND_FAILED", exit_code.to_string())
             } else {
-                msg.to_string()
+                AppError::with_details("FIND_COMMAND_FAILED", msg.to_string())
             });
         }
 
         Ok(crate::sftp_find::parse_find_output(&stdout))
     }
 
-    pub async fn sftp_read_file(&self, file_path: &str) -> Result<String, String> {
+    pub async fn sftp_read_file(&self, file_path: &str) -> Result<String, AppError> {
         let sftp = self.get_sftp().await?;
-        let mut file = sftp.open_with_flags(file_path, russh_sftp::protocol::OpenFlags::READ)
+        let mut file = sftp
+            .open_with_flags(file_path, russh_sftp::protocol::OpenFlags::READ)
             .await
-            .map_err(|e| format!("Nie można otworzyć pliku {}: {}", file_path, e))?;
-            
+            .map_err(|e| AppError::with_details("SFTP_FILE_OPEN_FAILED", format!("{}: {}", file_path, e)))?;
+
         let mut content = String::new();
-        file.read_to_string(&mut content).await.map_err(|e| format!("Błąd odczytu zawartości pliku: {}", e))?;
+        file.read_to_string(&mut content)
+            .await
+            .map_err(|e| AppError::with_details("SFTP_FILE_READ_FAILED", e.to_string()))?;
         Ok(content)
     }
 
-    pub async fn sftp_write_file(&self, file_path: &str, content: &str) -> Result<(), String> {
+    pub async fn sftp_write_file(&self, file_path: &str, content: &str) -> Result<(), AppError> {
         let sftp = self.get_sftp().await?;
-        let mut file = sftp.open_with_flags(
-            file_path,
-            russh_sftp::protocol::OpenFlags::CREATE | russh_sftp::protocol::OpenFlags::TRUNCATE | russh_sftp::protocol::OpenFlags::WRITE,
-        ).await.map_err(|e| format!("Nie można utworzyć pliku {}: {}", file_path, e))?;
-        
-        file.write_all(content.as_bytes()).await.map_err(|e| format!("Błąd zapisu do pliku: {}", e))?;
-        file.shutdown().await.map_err(|e| format!("Błąd zamykania pliku: {}", e))?;
+        let mut file = sftp
+            .open_with_flags(
+                file_path,
+                russh_sftp::protocol::OpenFlags::CREATE
+                    | russh_sftp::protocol::OpenFlags::TRUNCATE
+                    | russh_sftp::protocol::OpenFlags::WRITE,
+            )
+            .await
+            .map_err(|e| AppError::with_details("SFTP_FILE_CREATE_FAILED", format!("{}: {}", file_path, e)))?;
+
+        file.write_all(content.as_bytes())
+            .await
+            .map_err(|e| AppError::with_details("SFTP_FILE_WRITE_FAILED", e.to_string()))?;
+        file.shutdown()
+            .await
+            .map_err(|e| AppError::with_details("SFTP_FILE_CLOSE_FAILED", e.to_string()))?;
         Ok(())
     }
 
-    pub async fn sftp_create_dir(&self, dir_path: &str) -> Result<(), String> {
+    pub async fn sftp_create_dir(&self, dir_path: &str) -> Result<(), AppError> {
         let sftp = self.get_sftp().await?;
-        sftp.create_dir(dir_path).await.map_err(|e| format!("Nie można utworzyć katalogu: {}", e))?;
+        sftp.create_dir(dir_path)
+            .await
+            .map_err(|e| AppError::with_details("SFTP_DIR_CREATE_FAILED", e.to_string()))?;
         Ok(())
     }
 
-    pub async fn sftp_delete_file(&self, path: &str, is_dir: bool) -> Result<(), String> {
+    pub async fn sftp_delete_file(&self, path: &str, is_dir: bool) -> Result<(), AppError> {
         let sftp = self.get_sftp().await?;
         if is_dir {
-            sftp.remove_dir(path).await.map_err(|e| format!("Nie można usunąć katalogu (upewnij się, że jest pusty): {}", e))?;
+            sftp.remove_dir(path).await.map_err(|e| {
+                AppError::with_details("SFTP_DIR_DELETE_FAILED", e.to_string())
+            })?;
         } else {
-            sftp.remove_file(path).await.map_err(|e| format!("Nie można usunąć pliku: {}", e))?;
+            sftp.remove_file(path).await.map_err(|e| {
+                AppError::with_details("SFTP_FILE_DELETE_FAILED", e.to_string())
+            })?;
         }
         Ok(())
     }
 
-    pub async fn sftp_rename(&self, src: &str, dest: &str) -> Result<(), String> {
+    pub async fn sftp_rename(&self, src: &str, dest: &str) -> Result<(), AppError> {
         let sftp = self.get_sftp().await?;
-        sftp.rename(src, dest).await.map_err(|e| format!("Błąd zmiany nazwy/przeniesienia: {}", e))?;
+        sftp.rename(src, dest)
+            .await
+            .map_err(|e| AppError::with_details("SFTP_RENAME_FAILED", e.to_string()))?;
         Ok(())
     }
 }

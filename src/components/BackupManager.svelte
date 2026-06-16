@@ -7,6 +7,12 @@
   import SudoModal from './SudoModal.svelte';
   import type { BackupTemplate, ProfileExtras } from '$lib/admin/types';
   import { DEFAULT_PROFILE_EXTRAS } from '$lib/admin/types';
+  import { get } from 'svelte/store';
+  import { LL } from '$lib/i18n/i18n-svelte';
+  import {
+    formatInvokeError,
+    isSudoPasswordRequired,
+  } from '$lib/i18n/backendErrors';
 
   let { profileId = '' } = $props();
 
@@ -36,12 +42,12 @@
   async function withSudo(action: () => Promise<void>) {
     try {
       await action();
-    } catch (err: any) {
-      if (err.toString() === 'SUDO_PASSWORD_REQUIRED') {
+    } catch (err: unknown) {
+      if (isSudoPasswordRequired(err)) {
         pendingAction = () => withSudo(action);
         showSudoModal = true;
       } else {
-        errorMsg = err.toString();
+        errorMsg = formatInvokeError(err);
       }
     }
   }
@@ -51,8 +57,8 @@
     isLoading = true;
     try {
       extras = await invoke<ProfileExtras>('get_profile_extras', { profileId });
-    } catch (err: any) {
-      errorMsg = err.toString();
+    } catch (err: unknown) {
+      errorMsg = formatInvokeError(err);
     } finally {
       isLoading = false;
     }
@@ -88,7 +94,7 @@
 
   async function saveTemplate() {
     if (!formName.trim()) {
-      alert('Podaj nazwę szablonu');
+      alert(get(LL).backup.alertTemplateName());
       return;
     }
     const tpl: BackupTemplate = {
@@ -111,7 +117,7 @@
   }
 
   async function deleteTemplate(id: string) {
-    if (!confirm('Usunąć szablon backupu?')) return;
+    if (!confirm(get(LL).backup.confirmDeleteTemplate())) return;
     extras.backup_templates = extras.backup_templates.filter((t) => t.id !== id);
     await saveExtras();
   }
@@ -148,18 +154,19 @@
 
     await withSudo(async () => {
       try {
+        const ll = get(LL);
         const cmd = buildBackupCmd(t, remotePath);
         const out = await exec(cmd, t.backup_type === 'files');
-        lastBackupMsg = `Utworzono backup na serwerze: ${remotePath}\n${out}`;
+        lastBackupMsg = ll.backup.createdOnServer({ path: remotePath, output: out });
 
         const count = await invoke<number>('sftp_start_download_batch', {
           remotePaths: [remotePath],
           localDir: null,
         });
-        lastBackupMsg += `\n\nPobieranie ${count} plik(ów) na dysk lokalny...`;
+        lastBackupMsg += `\n\n${ll.backup.downloading({ count })}`;
         await exec(`rm -f ${remotePath}`, false).catch(() => {});
-      } catch (err: any) {
-        errorMsg = 'Błąd backupu: ' + err.toString();
+      } catch (err: unknown) {
+        errorMsg = get(LL).backup.error({ error: formatInvokeError(err) });
       } finally {
         isRunning = false;
       }
@@ -176,13 +183,13 @@
 
 <div class="backup manager-shell scrollable fade-in">
   <header class="manager-header">
-    <h1 class="page-title">Backupy</h1>
+    <h1 class="page-title">{$LL.backup.title()}</h1>
     <div class="header-actions">
       <button class="secondary btn-compact" disabled={isLoading} onclick={loadExtras}>
-        <RefreshCw size={14} /> Odśwież
+        <RefreshCw size={14} /> {$LL.common.refresh()}
       </button>
       <button class="primary btn-compact" onclick={openAdd}>
-        <Plus size={14} /> Nowy szablon
+        <Plus size={14} /> {$LL.backup.newTemplate()}
       </button>
     </div>
   </header>
@@ -198,8 +205,8 @@
   {#if extras.backup_templates.length === 0}
     <div class="empty glass">
       <FolderArchive size={36} class="muted" />
-      <p>Brak szablonów backupu. Utwórz szablon dla katalogów www lub baz danych.</p>
-      <button class="primary btn-compact" onclick={openAdd}><Plus size={14} /> Dodaj szablon</button>
+      <p>{$LL.backup.empty()}</p>
+      <button class="primary btn-compact" onclick={openAdd}><Plus size={14} /> {$LL.backup.addTemplate()}</button>
     </div>
   {:else}
     <div class="templates-grid">
@@ -218,15 +225,15 @@
             {#if tpl.backup_type === 'files'}
               {tpl.source_path}
             {:else}
-              {tpl.db_name || '—'} @ {tpl.docker_container || 'host'}
+              {tpl.db_name || '—'} @ {tpl.docker_container || $LL.common.host()}
             {/if}
           </div>
           <div class="tpl-actions">
             <button class="primary btn-compact" disabled={isRunning} onclick={() => runBackup(tpl)}>
               {#if isRunning}<Loader2 size={14} class="spin" />{:else}<Play size={14} />{/if}
-              Uruchom
+              {$LL.backup.run()}
             </button>
-            <button class="secondary btn-compact" onclick={() => openEdit(tpl)}>Edytuj</button>
+            <button class="secondary btn-compact" onclick={() => openEdit(tpl)}>{$LL.common.edit()}</button>
             <button class="secondary btn-compact hover-red" onclick={() => deleteTemplate(tpl.id)}>
               <Trash2 size={14} />
             </button>
@@ -238,33 +245,33 @@
 
   <section class="info glass">
     <Download size={16} />
-    <p>Backup tworzy archiwum na serwerze, pobiera je do folderu Pobrane (Jarvis-SFTP-*), a następnie usuwa plik tymczasowy.</p>
+    <p>{$LL.backup.info()}</p>
   </section>
 </div>
 
 {#if showAddModal}
   <div class="modal-overlay" role="presentation" onclick={() => (showAddModal = false)}>
     <div class="modal glass" role="dialog" onclick={(e) => e.stopPropagation()}>
-      <h3>{editId ? 'Edytuj szablon' : 'Nowy szablon backupu'}</h3>
-      <label>Nazwa<input bind:value={formName} placeholder="Backup www" /></label>
-      <label>Typ
+      <h3>{editId ? $LL.backup.editTemplate() : $LL.backup.newBackupTemplate()}</h3>
+      <label>{$LL.backup.name()}<input bind:value={formName} placeholder={$LL.backup.namePlaceholder()} /></label>
+      <label>{$LL.backup.type()}
         <select bind:value={formType}>
-          <option value="files">Pliki (tar.gz)</option>
-          <option value="mysql">MySQL (mysqldump)</option>
-          <option value="postgres">PostgreSQL (pg_dump)</option>
+          <option value="files">{$LL.backup.typeFiles()}</option>
+          <option value="mysql">{$LL.backup.typeMysql()}</option>
+          <option value="postgres">{$LL.backup.typePostgres()}</option>
         </select>
       </label>
       {#if formType === 'files'}
-        <label>Ścieżka katalogu<input bind:value={formPath} placeholder="/var/www" /></label>
+        <label>{$LL.backup.pathLabel()}<input bind:value={formPath} placeholder="/var/www" /></label>
       {:else}
-        <label>Kontener Docker (puste = host)<input bind:value={formContainer} placeholder="mysql" /></label>
-        <label>Nazwa bazy<input bind:value={formDbName} /></label>
-        <label>Użytkownik DB<input bind:value={formDbUser} /></label>
-        <label>Hasło DB (opcjonalne)<input type="password" bind:value={formDbPassword} /></label>
+        <label>{$LL.backup.dockerContainer()}<input bind:value={formContainer} placeholder={$LL.backup.dockerPlaceholder()} /></label>
+        <label>{$LL.backup.dbName()}<input bind:value={formDbName} /></label>
+        <label>{$LL.backup.dbUser()}<input bind:value={formDbUser} /></label>
+        <label>{$LL.backup.dbPassword()}<input type="password" bind:value={formDbPassword} /></label>
       {/if}
       <div class="modal-actions">
-        <button class="secondary" onclick={() => (showAddModal = false)}>Anuluj</button>
-        <button class="primary" onclick={saveTemplate}>Zapisz</button>
+        <button class="secondary" onclick={() => (showAddModal = false)}>{$LL.common.cancel()}</button>
+        <button class="primary" onclick={saveTemplate}>{$LL.common.save()}</button>
       </div>
     </div>
   </div>

@@ -4,6 +4,9 @@
   import { Calendar, Trash2, Plus, Edit, RefreshCw, Play, ShieldAlert, Check, ToggleLeft, ToggleRight } from 'lucide-svelte';
   import SortableTh from './ui/SortableTh.svelte';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
+  import { get } from 'svelte/store';
+  import { LL } from '$lib/i18n/i18n-svelte';
+  import { formatInvokeError } from '$lib/i18n/backendErrors';
 
   let cronJobs = $state<any[]>([]);
   type CronSortCol = 'active' | 'expression' | 'command';
@@ -32,11 +35,11 @@
   let showEditModal = $state(false);
   let editingIndex = $state<number | null>(null);
 
-  // Zmienne formularza
+  // Form variables
   let cronExpr = $state('*/5 * * * *');
   let cronCmd = $state('');
   
-  // Narzędzie ułatwiające budowanie wyrazów cron
+  // Helper tool to build cron expressions
   let presetMinutes = $state('*/5');
   let presetHours = $state('*');
   let presetDays = $state('*');
@@ -51,7 +54,7 @@
     isLoading = true;
     errorMsg = '';
     try {
-      // crontab -l zwraca błąd o kodzie 1 jeśli nie ma crontaba, obsłużymy to w Rust lub tutaj
+      // crontab -l returns exit code 1 if no crontab exists, we handle it in Rust or here
       const result: string = await invoke('exec_custom_command', {
         cmd: 'crontab -l',
         useSudo: false
@@ -68,7 +71,7 @@
         let isCommented = trimmed.startsWith('#');
         let cleanLine = isCommented ? trimmed.substring(1).trim() : trimmed;
         
-        // Wyrażenie cron ma 5 kolumn oddzielonych spacjami, reszta to komenda
+        // A cron expression has 5 columns separated by spaces, the rest is the command
         const parts = cleanLine.split(/\s+/);
         if (parts.length >= 6) {
           const expression = parts.slice(0, 5).join(' ');
@@ -82,7 +85,7 @@
             raw: trimmed
           });
         } else {
-          // Inne linie (np. komentarze nagłówkowe lub zmienne środowiskowe jak MAILTO)
+          // Other lines (e.g., header comments or environment variables like MAILTO)
           parsedJobs.push({
             id: idCounter++,
             expression: '',
@@ -96,11 +99,11 @@
       
       cronJobs = parsedJobs;
     } catch (err: any) {
-      // Uznajemy, że brak crontaba to pusta lista, a nie błąd
-      if (err.toString().includes('no crontab') || err.toString().includes('kod 1')) {
+      // We treat the absence of crontab as an empty list, not an error
+      if (String(err).includes('no crontab') || String(err).includes('kod 1')) {
         cronJobs = [];
       } else {
-        errorMsg = 'Nie udało się wczytać zadań cron: ' + err.toString();
+        errorMsg = get(LL).cron.loadFailed({ error: formatInvokeError(err) });
       }
     } finally {
       isLoading = false;
@@ -111,10 +114,10 @@
     isLoading = true;
     errorMsg = '';
     
-    // Budujemy zawartość pliku crontab
+    // Build the crontab file content
     const fileContent = jobsList.map(job => {
       if (job.is_meta) {
-        return job.raw; // zachowaj nagłówki/zmienne środowiskowe
+        return job.raw; // preserve headers/environment variables
       }
       if (job.is_active) {
         return `${job.expression} ${job.command}`;
@@ -126,16 +129,16 @@
     const tmpPath = `/tmp/cron_temp`;
     
     try {
-      // 1. Zapisujemy zaktualizowaną listę do pliku tymczasowego
+      // 1. Save the updated list to a temporary file
       await invoke('sftp_write', { path: tmpPath, content: fileContent });
-      // 2. Ładujemy plik do crontab
+      // 2. Load the file into crontab
       await invoke('exec_custom_command', {
         cmd: `crontab ${tmpPath} && rm ${tmpPath}`,
         useSudo: false
       });
       await loadCronJobs();
-    } catch (err: any) {
-      errorMsg = 'Nie udało się zapisać zadań: ' + err.toString();
+    } catch (err: unknown) {
+      errorMsg = get(LL).cron.saveFailed({ error: formatInvokeError(err) });
     } finally {
       isLoading = false;
     }
@@ -159,7 +162,7 @@
   }
 
   async function deleteCronJob(id: number) {
-    if (confirm('Czy na pewno chcesz usunąć to zadanie cron?')) {
+    if (confirm(get(LL).cron.confirmDelete())) {
       const updated = cronJobs.filter(j => j.id !== id);
       await saveCronJobs(updated);
     }
@@ -181,7 +184,7 @@
     cronCmd = job.command;
     showEditModal = true;
     
-    // Spróbuj dopasować presety do edytowanego zadania
+    // Try to match presets to the edited task
     const parts = job.expression.split(' ');
     if (parts.length === 5) {
       presetMinutes = parts[0];
@@ -215,7 +218,7 @@
 
 <div class="cron-manager manager-shell fade-in">
   <header class="manager-header">
-    <h1 class="page-title">Zadania Harmonogramu (Cron)</h1>
+    <h1 class="page-title">{$LL.cron.title()}</h1>
     {#if errorMsg}
       <div class="error-badge">{errorMsg}</div>
     {/if}
@@ -224,35 +227,35 @@
   <!-- Pasek operacyjny -->
   <div class="ops-bar glass">
     <button class="secondary" onclick={loadCronJobs} disabled={isLoading}>
-      <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> Odśwież
+      <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> {$LL.common.refresh()}
     </button>
     <button class="primary" onclick={() => showCreateModal = true}>
-      <Plus size={16} /> Nowe Zadanie
+      <Plus size={16} /> {$LL.cron.newTask()}
     </button>
   </div>
 
-  <!-- Lista zadań cron -->
+  <!-- Cron jobs list -->
   <div class="table-container glass">
     {#if isLoading && cronJobs.length === 0}
       <div class="loading-state">
         <RefreshCw class="spin" size={32} />
-        <p>Wczytywanie zadań harmonogramu...</p>
+        <p>{$LL.cron.loading()}</p>
       </div>
     {:else}
       <table class="cron-table">
         <thead>
           <tr>
-            <SortableTh label="Aktywny" column="active" activeColumn={cronSort.column} direction={cronSort.direction} onsort={setCronSort} width="10%" />
-            <SortableTh label="Harmonogram (Cron)" column="expression" activeColumn={cronSort.column} direction={cronSort.direction} onsort={setCronSort} width="20%" />
-            <SortableTh label="Komenda" column="command" activeColumn={cronSort.column} direction={cronSort.direction} onsort={setCronSort} width="50%" />
-            <th style="width: 20%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Akcje</th>
+            <SortableTh label={$LL.cron.active()} column="active" activeColumn={cronSort.column} direction={cronSort.direction} onsort={setCronSort} width="10%" />
+            <SortableTh label={$LL.cron.schedule()} column="expression" activeColumn={cronSort.column} direction={cronSort.direction} onsort={setCronSort} width="20%" />
+            <SortableTh label={$LL.cron.command()} column="command" activeColumn={cronSort.column} direction={cronSort.direction} onsort={setCronSort} width="50%" />
+            <th style="width: 20%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">{$LL.common.actions()}</th>
           </tr>
         </thead>
         <tbody>
           {#each sortedCronJobs as job, index}
             <tr class={job.is_active ? '' : 'disabled-row'}>
               <td>
-                <button class="btn-toggle" onclick={() => toggleCronJob(job)} title={job.is_active ? 'Wyłącz' : 'Włącz'}>
+                <button class="btn-toggle" onclick={() => toggleCronJob(job)} title={job.is_active ? $LL.cron.toggleDisable() : $LL.cron.toggleEnable()}>
                   {#if job.is_active}
                     <ToggleRight size={22} class="toggle-icon active" />
                   {:else}
@@ -267,10 +270,10 @@
                 <code class="mono-val">{job.command}</code>
               </td>
               <td class="actions-cell">
-                <button class="btn-table" onclick={() => openEditModal(job, index)} title="Edytuj">
+                <button class="btn-table" onclick={() => openEditModal(job, index)} title={$LL.cron.editTitle()}>
                   <Edit size={14} />
                 </button>
-                <button class="btn-table danger-text" onclick={() => deleteCronJob(job.id)} title="Usuń">
+                <button class="btn-table danger-text" onclick={() => deleteCronJob(job.id)} title={$LL.cron.deleteTitle()}>
                   <Trash2 size={14} />
                 </button>
               </td>
@@ -279,7 +282,7 @@
 
           {#if sortedCronJobs.length === 0 && !isLoading}
             <tr>
-              <td colspan="4" class="empty-state">Brak aktywnych zadań w pliku crontab</td>
+              <td colspan="4" class="empty-state">{$LL.cron.empty()}</td>
             </tr>
           {/if}
         </tbody>
@@ -291,70 +294,70 @@
   {#if showCreateModal || showEditModal}
     <div class="modal-overlay">
       <div class="modal-content glass cron-modal">
-        <h3>{showCreateModal ? 'Dodaj nowe zadanie Cron' : 'Edytuj zadanie Cron'}</h3>
+        <h3>{showCreateModal ? $LL.cron.addTask() : $LL.cron.editTask()}</h3>
         
         <div class="form-group">
-          <label for="cron-command">Polecenie / Skrypt do uruchomienia</label>
-          <input id="cron-command" type="text" placeholder="/var/www/scripts/backup.sh >> /var/log/backup.log 2>&1" bind:value={cronCmd} />
+          <label for="cron-command">{$LL.cron.commandLabel()}</label>
+          <input id="cron-command" type="text" placeholder={$LL.cron.commandPlaceholder()} bind:value={cronCmd} />
         </div>
 
         <div class="form-group">
-          <label for="cron-expression-input">Wyrażenie Cron (5 pól)</label>
-          <input id="cron-expression-input" type="text" placeholder="* * * * *" bind:value={cronExpr} />
+          <label for="cron-expression-input">{$LL.cron.expressionLabel()}</label>
+          <input id="cron-expression-input" type="text" placeholder={$LL.cron.expressionPlaceholder()} bind:value={cronExpr} />
         </div>
 
-        <!-- Wizualny Generator Wyrażeń -->
+        <!-- Visual Expression Generator -->
         <div class="cron-generator glass">
-          <h4>Wizualny Kreator Harmonogramu</h4>
+          <h4>{$LL.cron.generatorTitle()}</h4>
           <div class="generator-grid">
             <div class="form-group">
-              <label for="gen-min">Minuta</label>
+              <label for="gen-min">{$LL.cron.minute()}</label>
               <select id="gen-min" bind:value={presetMinutes} onchange={updateExprFromPresets}>
-                <option value="*">Każda (*)</option>
-                <option value="*/5">Co 5 minut (*/5)</option>
-                <option value="*/15">Co 15 minut (*/15)</option>
-                <option value="0">O pełnej godzinie (0)</option>
-                <option value="30">W 30. minucie (30)</option>
+                <option value="*">{$LL.cron.everyMinute()}</option>
+                <option value="*/5">{$LL.cron.every5Min()}</option>
+                <option value="*/15">{$LL.cron.every15Min()}</option>
+                <option value="0">{$LL.cron.onTheHour()}</option>
+                <option value="30">{$LL.cron.at30()}</option>
               </select>
             </div>
             
             <div class="form-group">
-              <label for="gen-hour">Godzina</label>
+              <label for="gen-hour">{$LL.cron.hour()}</label>
               <select id="gen-hour" bind:value={presetHours} onchange={updateExprFromPresets}>
-                <option value="*">Każda godzina (*)</option>
-                <option value="*/2">Co 2 godziny (*/2)</option>
-                <option value="0">Północ (00:00)</option>
-                <option value="12">Południe (12:00)</option>
-                <option value="2">Druga w nocy (02:00)</option>
+                <option value="*">{$LL.cron.everyHour()}</option>
+                <option value="*/2">{$LL.cron.every2Hours()}</option>
+                <option value="0">{$LL.cron.midnight()}</option>
+                <option value="12">{$LL.cron.noon()}</option>
+                <option value="2">{$LL.cron.twoAm()}</option>
               </select>
             </div>
 
             <div class="form-group">
-              <label for="gen-day">Dzień miesiąca</label>
+              <label for="gen-day">{$LL.cron.dayOfMonth()}</label>
               <select id="gen-day" bind:value={presetDays} onchange={updateExprFromPresets}>
-                <option value="*">Każdy dzień (*)</option>
-                <option value="1">Pierwszy dzień (1)</option>
-                <option value="15">Połowa miesiąca (15)</option>
-                <option value="*/2">Co drugi dzień (*/2)</option>
+                <option value="*">{$LL.cron.everyDay()}</option>
+                <option value="1">{$LL.cron.firstDay()}</option>
+                <option value="15">{$LL.cron.midMonth()}</option>
+                <option value="*/2">{$LL.cron.everyOtherDay()}</option>
               </select>
             </div>
 
             <div class="form-group">
-              <label for="gen-month">Miesiąc</label>
+              <label for="gen-month">{$LL.cron.month()}</label>
               <select id="gen-month" bind:value={presetMonths} onchange={updateExprFromPresets}>
-                <option value="*">Każdy miesiąc (*)</option>
-                <option value="1">Styczeń (1)</option>
-                <option value="*/3">Kwartalnie (*/3)</option>
+                <option value="*">{$LL.cron.everyMonth()}</option>
+                <option value="1">{$LL.cron.january()}</option>
+                <option value="*/3">{$LL.cron.quarterly()}</option>
               </select>
             </div>
 
             <div class="form-group">
-              <label for="gen-dow">Dzień tygodnia</label>
+              <label for="gen-dow">{$LL.cron.dayOfWeek()}</label>
               <select id="gen-dow" bind:value={presetDayOfWeek} onchange={updateExprFromPresets}>
-                <option value="*">Każdy dzień (*)</option>
-                <option value="1-5">Dni robocze (Pon-Pt)</option>
-                <option value="0,6">Weekend (Sob-Nie)</option>
-                <option value="1">Poniedziałek (1)</option>
+                <option value="*">{$LL.cron.everyDay()}</option>
+                <option value="1-5">{$LL.cron.weekdays()}</option>
+                <option value="0,6">{$LL.cron.weekend()}</option>
+                <option value="1">{$LL.cron.monday()}</option>
               </select>
             </div>
           </div>
@@ -362,11 +365,11 @@
 
         <div class="modal-actions">
           {#if showCreateModal}
-            <button class="primary" onclick={addCronJob} disabled={!cronExpr || !cronCmd}>Dodaj zadanie</button>
-            <button class="secondary" onclick={() => showCreateModal = false}>Anuluj</button>
+            <button class="primary" onclick={addCronJob} disabled={!cronExpr || !cronCmd}>{$LL.cron.addTask()}</button>
+            <button class="secondary" onclick={() => showCreateModal = false}>{$LL.common.cancel()}</button>
           {:else}
-            <button class="primary" onclick={editCronJob} disabled={!cronExpr || !cronCmd}>Zapisz zmiany</button>
-            <button class="secondary" onclick={() => { showEditModal = false; editingIndex = null; }}>Anuluj</button>
+            <button class="primary" onclick={editCronJob} disabled={!cronExpr || !cronCmd}>{$LL.common.saveChanges()}</button>
+            <button class="secondary" onclick={() => { showEditModal = false; editingIndex = null; }}>{$LL.common.cancel()}</button>
           {/if}
         </div>
       </div>
