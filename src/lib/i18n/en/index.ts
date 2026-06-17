@@ -501,7 +501,6 @@ const en = {
 		authMethod: 'Authentication method',
 		authPassword: 'Text password',
 		authKey: 'SSH private key',
-		passwordField: 'SSH password (stored in Windows Credential Manager)',
 		keyPathField: 'Private key path (e.g. C:\\Users\\user\\.ssh\\id_rsa)',
 		keyPathPlaceholder: 'C:\\Users\\Name\\.ssh\\id_rsa',
 		keyPassphraseField: 'Key passphrase (if required)',

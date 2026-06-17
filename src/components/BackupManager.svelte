@@ -5,6 +5,7 @@
     RefreshCw, Plus, Trash2, Play, Database, FolderArchive, Loader2, Download,
   } from 'lucide-svelte';
   import SudoModal from './SudoModal.svelte';
+  import PathAutocomplete from './ui/PathAutocomplete.svelte';
   import type { BackupTemplate, ProfileExtras } from '$lib/admin/types';
   import { DEFAULT_PROFILE_EXTRAS } from '$lib/admin/types';
   import { get } from 'svelte/store';
@@ -262,7 +263,9 @@
         </select>
       </label>
       {#if formType === 'files'}
-        <label>{$LL.backup.pathLabel()}<input bind:value={formPath} placeholder="/var/www" /></label>
+        <label>{$LL.backup.pathLabel()}
+          <PathAutocomplete bind:value={formPath} placeholder="/var/www" onlyDirs={true} />
+        </label>
       {:else}
         <label>{$LL.backup.dockerContainer()}<input bind:value={formContainer} placeholder={$LL.backup.dockerPlaceholder()} /></label>
         <label>{$LL.backup.dbName()}<input bind:value={formDbName} /></label>

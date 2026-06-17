@@ -1901,8 +1901,8 @@
       "pl": "Klucz prywatny SSH"
     },
     "passwordField": {
-      "en": "SSH password (stored in Windows Credential Manager)",
-      "pl": "Hasło SSH (zostanie zapisane w Windows Credential Manager)"
+      "en": "SSH password",
+      "pl": "Hasło SSH"
     },
     "keyPathField": {
       "en": "Private key path (e.g. C:\\Users\\user\\.ssh\\id_rsa)",

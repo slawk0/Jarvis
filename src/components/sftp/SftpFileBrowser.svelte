@@ -21,6 +21,7 @@
   import SftpBulkActionsBar from './SftpBulkActionsBar.svelte';
   import SudoModal from '../SudoModal.svelte';
   import SortableTh from '../ui/SortableTh.svelte';
+  import PathAutocomplete from '../ui/PathAutocomplete.svelte';
   import type { FileInfo } from '$lib/sftp/types';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
   import {
@@ -796,11 +797,11 @@
     <button class="secondary btn-icon-compact" onclick={handleGoBack} disabled={currentPath === '/'}>
       <ArrowLeft size={15} />
     </button>
-    <input
-      type="text"
-      class="path-input mono-val"
+    <PathAutocomplete
       bind:value={currentPath}
-      onkeydown={(e) => e.key === 'Enter' && loadDirectory()}
+      class="path-input mono-val"
+      onlyDirs={true}
+      onEnter={loadDirectory}
     />
     <button class="secondary btn-icon-compact" onclick={loadDirectory} disabled={isLoading}>
       <RefreshCw size={15} class={isLoading ? 'spin' : ''} />

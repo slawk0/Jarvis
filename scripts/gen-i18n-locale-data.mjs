@@ -543,7 +543,6 @@ const profile = buildNs([
   ['authMethod', 'Authentication method', 'Metoda autoryzacji'],
   ['authPassword', 'Text password', 'Hasło tekstowe'],
   ['authKey', 'SSH private key', 'Klucz prywatny SSH'],
-  ['passwordField', 'SSH password (stored in Windows Credential Manager)', 'Hasło SSH (zostanie zapisane w Windows Credential Manager)'],
   ['keyPathField', 'Private key path (e.g. C:\\Users\\user\\.ssh\\id_rsa)', 'Ścieżka do klucza prywatnego (np. C:\\Users\\user\\.ssh\\id_rsa)'],
   ['keyPathPlaceholder', 'C:\\Users\\Name\\.ssh\\id_rsa', 'C:\\Users\\Nazwa\\.ssh\\id_rsa'],
   ['keyPassphraseField', 'Key passphrase (if required)', 'Hasło do klucza (Passphrase) - jeśli wymagane'],

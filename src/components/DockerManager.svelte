@@ -16,6 +16,7 @@
   import { stickToBottom } from '$lib/stickToBottom';
   import SortableTh from './ui/SortableTh.svelte';
   import ListSortBar from './ui/ListSortBar.svelte';
+  import PathAutocomplete from './ui/PathAutocomplete.svelte';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
   import { get } from 'svelte/store';
   import { LL } from '$lib/i18n/i18n-svelte';
@@ -2825,7 +2826,7 @@ networks:
               </div>
               {#each modifyVolumes as vol, i}
                 <div class="modify-row">
-                  <input type="text" placeholder={$LL.docker.modifyHostPath()} bind:value={vol.host} class="mono-val" />
+                  <PathAutocomplete placeholder={$LL.docker.modifyHostPath()} bind:value={vol.host} class="mono-val" onlyDirs={true} />
                   <span>→</span>
                   <input type="text" placeholder={$LL.docker.modifyContainerPath()} bind:value={vol.container} class="mono-val" />
                   <label class="ro-label"><input type="checkbox" bind:checked={vol.ro} /> RO</label>

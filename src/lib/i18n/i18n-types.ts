@@ -1965,10 +1965,6 @@ type RootTranslation = {
 		 */
 		authKey: string
 		/**
-		 * S​S​H​ ​p​a​s​s​w​o​r​d​ ​(​s​t​o​r​e​d​ ​i​n​ ​W​i​n​d​o​w​s​ ​C​r​e​d​e​n​t​i​a​l​ ​M​a​n​a​g​e​r​)
-		 */
-		passwordField: string
-		/**
 		 * P​r​i​v​a​t​e​ ​k​e​y​ ​p​a​t​h​ ​(​e​.​g​.​ ​C​:​\​U​s​e​r​s​\​u​s​e​r​\​.​s​s​h​\​i​d​_​r​s​a​)
 		 */
 		keyPathField: string
@@ -8852,10 +8848,6 @@ export type TranslationFunctions = {
 		 * SSH private key
 		 */
 		authKey: () => LocalizedString
-		/**
-		 * SSH password (stored in Windows Credential Manager)
-		 */
-		passwordField: () => LocalizedString
 		/**
 		 * Private key path (e.g. C:\Users\user\.ssh\id_rsa)
 		 */

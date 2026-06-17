@@ -1683,6 +1683,10 @@
     max-height: 400px;
     overflow-y: auto;
     padding-right: 4px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    margin-top: -4px;
+    margin-bottom: -4px;
   }
 
   .profile-card {
@@ -1827,6 +1831,23 @@
 
   .flex-1 { flex: 1; }
   .flex-3 { flex: 3; }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .form-group label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .form-group input,
+  .form-group select {
+    width: 100%;
+  }
 
   .profile-form-actions {
     display: flex;
