@@ -84,6 +84,7 @@
   let editorElement = $state<HTMLDivElement | null>(null);
   let editorInstance = $state<any>(null);
   let usedSudoForRead = $state(false);
+  let homeDir = $state('');
 
   $effect(() => {
     activeContainer = containerSession ?? null;
@@ -329,6 +330,84 @@
     closeContextMenu();
   }
 
+  function cleanPath(path: string): string {
+    let cleaned = path.trim();
+    if (cleaned === '~') {
+      return homeDir || '~';
+    }
+    if (cleaned.startsWith('~/')) {
+      const baseHome = homeDir || '~';
+      return baseHome.endsWith('/') 
+        ? baseHome + cleaned.slice(2) 
+        : baseHome + '/' + cleaned.slice(2);
+    }
+    return cleaned;
+  }
+
+  function getCurrentTerminalPath(): string {
+    if (!term) return '';
+    const buffer = term.buffer.active;
+    const activeLineIndex = buffer.cursorY + buffer.baseY;
+
+    // Scan up to 15 lines upwards from the active cursor line
+    const maxScanLines = Math.min(15, activeLineIndex + 1);
+
+    for (let i = 0; i < maxScanLines; i++) {
+      const lineIndex = activeLineIndex - i;
+      const line = buffer.getLine(lineIndex);
+      if (!line) continue;
+      const text = line.translateToString(true).trim();
+      if (!text) continue;
+
+      // Regex 1: user@host:path$ or root@host:path# or user@host:path%
+      const sshPromptRegex = /(?:^|[\s])([a-zA-Z0-9_.-]+@[a-zA-Z0-9_.-]+):([^$#%>\s]+)\s*[$#%>]/;
+      const match1 = text.match(sshPromptRegex);
+      if (match1) {
+        return cleanPath(match1[2]);
+      }
+
+      // Regex 2: [user@host path]$ or [user@host path]#
+      const bracketPromptRegex = /\[[a-zA-Z0-9_.-]+@[a-zA-Z0-9_.-]+\s+([^\]]+)\]\s*[$#%>]/;
+      const match2 = text.match(bracketPromptRegex);
+      if (match2) {
+        return cleanPath(match2[1]);
+      }
+
+      // Regex 3: [ path ]$ or [ path ]#
+      const bracketSpacePromptRegex = /\[\s*([^\s\]]+)\s*\]\s*[$#%>]/;
+      const match3 = text.match(bracketSpacePromptRegex);
+      if (match3) {
+        return cleanPath(match3[1]);
+      }
+
+      // Regex 4: /etc/nginx # or / # or /app $
+      const simplePromptRegex = /(?:^|[\s])(\/(?:[a-zA-Z0-9_.-]+\/?)*|~)\s*[$#%>]/;
+      const match4 = text.match(simplePromptRegex);
+      if (match4) {
+        return cleanPath(match4[1]);
+      }
+
+      // Regex 5: Windows style C:\Users\username>
+      const winPromptRegex = /(?:^|[\s])([a-zA-Z]:\\[^>]*)\s*>/;
+      const match5 = text.match(winPromptRegex);
+      if (match5) {
+        return match5[1];
+      }
+    }
+
+    return '';
+  }
+
+  function openEditFileModal() {
+    const currentPath = getCurrentTerminalPath();
+    if (currentPath) {
+      filePathToEdit = currentPath.endsWith('/') ? currentPath : currentPath + '/';
+    } else {
+      filePathToEdit = '';
+    }
+    showFileModal = true;
+  }
+
   // File Editor Functions
   function detectLanguage(fileName: string): string {
     const ext = fileName.split('.').pop()?.toLowerCase();
@@ -464,6 +543,14 @@
     activeContainer = containerSession ?? null;
     initTerminal();
 
+    invoke<string>('sftp_get_home_dir')
+      .then((path) => {
+        homeDir = path;
+      })
+      .catch((err) => {
+        console.warn('Failed to get home dir:', err);
+      });
+
     // Load saved commands
     const storageKey = `jarvis_saved_commands_${profileId || 'global'}`;
     const stored = localStorage.getItem(storageKey);
@@ -574,7 +661,7 @@
         <button class="secondary" onclick={initTerminal} disabled={isLoading} title={$LL.terminal.restartSession()}>
           <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> {$LL.terminal.restart()}
         </button>
-        <button class="secondary" onclick={() => (showFileModal = true)} title={$LL.terminal.editFile()}>
+        <button class="secondary" onclick={openEditFileModal} title={$LL.terminal.editFile()}>
           <FileCode size={16} /> {$LL.terminal.editFile()}
         </button>
         <button class="secondary" class:active={showSavedCommands} onclick={() => (showSavedCommands = !showSavedCommands)} title={$LL.terminal.savedCommands()}>
@@ -731,6 +818,7 @@
 
 <style>
   .terminal-view {
+    position: relative;
     /* uses .manager-shell */
   }
 
@@ -775,7 +863,15 @@
   }
 
   .terminal-main-layout.hidden {
-    display: none !important;
+    position: absolute !important;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    padding: inherit;
+    box-sizing: border-box;
+    visibility: hidden;
+    pointer-events: none;
   }
 
   .terminal-workspace {

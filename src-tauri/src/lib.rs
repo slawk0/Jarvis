@@ -321,6 +321,22 @@ async fn switch_ssh(
     connect_ssh(state, app_handle, profile_id).await
 }
 
+fn is_permission_denied(stderr: &str, stdout: &str) -> bool {
+    let s = format!("{} {}", stderr, stdout).to_lowercase();
+    s.contains("permission denied")
+        || s.contains("must be root")
+        || s.contains("only root")
+        || s.contains("interactive authentication required")
+        || s.contains("access denied")
+        || s.contains("authentication is required")
+        || s.contains("not permitted")
+        || s.contains("requires root")
+        || s.contains("require root")
+        || s.contains("are you root")
+        || s.contains("password is required")
+        || s.contains("password required")
+}
+
 #[tauri::command]
 async fn exec_custom_command(
     state: State<'_, AppState>,
@@ -333,22 +349,78 @@ async fn exec_custom_command(
     };
 
     if use_sudo {
-        let sudo_pass = get_sudo_password(&state)?;
-        let escaped_pass = crate::du_size::shell_single_quote(&sudo_pass);
+        let mut sudo_pass_opt = {
+            let guard = state.sudo_password.lock();
+            guard.clone()
+        };
 
-        let formatted_cmd = format!("echo {} | sudo -S -- {}", escaped_pass, cmd);
-        let (exit_code, stdout, stderr) = conn.exec(&formatted_cmd).await?;
+        if sudo_pass_opt.is_some() {
+            let expired = {
+                let set_at = state.sudo_password_set_at.lock();
+                if let Some(t) = *set_at {
+                    t.elapsed().as_secs() > SUDO_TIMEOUT_SECS
+                } else {
+                    true
+                }
+            };
 
-        if exit_code != 0 {
-            if stderr.contains("incorrect password attempt") || stderr.contains("złe hasło") {
-                return Err(AppError::new("SUDO_PASSWORD_INCORRECT"));
+            if expired {
+                *state.sudo_password.lock() = None;
+                *state.sudo_password_set_at.lock() = None;
+                sudo_pass_opt = None;
             }
+        }
+
+        if let Some(sudo_pass) = sudo_pass_opt {
+            let escaped_pass = crate::du_size::shell_single_quote(&sudo_pass);
+            let formatted_cmd = format!("echo {} | sudo -S -- {}", escaped_pass, cmd);
+            let (exit_code, stdout, stderr) = conn.exec(&formatted_cmd).await?;
+
+            if exit_code != 0 {
+                if stderr.contains("incorrect password attempt") || stderr.contains("złe hasło") {
+                    return Err(AppError::new("SUDO_PASSWORD_INCORRECT"));
+                }
+                return Err(AppError::with_details(
+                    "REMOTE_COMMAND_FAILED",
+                    format!("exit={}\nstderr={}\nstdout={}", exit_code, stderr, stdout),
+                ));
+            }
+            return Ok(stdout);
+        }
+
+        // Try executing without sudo first (forcing English locale for reliable error detection)
+        let test_cmd = format!("export LC_ALL=C; {}", cmd);
+        let (exit_code, stdout, stderr) = conn.exec(&test_cmd).await?;
+        if exit_code == 0 {
+            return Ok(stdout);
+        }
+
+        let is_perm_error = is_permission_denied(&stderr, &stdout);
+        if is_perm_error {
+            // Try passwordless sudo
+            let sudo_test_cmd = format!("export LC_ALL=C; sudo -n -S -- {}", cmd);
+            let (sudo_exit_code, sudo_stdout, sudo_stderr) = conn.exec(&sudo_test_cmd).await?;
+            if sudo_exit_code == 0 {
+                return Ok(sudo_stdout);
+            }
+
+            if is_permission_denied(&sudo_stderr, &sudo_stdout) || sudo_stderr.contains("password") {
+                return Err(AppError::new("SUDO_PASSWORD_REQUIRED"));
+            } else {
+                return Err(AppError::with_details(
+                    "REMOTE_COMMAND_FAILED",
+                    format!(
+                        "exit={}\nstderr={}\nstdout={}",
+                        sudo_exit_code, sudo_stderr, sudo_stdout
+                    ),
+                ));
+            }
+        } else {
             return Err(AppError::with_details(
                 "REMOTE_COMMAND_FAILED",
                 format!("exit={}\nstderr={}\nstdout={}", exit_code, stderr, stdout),
             ));
         }
-        Ok(stdout)
     } else {
         let (exit_code, stdout, stderr) = conn.exec(&cmd).await?;
         if exit_code != 0 {

@@ -23,6 +23,7 @@
 
   let containerEl = $state<HTMLDivElement | null>(null);
   let dropdownEl = $state<HTMLUListElement | null>(null);
+  let inputEl = $state<HTMLInputElement | null>(null);
   let suggestions = $state<FileInfo[]>([]);
   let showDropdown = $state(false);
   let activeIndex = $state(-1);
@@ -106,6 +107,8 @@
     if (onSelect) {
       onSelect(newPath);
     }
+    // Keep focus on the input to allow uninterrupted typing
+    inputEl?.focus();
   }
 
   function handleKeyDown(e: KeyboardEvent) {
@@ -169,6 +172,7 @@
   onfocusout={handleFocusOut}
 >
   <input
+    bind:this={inputEl}
     type="text"
     placeholder={placeholder}
     class={className}
@@ -178,13 +182,19 @@
   />
   
   {#if showDropdown && filteredSuggestions.length > 0}
-    <ul bind:this={dropdownEl} class="autocomplete-dropdown glass" class:mono-val={isMono}>
+    <ul
+      bind:this={dropdownEl}
+      class="autocomplete-dropdown glass"
+      class:mono-val={isMono}
+      tabindex="-1"
+    >
       {#each filteredSuggestions as item, index}
         <!-- svelte-ignore a11y_click_events_have_key_events -->
         <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
         <li
           class="autocomplete-item"
           class:active={index === activeIndex}
+          onmousedown={(e) => e.preventDefault()}
           onclick={() => handleSelect(item)}
         >
           <span class="item-icon">
