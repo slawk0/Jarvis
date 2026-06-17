@@ -782,16 +782,18 @@
 <svelte:window onmouseup={handleMouseBack} onauxclick={handleAuxClick} onpointermove={handleGlobalPointerMove} onpointerup={handleGlobalPointerUp} onclick={() => { paneSelectorOpen = null; }} />
 
 <main class="app-container">
-  <button
-    class="global-back-btn secondary btn-icon-compact"
-    type="button"
-    disabled={!canGoBackGlobal()}
-    onclick={() => performBack()}
-    aria-label={$LL.shell.globalBackAria()}
-  >
-    <ArrowLeft size={16} />
-    <span class="back-tooltip" role="tooltip">{getBackTooltip()}</span>
-  </button>
+  {#if !isConnected && showCreateProfile}
+    <button
+      class="global-back-btn secondary btn-icon-compact"
+      type="button"
+      disabled={!canGoBackGlobal()}
+      onclick={() => performBack()}
+      aria-label={$LL.shell.globalBackAria()}
+    >
+      <ArrowLeft size={16} />
+      <span class="back-tooltip" role="tooltip">{getBackTooltip()}</span>
+    </button>
+  {/if}
 
   {#if isConnected}
     <!-- MAIN APPLICATION WORKSPACE -->
@@ -856,6 +858,18 @@
             title={$LL.shell.layoutGrid()}
           >
             <Grid2x2 size={14} />
+          </button>
+
+          <div class="actions-divider"></div>
+
+          <button
+            class="layout-btn"
+            disabled={!canGoBackGlobal()}
+            onclick={() => performBack()}
+            title={getBackTooltip()}
+            aria-label={$LL.shell.globalBackAria()}
+          >
+            <ArrowLeft size={14} />
           </button>
         </div>
       </div>
@@ -1314,6 +1328,11 @@
     background: var(--bg-active);
     color: var(--accent-amber);
     border-color: rgba(245, 158, 11, 0.2);
+  }
+
+  .layout-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
   }
 
   /* ────────────── Panes Grid ────────────── */

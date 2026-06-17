@@ -359,7 +359,7 @@
             size: parseInt(match[2], 10),
             modified: parseInt(match[3], 10),
             permissions: p,
-            path: null
+            path: undefined
           });
         }
       }
@@ -1015,7 +1015,7 @@
               {#if isRecursiveActive}
                 <td class="mono-val path-cell" title={remotePath}>{parentPath(remotePath)}</td>
               {/if}
-              <td><span class="badge warning">{formatPermissions(file.permissions)}</span></td>
+              <td><span class="badge badge-permission">{formatPermissions(file.permissions)}</span></td>
               <td class="mono-val date-cell">{formatModified(file.modified)}</td>
               <td class="actions-cell" onclick={(e) => e.stopPropagation()}>
                 {#if !file.is_dir}
@@ -1476,7 +1476,7 @@
     gap: 12px;
     background: rgba(0, 0, 0, 0.55);
     backdrop-filter: blur(2px);
-    color: var(--accent-amber);
+    color: var(--accent-primary);
     pointer-events: none;
   }
 
@@ -1522,13 +1522,13 @@
   }
 
   tr.selected {
-    background: rgba(245, 158, 11, 0.08);
+    background: var(--accent-muted) !important;
   }
 
   tr.drop-target {
-    outline: 2px solid var(--accent-amber);
+    outline: 2px solid var(--accent-primary);
     outline-offset: -2px;
-    background: rgba(245, 158, 11, 0.1);
+    background: var(--accent-muted);
   }
 
   .file-name-cell {
@@ -1541,7 +1541,7 @@
   }
 
   .folder-icon {
-    color: var(--accent-amber);
+    color: var(--accent-primary);
   }
 
   .file-icon {

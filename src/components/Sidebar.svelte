@@ -255,25 +255,24 @@
     height: 30px;
     min-width: 30px;
     border-radius: var(--radius-sm);
-    background: linear-gradient(135deg, var(--accent-amber), var(--accent-rust));
-    color: #0c0d12;
+    background: var(--accent-primary);
+    color: var(--text-primary);
     font-weight: 800;
     font-size: 1.1rem;
     font-family: var(--font-display);
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 0 12px rgba(245, 158, 11, 0.25);
+    box-shadow: none;
     flex-shrink: 0;
-    border: none;
+    border: 1px solid var(--border-white);
     cursor: pointer;
     padding: 0;
-    transition: transform 0.1s ease, box-shadow 0.1s ease;
+    transition: transform 0.1s ease;
   }
 
   .logo-circle:hover {
     transform: scale(1.06);
-    box-shadow: 0 0 18px rgba(245, 158, 11, 0.4);
   }
 
   .logo-circle:active {
@@ -421,10 +420,20 @@
   }
 
   .nav-item.active {
-    background: var(--bg-active);
-    color: var(--accent-amber);
-    border: 1px solid rgba(245, 158, 11, 0.2);
+    background: var(--accent-muted);
+    color: var(--text-primary);
+    border-left: 3px solid var(--accent-primary);
+    border-top: none;
+    border-right: none;
+    border-bottom: none;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
     font-weight: 600;
+    padding-left: 11px;
+  }
+
+  .sidebar.collapsed .nav-item.active {
+    padding-left: 7px;
   }
 
   .nav-menu .nav-item {

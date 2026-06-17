@@ -5,34 +5,49 @@
   --font-display: 'Outfit', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
-  /* Color Palette - Telemetry Amber / Obsidian Core */
-  --bg-primary: #07080a;
-  --bg-secondary: #0d0e12;
-  --bg-panel: rgba(13, 14, 18, 0.75);
-  --bg-input: rgba(7, 8, 10, 0.6);
-  --bg-hover: rgba(245, 158, 11, 0.05);
-  --bg-active: rgba(245, 158, 11, 0.09);
+  /* Global Color Palette Config (Design Tokens) */
+  --bg-main: #0D1117;       /* App background */
+  --bg-surface: #161B22;    /* Layer 1 surfaces (Sidebars, main content cards, table headers) */
+  --bg-element: #21262D;    /* Layer 2 surfaces (Inputs, dropdowns, rows) */
 
-  --border-color: rgba(255, 255, 255, 0.05);
-  --border-focus: rgba(245, 158, 11, 0.4);
+  --accent-primary: #1D4ED8; /* Royal Docker Blue (branding & primary action) */
+  --accent-hover: #1E40AF;   /* Slightly darker navy-blue for hover */
+  --accent-muted: rgba(29, 78, 216, 0.15); /* Transparent blue for selections */
 
-  --text-primary: #e2e4e9;
-  --text-secondary: #8c8e96;
-  --text-muted: #575960;
+  --border-subtle: #30363D;  /* Standard low-contrast separation lines */
+  --border-white: rgba(255, 255, 255, 0.4); /* Thin, high-contrast white border */
 
-  /* Industrial/Telemetry Accents */
-  --accent-amber: #f59e0b;
-  --accent-amber-glow: rgba(245, 158, 11, 0.15);
-  --accent-rust: #c2410c;
-  --accent-rust-glow: rgba(194, 65, 12, 0.15);
+  --text-primary: #F0F6FC;   /* Crisp off-white for titles & text */
+  --text-muted: #8B949E;      /* Muted silver-grey for labels */
+
+  /* Legacy variable mappings to purge orange/yellow and keep compatibility */
+  --bg-primary: var(--bg-main);
+  --bg-secondary: var(--bg-surface);
+  --bg-panel: var(--bg-surface);
+  --bg-input: var(--bg-element);
   
+  --bg-hover: rgba(29, 78, 216, 0.08);
+  --bg-active: var(--accent-muted);
+
+  --border-color: var(--border-subtle);
+  --border-focus: var(--accent-primary);
+
+  --text-secondary: var(--text-muted);
+
+  /* Purging all amber, orange, rust and replacing with Royal Blue */
+  --accent-amber: var(--accent-primary);
+  --accent-amber-glow: var(--accent-muted);
+  --accent-rust: var(--accent-hover);
+  --accent-rust-glow: var(--accent-muted);
+  --accent-orange: var(--accent-primary);
+
+  /* System Statuses (Docker/Systemd) - safety signals */
   --accent-green: #10b981;
   --accent-green-glow: rgba(16, 185, 129, 0.15);
   --accent-red: #ef4444;
   --accent-red-glow: rgba(239, 68, 68, 0.15);
-  --accent-orange: #f97316;
 
-  /* Sharper borders for a high-precision, technical UI */
+  /* Precision radii */
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 10px;
@@ -48,7 +63,7 @@
 }
 
 body {
-  background-color: var(--bg-primary);
+  background-color: var(--bg-main);
   color: var(--text-primary);
   font-family: var(--font-sans);
   overflow: hidden;
@@ -56,16 +71,16 @@ body {
   user-select: none;
 }
 
-/* Glassmorphism utility with deeper obsidian values */
+/* Container Border Rule: Sharp flat borders, no blurs or shadows */
 .glass {
-  background: var(--bg-panel);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--border-color);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+  background: var(--bg-surface) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 1px solid var(--border-white) !important;
+  box-shadow: none !important;
 }
 
-/* Custom Telemetry Scrollbars */
+/* Custom Scrollbars */
 ::-webkit-scrollbar {
   width: 4px;
   height: 4px;
@@ -76,12 +91,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(245, 158, 11, 0.1);
+  background: var(--accent-muted);
   border-radius: 2px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(245, 158, 11, 0.3);
+  background: rgba(29, 78, 216, 0.4);
 }
 
 /* Typography */
@@ -89,6 +104,7 @@ h1, h2, h3, h4 {
   font-family: var(--font-display);
   font-weight: 600;
   letter-spacing: -0.01em;
+  color: var(--text-primary);
 }
 
 .mono-stats {
@@ -98,23 +114,23 @@ h1, h2, h3, h4 {
 /* Inputs and Buttons */
 input, select, textarea {
   font-family: var(--font-sans);
-  background-color: var(--bg-input);
-  border: 1px solid var(--border-color);
+  background-color: var(--bg-element) !important;
+  border: 1px solid var(--border-white) !important;
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   padding: 10px 14px;
   outline: none;
   font-size: 0.9rem;
-  transition: var(--transition-fast);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 input:focus, select:focus, textarea:focus {
-  border-color: var(--accent-amber);
-  box-shadow: 0 0 0 2px var(--accent-amber-glow);
+  border-color: var(--accent-primary) !important;
+  box-shadow: 0 0 0 2px var(--accent-muted) !important;
 }
 
 select option {
-  background-color: #0d0e12;
+  background-color: var(--bg-element);
   color: var(--text-primary);
 }
 
@@ -134,38 +150,42 @@ button {
 }
 
 button.primary {
-  background: linear-gradient(135deg, var(--accent-amber), var(--accent-rust));
-  color: #0c0d12;
-  font-weight: 600;
+  background: var(--accent-primary) !important;
+  color: var(--text-primary) !important;
+  font-weight: 700;
+  border-radius: 1px !important;
+  border: 1px solid var(--border-white) !important;
 }
 
 button.primary:hover {
-  filter: brightness(1.1);
-  box-shadow: 0 0 15px rgba(245, 158, 11, 0.25);
+  background: var(--accent-hover) !important;
+  border-color: var(--border-white) !important;
+  box-shadow: none !important;
+  filter: none !important;
 }
 
 button.secondary {
-  background: transparent;
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
+  background: transparent !important;
+  border: 1px solid var(--border-white) !important;
+  color: var(--text-primary) !important;
 }
 
 button.secondary:hover {
-  background: var(--bg-hover);
-  border-color: rgba(245, 158, 11, 0.2);
+  background: var(--bg-hover) !important;
+  border-color: var(--border-white) !important;
 }
 
 button.danger {
-  background: var(--accent-red-glow);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #fff;
+  background: var(--accent-red-glow) !important;
+  border: 1px solid rgba(239, 68, 68, 0.3) !important;
+  color: #fff !important;
 }
 
 button.danger:hover {
-  background: var(--accent-red);
-  color: #000;
+  background: var(--accent-red) !important;
+  color: var(--text-primary) !important;
   font-weight: 600;
-  box-shadow: 0 0 15px var(--accent-red-glow);
+  box-shadow: none !important;
 }
 
 button:disabled {
@@ -175,12 +195,53 @@ button:disabled {
   box-shadow: none !important;
 }
 
+/* Global Table Overrides - enforces theme consistency */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+th {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  color: var(--text-primary) !important;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  background-color: var(--bg-surface) !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+}
+
+tbody tr {
+  transition: background var(--transition-fast) !important;
+}
+
+tbody tr:nth-child(even) {
+  background-color: var(--bg-surface) !important;
+}
+
+tbody tr:nth-child(odd) {
+  background-color: var(--bg-main) !important;
+}
+
+tbody tr:hover {
+  background-color: var(--accent-muted) !important;
+}
+
+tbody tr.selected {
+  background-color: var(--accent-muted) !important;
+}
+
+td {
+  border-bottom: 1px solid var(--border-subtle) !important;
+}
+
 /* Common Layouts */
 .app-container {
   display: flex;
   height: 100vh;
   width: 100vw;
-  background-color: var(--bg-primary);
+  background-color: var(--bg-main);
 }
 
 .main-content {
@@ -189,7 +250,7 @@ button:disabled {
   flex-direction: column;
   overflow: hidden;
   position: relative;
-  background: var(--bg-secondary);
+  background: var(--bg-main);
 }
 
 /* Animations */
@@ -202,6 +263,7 @@ button:disabled {
   animation: fadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
+/* Badges */
 .badge {
   padding: 3px 8px;
   font-size: 0.7rem;
@@ -210,29 +272,39 @@ button:disabled {
   border-radius: 2px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  display: inline-block;
 }
 
 .badge.success {
-  background-color: rgba(16, 185, 129, 0.1);
-  color: var(--accent-green);
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  background-color: rgba(16, 185, 129, 0.1) !important;
+  color: var(--accent-green) !important;
+  border: 1px solid rgba(16, 185, 129, 0.25) !important;
 }
 
 .badge.warning {
-  background-color: rgba(245, 158, 11, 0.1);
-  color: var(--accent-amber);
-  border: 1px solid rgba(245, 158, 11, 0.25);
+  background-color: var(--accent-muted) !important;
+  color: var(--accent-primary) !important;
+  border: 1px solid var(--border-white) !important;
 }
 
 .badge.danger {
-  background-color: rgba(239, 68, 68, 0.1);
-  color: var(--accent-red);
-  border: 1px solid rgba(239, 68, 68, 0.25);
+  background-color: rgba(239, 68, 68, 0.1) !important;
+  color: var(--accent-red) !important;
+  border: 1px solid rgba(239, 68, 68, 0.25) !important;
+}
+
+/* Permission Badges (e.g. 775, 755) */
+.badge.badge-permission {
+  background-color: var(--bg-element) !important;
+  border: 1px solid var(--border-white) !important;
+  color: var(--accent-primary) !important;
+  font-family: var(--font-mono) !important;
+  font-weight: 600 !important;
 }
 
 /* Text Colors */
-.accent-amber-text { color: var(--accent-amber); }
-.accent-rust-text { color: var(--accent-rust); }
+.accent-amber-text { color: var(--accent-primary); }
+.accent-rust-text { color: var(--accent-hover); }
 .accent-green-text { color: var(--accent-green); }
 .accent-red-text { color: var(--accent-red); }
 
@@ -241,7 +313,7 @@ button:disabled {
   font-family: var(--font-mono);
 }
 
-/* Compact manager layout — maximize content area */
+/* Compact manager layout */
 .manager-shell {
   padding: 12px 16px;
   display: flex;
@@ -291,7 +363,7 @@ button:disabled {
   width: 1px;
   align-self: stretch;
   min-height: 24px;
-  background: var(--border-color);
+  background: var(--border-subtle);
   flex-shrink: 0;
   margin: 0 2px;
 }
