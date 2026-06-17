@@ -1303,6 +1303,7 @@ const en = {
 		loadingResources: 'Loading resources…',
 		loadingAudit: 'Loading audit logs…',
 		emptyAudit: 'No log entries match the filters.',
+		resetFilters: 'Reset filters',
 		totalLogs: 'Total: {count} logs',
 		pageOffset: 'Offset: {start} - {end}',
 		auditDetailTitle: 'Audit request details',

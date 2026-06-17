@@ -48,6 +48,9 @@ pub struct SshCreds {
 pub struct AppState {
     pub connection: Arc<Mutex<Option<SshConnection>>>,
     pub sudo_password: Arc<Mutex<Option<String>>>,
+    pub sudo_password_set_at: Arc<Mutex<Option<std::time::Instant>>>,
+    pub sudo_fail_count: Arc<Mutex<u32>>,
+    pub sudo_locked_until: Arc<Mutex<Option<std::time::Instant>>>,
     pub ssh_creds: Arc<Mutex<Option<SshCreds>>>,
     pub terminal_txs: Arc<Mutex<HashMap<String, mpsc::Sender<String>>>>,
     pub terminal_cancels: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<()>>>>,
@@ -75,6 +78,57 @@ fn stop_terminal_session(state: &AppState, session_id: &str) {
 
 fn no_ssh_connection() -> AppError {
     AppError::new("NO_SSH_CONNECTION")
+}
+
+const SUDO_TIMEOUT_SECS: u64 = 900; // 15 minutes
+const SUDO_MAX_FAILURES: u32 = 5;
+const SUDO_LOCKOUT_SECS: u64 = 60;
+
+fn get_sudo_password(state: &AppState) -> Result<String, AppError> {
+    // Check lockout
+    {
+        let locked = state.sudo_locked_until.lock();
+        if let Some(until) = *locked {
+            if std::time::Instant::now() < until {
+                return Err(AppError::new("SUDO_RATE_LIMITED"));
+            }
+        }
+    }
+    // Check timeout
+    let set_at = state.sudo_password_set_at.lock();
+    if let Some(t) = *set_at {
+        if t.elapsed().as_secs() > SUDO_TIMEOUT_SECS {
+            drop(set_at);
+            *state.sudo_password.lock() = None;
+            *state.sudo_password_set_at.lock() = None;
+            return Err(AppError::new("SUDO_PASSWORD_EXPIRED"));
+        }
+    }
+    drop(set_at);
+
+    let guard = state.sudo_password.lock();
+    guard.as_ref()
+        .ok_or_else(|| AppError::new("SUDO_PASSWORD_REQUIRED"))
+        .map(|s| s.clone())
+}
+
+fn atomic_write(path: &std::path::Path, content: &str) -> Result<(), AppError> {
+    let tmp_path = path.with_extension("tmp");
+    fs::write(&tmp_path, content)
+        .map_err(|e| AppError::with_details("FILE_WRITE_FAILED", e.to_string()))?;
+    fs::rename(&tmp_path, path)
+        .map_err(|e| AppError::with_details("FILE_RENAME_FAILED", e.to_string()))?;
+    Ok(())
+}
+
+fn get_known_hosts_path(app_handle: &AppHandle) -> Option<PathBuf> {
+    if let Ok(mut path) = app_handle.path().app_config_dir() {
+        let _ = fs::create_dir_all(&path);
+        path.push("known_hosts");
+        Some(path)
+    } else {
+        None
+    }
 }
 
 fn get_profiles_path(app_handle: &AppHandle) -> Result<PathBuf, AppError> {
@@ -137,8 +191,7 @@ fn save_profile(
 
     let content = serde_json::to_string_pretty(&profiles)
         .map_err(|e| AppError::with_details("JSON_SERIALIZE_FAILED", e.to_string()))?;
-    fs::write(path, content)
-        .map_err(|e| AppError::with_details("PROFILES_WRITE_FAILED", e.to_string()))?;
+    atomic_write(&path, &content)?;
 
     Ok(())
 }
@@ -160,8 +213,7 @@ fn delete_profile(app_handle: AppHandle, id: String) -> Result<(), AppError> {
 
     let content = serde_json::to_string_pretty(&profiles)
         .map_err(|e| AppError::with_details("JSON_SERIALIZE_FAILED", e.to_string()))?;
-    fs::write(path, content)
-        .map_err(|e| AppError::with_details("PROFILES_WRITE_FAILED", e.to_string()))?;
+    atomic_write(&path, &content)?;
 
     Ok(())
 }
@@ -201,6 +253,7 @@ async fn connect_ssh(
         None
     };
 
+    let known_hosts = get_known_hosts_path(&app_handle);
     let conn = SshConnection::connect(
         &profile.host,
         profile.port,
@@ -208,6 +261,7 @@ async fn connect_ssh(
         password.as_deref(),
         private_key_path,
         passphrase.as_deref(),
+        known_hosts.as_deref(),
     )
     .await?;
 
@@ -279,15 +333,10 @@ async fn exec_custom_command(
     };
 
     if use_sudo {
-        let sudo_pass = {
-            let sudo_pass_guard = state.sudo_password.lock();
-            sudo_pass_guard
-                .as_ref()
-                .ok_or_else(|| AppError::new("SUDO_PASSWORD_REQUIRED"))?
-                .clone()
-        };
+        let sudo_pass = get_sudo_password(&state)?;
+        let escaped_pass = crate::du_size::shell_single_quote(&sudo_pass);
 
-        let formatted_cmd = format!("echo '{}' | sudo -S -- {}", sudo_pass, cmd);
+        let formatted_cmd = format!("echo {} | sudo -S -- {}", escaped_pass, cmd);
         let (exit_code, stdout, stderr) = conn.exec(&formatted_cmd).await?;
 
         if exit_code != 0 {
@@ -314,21 +363,46 @@ async fn exec_custom_command(
 
 #[tauri::command]
 async fn set_sudo_password(state: State<'_, AppState>, password: String) -> Result<(), AppError> {
+    // Check lockout
+    {
+        let locked = state.sudo_locked_until.lock();
+        if let Some(until) = *locked {
+            if std::time::Instant::now() < until {
+                return Err(AppError::new("SUDO_RATE_LIMITED"));
+            }
+        }
+    }
+
     let conn = {
         let conn_guard = state.connection.lock();
         conn_guard.as_ref().ok_or_else(no_ssh_connection)?.clone()
     };
 
-    let test_cmd = format!("echo '{}' | sudo -S id", password);
+    let escaped_pass = crate::du_size::shell_single_quote(&password);
+    let test_cmd = format!("echo {} | sudo -S id", escaped_pass);
     let (exit_code, _stdout, stderr) = conn.exec(&test_cmd).await?;
 
     if exit_code != 0 {
+        // Track failure for rate limiting
+        let mut fail_count = state.sudo_fail_count.lock();
+        *fail_count += 1;
+        if *fail_count >= SUDO_MAX_FAILURES {
+            *state.sudo_locked_until.lock() = Some(
+                std::time::Instant::now() + std::time::Duration::from_secs(SUDO_LOCKOUT_SECS)
+            );
+            *fail_count = 0;
+        }
+
         if stderr.contains("incorrect password attempt") || stderr.contains("złe hasło") {
             return Err(AppError::new("SUDO_PASSWORD_INCORRECT"));
         }
         return Err(AppError::with_details("SUDO_VERIFICATION_FAILED", stderr));
     }
 
+    // Success - reset counters and set timestamp
+    *state.sudo_fail_count.lock() = 0;
+    *state.sudo_locked_until.lock() = None;
+    *state.sudo_password_set_at.lock() = Some(std::time::Instant::now());
     *state.sudo_password.lock() = Some(password);
     Ok(())
 }
@@ -459,13 +533,7 @@ async fn start_terminal(
     let use_sudo = use_sudo.unwrap_or(false);
     let shell = shell.unwrap_or_else(|| "/bin/sh".to_string());
     let sudo_pass = if container_id.is_some() && use_sudo {
-        let sudo_pass_guard = state.sudo_password.lock();
-        Some(
-            sudo_pass_guard
-                .as_ref()
-                .ok_or_else(|| AppError::new("SUDO_PASSWORD_REQUIRED"))?
-                .clone(),
-        )
+        Some(get_sudo_password(&state)?)
     } else {
         None
     };
@@ -502,6 +570,7 @@ async fn start_terminal(
                 creds.password.as_deref(),
                 private_key_path,
                 creds.passphrase.as_deref(),
+                None,
             )
             .await?;
 
@@ -524,7 +593,8 @@ async fn start_terminal(
                     );
                     let cmd = if use_sudo {
                         if let Some(ref pass) = sudo_pass {
-                            format!("echo '{}' | sudo -S -- {}", pass, docker_cmd)
+                            let escaped_pass = crate::du_size::shell_single_quote(pass);
+                            format!("echo {} | sudo -S -- {}", escaped_pass, docker_cmd)
                         } else {
                             docker_cmd
                         }
@@ -656,6 +726,10 @@ fn open_external_terminal(
         .find(|p| p.id == profile_id)
         .ok_or_else(|| AppError::new("PROFILE_NOT_FOUND"))?;
 
+    // Validate host and username (TASK 4)
+    validate_hostname(&profile.host)?;
+    validate_username(&profile.username)?;
+
     let use_sudo = use_sudo.unwrap_or(false);
     let shell = shell.unwrap_or_else(|| "/bin/sh".to_string());
 
@@ -669,11 +743,9 @@ fn open_external_terminal(
         );
 
         if use_sudo {
-            let sudo_pass = state.sudo_password.lock();
-            let pass = sudo_pass
-                .as_ref()
-                .ok_or_else(|| AppError::new("SUDO_PASSWORD_REQUIRED"))?;
-            format!("echo '{}' | sudo -S -- {}", pass, docker_cmd)
+            let sudo_pass = get_sudo_password(&state)?;
+            let escaped_pass = crate::du_size::shell_single_quote(&sudo_pass);
+            format!("echo {} | sudo -S -- {}", escaped_pass, docker_cmd)
         } else {
             docker_cmd
         }
@@ -933,6 +1005,8 @@ async fn start_container_logs(
     tail: Option<u32>,
     use_sudo: bool,
 ) -> Result<(), AppError> {
+    validate_container_id(&container_id)?;
+
     {
         let mut cancel_guard = state.docker_log_cancel.lock();
         if let Some(tx) = cancel_guard.take() {
@@ -944,8 +1018,7 @@ async fn start_container_logs(
     let creds = creds_guard.as_ref().ok_or_else(no_ssh_connection)?.clone();
 
     let sudo_pass = if use_sudo {
-        let sudo_pass_guard = state.sudo_password.lock();
-        sudo_pass_guard.clone()
+        Some(get_sudo_password(&state)?)
     } else {
         None
     };
@@ -966,6 +1039,7 @@ async fn start_container_logs(
                 creds.password.as_deref(),
                 private_key_path,
                 creds.passphrase.as_deref(),
+                None,
             )
             .await?;
 
@@ -977,9 +1051,10 @@ async fn start_container_logs(
 
             let cmd = if use_sudo {
                 if let Some(ref pass) = sudo_pass {
+                    let escaped_pass = crate::du_size::shell_single_quote(pass);
                     format!(
-                        "echo '{}' | sudo -S docker logs -f --tail {} {}",
-                        pass, tail_num, container_id
+                        "echo {} | sudo -S docker logs -f --tail {} {}",
+                        escaped_pass, tail_num, container_id
                     )
                 } else {
                     format!("docker logs -f --tail {} {}", tail_num, container_id)
@@ -1050,6 +1125,8 @@ async fn start_compose_pull(
     config_file: String,
     use_sudo: bool,
 ) -> Result<(), AppError> {
+    validate_config_file(&config_file)?;
+
     {
         let mut cancel_guard = state.docker_compose_cancel.lock();
         if let Some(tx) = cancel_guard.take() {
@@ -1061,8 +1138,7 @@ async fn start_compose_pull(
     let creds = creds_guard.as_ref().ok_or_else(no_ssh_connection)?.clone();
 
     let sudo_pass = if use_sudo {
-        let sudo_pass_guard = state.sudo_password.lock();
-        sudo_pass_guard.clone()
+        Some(get_sudo_password(&state)?)
     } else {
         None
     };
@@ -1082,6 +1158,7 @@ async fn start_compose_pull(
                 creds.password.as_deref(),
                 private_key_path,
                 creds.passphrase.as_deref(),
+                None,
             )
             .await?;
 
@@ -1091,17 +1168,19 @@ async fn start_compose_pull(
                 .await
                 .map_err(|e| AppError::with_details("SSH_CHANNEL_OPEN_FAILED", e.to_string()))?;
 
+            let escaped_config = crate::du_size::shell_single_quote(&config_file);
             let cmd = if use_sudo {
                 if let Some(ref pass) = sudo_pass {
+                    let escaped_pass = crate::du_size::shell_single_quote(pass);
                     format!(
-                        "echo '{}' | sudo -S docker compose -f {} pull",
-                        pass, config_file
+                        "echo {} | sudo -S docker compose -f {} pull",
+                        escaped_pass, escaped_config
                     )
                 } else {
-                    format!("docker compose -f {} pull", config_file)
+                    format!("docker compose -f {} pull", escaped_config)
                 }
             } else {
-                format!("docker compose -f {} pull", config_file)
+                format!("docker compose -f {} pull", escaped_config)
             };
 
             channel
@@ -1159,6 +1238,370 @@ async fn stop_compose_pull(state: State<'_, AppState>) -> Result<(), AppError> {
     Ok(())
 }
 
+fn validate_config_file(path: &str) -> Result<(), AppError> {
+    if path.is_empty() || path.len() > 512 {
+        return Err(AppError::new("INVALID_CONFIG_FILE"));
+    }
+    if !path.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '/' | '~')) {
+        return Err(AppError::new("INVALID_CONFIG_FILE"));
+    }
+    Ok(())
+}
+
+fn validate_hostname(host: &str) -> Result<(), AppError> {
+    if host.is_empty() || host.len() > 255 {
+        return Err(AppError::new("INVALID_HOSTNAME"));
+    }
+    if !host.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '.' | ':' | '[' | ']')) {
+        return Err(AppError::new("INVALID_HOSTNAME"));
+    }
+    Ok(())
+}
+
+fn validate_username(user: &str) -> Result<(), AppError> {
+    if user.is_empty() || user.len() > 64 {
+        return Err(AppError::new("INVALID_USERNAME"));
+    }
+    if !user.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.')) {
+        return Err(AppError::new("INVALID_USERNAME"));
+    }
+    Ok(())
+}
+
+fn validate_linux_username(name: &str) -> Result<(), AppError> {
+    if name.is_empty() || name.len() > 32 {
+        return Err(AppError::new("INVALID_USERNAME"));
+    }
+    let first = name.chars().next().unwrap();
+    if !first.is_ascii_alphabetic() && first != '_' {
+        return Err(AppError::new("INVALID_USERNAME"));
+    }
+    if !name.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.')) {
+        return Err(AppError::new("INVALID_USERNAME"));
+    }
+    Ok(())
+}
+
+fn validate_group_name(name: &str) -> Result<(), AppError> {
+    validate_linux_username(name).map_err(|_| AppError::new("INVALID_GROUP_NAME"))
+}
+
+fn validate_port(port: &str) -> Result<(), AppError> {
+    if port.is_empty() || port.len() > 11 {
+        return Err(AppError::new("INVALID_PORT"));
+    }
+    if !port.chars().all(|c| c.is_ascii_digit() || matches!(c, ':' | '/' | ',')) {
+        return Err(AppError::new("INVALID_PORT"));
+    }
+    Ok(())
+}
+
+fn validate_ip_or_cidr(addr: &str) -> Result<(), AppError> {
+    if addr.is_empty() || addr.len() > 45 {
+        return Err(AppError::new("INVALID_ADDRESS"));
+    }
+    if !addr.chars().all(|c| c.is_ascii_digit() || matches!(c, '.' | ':' | '/' | 'a'..='f' | 'A'..='F')) {
+        return Err(AppError::new("INVALID_ADDRESS"));
+    }
+    Ok(())
+}
+
+fn validate_service_name(name: &str) -> Result<(), AppError> {
+    if name.is_empty() || name.len() > 256 {
+        return Err(AppError::new("INVALID_SERVICE_NAME"));
+    }
+    if !name.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '@')) {
+        return Err(AppError::new("INVALID_SERVICE_NAME"));
+    }
+    Ok(())
+}
+
+fn validate_tty(tty: &str) -> Result<(), AppError> {
+    if tty.is_empty() || tty.len() > 32 {
+        return Err(AppError::new("INVALID_TTY"));
+    }
+    if !tty.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '/' | '.')) {
+        return Err(AppError::new("INVALID_TTY"));
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn secure_create_user(
+    state: State<'_, AppState>,
+    username: String,
+    shell: String,
+    home_dir: Option<String>,
+) -> Result<String, AppError> {
+    validate_linux_username(&username)?;
+    validate_shell(&shell)?;
+    if let Some(ref h) = home_dir {
+        if h.contains('"') || h.contains('\'') || h.contains(';') || h.contains('|') || h.contains('&') {
+            return Err(AppError::new("INVALID_HOME_DIR"));
+        }
+    }
+    let conn = {
+        let g = state.connection.lock();
+        g.as_ref().ok_or_else(no_ssh_connection)?.clone()
+    };
+    let sudo_pass = get_sudo_password(&state)?;
+    let escaped_pass = crate::du_size::shell_single_quote(&sudo_pass);
+    let home_arg = if let Some(ref h) = home_dir {
+        format!("-d '{}'", h.replace('\'', "'\\''"))
+    } else {
+        "-m".to_string()
+    };
+    let cmd = format!(
+        "echo {} | sudo -S useradd {} -s '{}' '{}'",
+        escaped_pass, home_arg, shell, username
+    );
+    let (exit_code, stdout, stderr) = conn.exec(&cmd).await?;
+    if exit_code != 0 {
+        return Err(AppError::with_details("USER_CREATE_FAILED", stderr));
+    }
+    Ok(stdout)
+}
+
+#[tauri::command]
+async fn secure_delete_user(
+    state: State<'_, AppState>,
+    username: String,
+) -> Result<String, AppError> {
+    validate_linux_username(&username)?;
+    let conn = {
+        let g = state.connection.lock();
+        g.as_ref().ok_or_else(no_ssh_connection)?.clone()
+    };
+    let sudo_pass = get_sudo_password(&state)?;
+    let escaped_pass = crate::du_size::shell_single_quote(&sudo_pass);
+    let cmd = format!("echo {} | sudo -S userdel -r '{}'", escaped_pass, username);
+    let (exit_code, stdout, stderr) = conn.exec(&cmd).await?;
+    if exit_code != 0 {
+        return Err(AppError::with_details("USER_DELETE_FAILED", stderr));
+    }
+    Ok(stdout)
+}
+
+#[tauri::command]
+async fn secure_change_password(
+    state: State<'_, AppState>,
+    username: String,
+    password: String,
+) -> Result<(), AppError> {
+    validate_linux_username(&username)?;
+    let conn = {
+        let g = state.connection.lock();
+        g.as_ref().ok_or_else(no_ssh_connection)?.clone()
+    };
+    let sudo_pass = get_sudo_password(&state)?;
+    let escaped_pass = crate::du_size::shell_single_quote(&sudo_pass);
+    let escaped_new_pass = password.replace('\'', "'\\''");
+    let cmd = format!(
+        "echo {} | sudo -S chpasswd <<< '{}:{}'",
+        escaped_pass, username, escaped_new_pass
+    );
+    let (exit_code, _stdout, stderr) = conn.exec(&cmd).await?;
+    if exit_code != 0 {
+        return Err(AppError::with_details("PASSWORD_CHANGE_FAILED", stderr));
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn secure_create_group(
+    state: State<'_, AppState>,
+    group_name: String,
+) -> Result<String, AppError> {
+    validate_group_name(&group_name)?;
+    let conn = {
+        let g = state.connection.lock();
+        g.as_ref().ok_or_else(no_ssh_connection)?.clone()
+    };
+    let sudo_pass = get_sudo_password(&state)?;
+    let escaped_pass = crate::du_size::shell_single_quote(&sudo_pass);
+    let cmd = format!("echo {} | sudo -S groupadd '{}'", escaped_pass, group_name);
+    let (exit_code, stdout, stderr) = conn.exec(&cmd).await?;
+    if exit_code != 0 {
+        return Err(AppError::with_details("GROUP_CREATE_FAILED", stderr));
+    }
+    Ok(stdout)
+}
+
+#[tauri::command]
+async fn secure_delete_group(
+    state: State<'_, AppState>,
+    group_name: String,
+) -> Result<String, AppError> {
+    validate_group_name(&group_name)?;
+    let conn = {
+        let g = state.connection.lock();
+        g.as_ref().ok_or_else(no_ssh_connection)?.clone()
+    };
+    let sudo_pass = get_sudo_password(&state)?;
+    let escaped_pass = crate::du_size::shell_single_quote(&sudo_pass);
+    let cmd = format!("echo {} | sudo -S groupdel '{}'", escaped_pass, group_name);
+    let (exit_code, stdout, stderr) = conn.exec(&cmd).await?;
+    if exit_code != 0 {
+        return Err(AppError::with_details("GROUP_DELETE_FAILED", stderr));
+    }
+    Ok(stdout)
+}
+
+#[tauri::command]
+async fn secure_modify_user_groups(
+    state: State<'_, AppState>,
+    username: String,
+    groups: Vec<String>,
+) -> Result<String, AppError> {
+    validate_linux_username(&username)?;
+    for g in &groups {
+        validate_group_name(g)?;
+    }
+    let conn = {
+        let g = state.connection.lock();
+        g.as_ref().ok_or_else(no_ssh_connection)?.clone()
+    };
+    let sudo_pass = get_sudo_password(&state)?;
+    let escaped_pass = crate::du_size::shell_single_quote(&sudo_pass);
+    let group_list = groups.join(",");
+    let cmd = format!("echo {} | sudo -S usermod -G '{}' '{}'", escaped_pass, group_list, username);
+    let (exit_code, stdout, stderr) = conn.exec(&cmd).await?;
+    if exit_code != 0 {
+        return Err(AppError::with_details("USER_GROUPS_MODIFY_FAILED", stderr));
+    }
+    Ok(stdout)
+}
+
+#[tauri::command]
+async fn secure_ufw_rule(
+    state: State<'_, AppState>,
+    action: String,
+    port: String,
+    proto: Option<String>,
+    source: Option<String>,
+) -> Result<String, AppError> {
+    if !matches!(action.as_str(), "allow" | "deny" | "reject" | "delete") {
+        return Err(AppError::new("INVALID_UFW_ACTION"));
+    }
+    validate_port(&port)?;
+    if let Some(ref p) = proto {
+        if !matches!(p.as_str(), "tcp" | "udp" | "any") {
+            return Err(AppError::new("INVALID_PROTOCOL"));
+        }
+    }
+    if let Some(ref s) = source {
+        if s != "Anywhere" && !s.is_empty() {
+            validate_ip_or_cidr(s)?;
+        }
+    }
+    let conn = {
+        let g = state.connection.lock();
+        g.as_ref().ok_or_else(no_ssh_connection)?.clone()
+    };
+    let sudo_pass = get_sudo_password(&state)?;
+    let escaped_pass = crate::du_size::shell_single_quote(&sudo_pass);
+    let mut cmd = format!("echo {} | sudo -S ufw {}", escaped_pass, action);
+    if let Some(ref p) = proto {
+        if p != "any" {
+            cmd += &format!(" proto {}", p);
+        }
+    }
+    if let Some(ref s) = source {
+        if s != "Anywhere" && !s.is_empty() {
+            cmd += &format!(" from {}", s);
+        }
+    }
+    cmd += &format!(" to any port {}", port);
+    let (exit_code, stdout, stderr) = conn.exec(&cmd).await?;
+    if exit_code != 0 {
+        return Err(AppError::with_details("UFW_RULE_FAILED", stderr));
+    }
+    Ok(stdout)
+}
+
+#[tauri::command]
+async fn secure_ufw_toggle(
+    state: State<'_, AppState>,
+    enable: bool,
+) -> Result<String, AppError> {
+    let conn = {
+        let g = state.connection.lock();
+        g.as_ref().ok_or_else(no_ssh_connection)?.clone()
+    };
+    let sudo_pass = get_sudo_password(&state)?;
+    let escaped_pass = crate::du_size::shell_single_quote(&sudo_pass);
+    let action = if enable { "ufw --force enable" } else { "ufw disable" };
+    let cmd = format!("echo {} | sudo -S {}", escaped_pass, action);
+    let (exit_code, stdout, stderr) = conn.exec(&cmd).await?;
+    if exit_code != 0 {
+        return Err(AppError::with_details("UFW_TOGGLE_FAILED", stderr));
+    }
+    Ok(stdout)
+}
+
+#[tauri::command]
+async fn secure_ufw_delete_rule(
+    state: State<'_, AppState>,
+    rule_num: u32,
+) -> Result<String, AppError> {
+    let conn = {
+        let g = state.connection.lock();
+        g.as_ref().ok_or_else(no_ssh_connection)?.clone()
+    };
+    let sudo_pass = get_sudo_password(&state)?;
+    let escaped_pass = crate::du_size::shell_single_quote(&sudo_pass);
+    let cmd = format!("echo {} | sudo -S ufw --force delete {}", escaped_pass, rule_num);
+    let (exit_code, stdout, stderr) = conn.exec(&cmd).await?;
+    if exit_code != 0 {
+        return Err(AppError::with_details("UFW_DELETE_FAILED", stderr));
+    }
+    Ok(stdout)
+}
+
+#[tauri::command]
+async fn secure_systemctl(
+    state: State<'_, AppState>,
+    action: String,
+    service: String,
+) -> Result<String, AppError> {
+    if !matches!(action.as_str(), "start" | "stop" | "restart" | "enable" | "disable" | "reload" | "status") {
+        return Err(AppError::new("INVALID_SYSTEMCTL_ACTION"));
+    }
+    validate_service_name(&service)?;
+    let conn = {
+        let g = state.connection.lock();
+        g.as_ref().ok_or_else(no_ssh_connection)?.clone()
+    };
+    let sudo_pass = get_sudo_password(&state)?;
+    let escaped_pass = crate::du_size::shell_single_quote(&sudo_pass);
+    let cmd = format!("echo {} | sudo -S systemctl {} '{}.service'", escaped_pass, action, service);
+    let (exit_code, stdout, stderr) = conn.exec(&cmd).await?;
+    if exit_code != 0 {
+        return Err(AppError::with_details("SYSTEMCTL_FAILED", format!("{}{}", stderr, stdout)));
+    }
+    Ok(stdout)
+}
+
+#[tauri::command]
+async fn secure_kill_session(
+    state: State<'_, AppState>,
+    tty: String,
+) -> Result<String, AppError> {
+    validate_tty(&tty)?;
+    let conn = {
+        let g = state.connection.lock();
+        g.as_ref().ok_or_else(no_ssh_connection)?.clone()
+    };
+    let sudo_pass = get_sudo_password(&state)?;
+    let escaped_pass = crate::du_size::shell_single_quote(&sudo_pass);
+    let cmd = format!("echo {} | sudo -S pkill -9 -t '{}'", escaped_pass, tty);
+    let (exit_code, stdout, stderr) = conn.exec(&cmd).await?;
+    if exit_code != 0 {
+        return Err(AppError::with_details("KILL_SESSION_FAILED", stderr));
+    }
+    Ok(stdout)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -1167,6 +1610,9 @@ pub fn run() {
         .manage(AppState {
             connection: Arc::new(Mutex::new(None)),
             sudo_password: Arc::new(Mutex::new(None)),
+            sudo_password_set_at: Arc::new(Mutex::new(None)),
+            sudo_fail_count: Arc::new(Mutex::new(0)),
+            sudo_locked_until: Arc::new(Mutex::new(None)),
             ssh_creds: Arc::new(Mutex::new(None)),
             terminal_txs: Arc::new(Mutex::new(HashMap::new())),
             terminal_cancels: Arc::new(Mutex::new(HashMap::new())),
@@ -1216,7 +1662,18 @@ pub fn run() {
             pangolin::save_pangolin_config,
             pangolin::pangolin_api_request,
             profile_extras::get_profile_extras,
-            profile_extras::save_profile_extras
+            profile_extras::save_profile_extras,
+            secure_create_user,
+            secure_delete_user,
+            secure_change_password,
+            secure_create_group,
+            secure_delete_group,
+            secure_modify_user_groups,
+            secure_ufw_rule,
+            secure_ufw_toggle,
+            secure_ufw_delete_rule,
+            secure_systemctl,
+            secure_kill_session
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

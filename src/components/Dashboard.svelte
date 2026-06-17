@@ -100,7 +100,7 @@
         ...proxyStats,
         configured: false,
         loading: false,
-        error: err.toString()
+        error: formatInvokeError(err)
       };
     }
   }

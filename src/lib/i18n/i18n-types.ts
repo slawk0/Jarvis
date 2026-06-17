@@ -5224,6 +5224,10 @@ type RootTranslation = {
 		 */
 		emptyAudit: string
 		/**
+		 * R​e​s​e​t​ ​f​i​l​t​e​r​s
+		 */
+		resetFilters: string
+		/**
 		 * T​o​t​a​l​:​ ​{​c​o​u​n​t​}​ ​l​o​g​s
 		 * @param {unknown} count
 		 */
@@ -12104,6 +12108,10 @@ export type TranslationFunctions = {
 		 * No log entries match the filters.
 		 */
 		emptyAudit: () => LocalizedString
+		/**
+		 * Reset filters
+		 */
+		resetFilters: () => LocalizedString
 		/**
 		 * Total: {count} logs
 		 */

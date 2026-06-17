@@ -41,6 +41,7 @@ pub struct BackupTemplate {
     pub docker_container: Option<String>,
     pub db_name: Option<String>,
     pub db_user: Option<String>,
+    #[serde(skip)]
     pub db_password: Option<String>,
 }
 
@@ -93,8 +94,11 @@ fn save_all(
     let path = extras_path(app_handle)?;
     let content = serde_json::to_string_pretty(data)
         .map_err(|e| AppError::with_details("JSON_SERIALIZE_FAILED", e.to_string()))?;
-    fs::write(path, content)
-        .map_err(|e| AppError::with_details("PROFILE_EXTRAS_WRITE_FAILED", e.to_string()))
+    let tmp_path = path.with_extension("tmp");
+    fs::write(&tmp_path, &content)
+        .map_err(|e| AppError::with_details("PROFILE_EXTRAS_WRITE_FAILED", e.to_string()))?;
+    fs::rename(&tmp_path, &path)
+        .map_err(|e| AppError::with_details("PROFILE_EXTRAS_RENAME_FAILED", e.to_string()))
 }
 
 #[tauri::command]
@@ -103,7 +107,17 @@ pub fn get_profile_extras(
     profile_id: String,
 ) -> Result<ProfileExtras, AppError> {
     let all = load_all(&app_handle)?;
-    Ok(all.get(&profile_id).cloned().unwrap_or_default())
+    let mut extras = all.get(&profile_id).cloned().unwrap_or_default();
+
+    // Load db_password from keyring for each backup template
+    let keyring_service = "JarvisBackupDB";
+    for tpl in &mut extras.backup_templates {
+        if let Ok(entry) = keyring::Entry::new(keyring_service, &tpl.id) {
+            tpl.db_password = entry.get_password().ok();
+        }
+    }
+
+    Ok(extras)
 }
 
 #[tauri::command]
@@ -113,6 +127,17 @@ pub fn save_profile_extras(
     extras: ProfileExtras,
 ) -> Result<(), AppError> {
     let mut all = load_all(&app_handle)?;
+
+    // Save db_password to keyring for each backup template
+    let keyring_service = "JarvisBackupDB";
+    for tpl in &extras.backup_templates {
+        if let Some(ref pass) = tpl.db_password {
+            if let Ok(entry) = keyring::Entry::new(keyring_service, &tpl.id) {
+                entry.set_password(pass).ok();
+            }
+        }
+    }
+
     all.insert(profile_id, extras);
     save_all(&app_handle, &all)
 }

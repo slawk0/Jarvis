@@ -220,8 +220,7 @@
     const action = async () => {
       isLoading = true;
       errorMsg = '';
-      const cmd = ufwActive ? 'ufw disable' : 'ufw --force enable';
-      await invoke('exec_custom_command', { cmd, useSudo: true });
+      await invoke('secure_ufw_toggle', { enable: !ufwActive });
       await loadUfwStatus();
     };
     await handleActionWithSudo(action);
@@ -233,11 +232,12 @@
       const action = async () => {
         isLoading = true;
         errorMsg = '';
-        let cmd = `ufw ${ruleAction}`;
-        if (ruleProto !== 'any') cmd += ` proto ${ruleProto}`;
-        if (ruleSource !== 'Anywhere' && ruleSource !== '') cmd += ` from ${ruleSource}`;
-        cmd += ` to any port ${rulePort}`;
-        await invoke('exec_custom_command', { cmd, useSudo: true });
+        await invoke('secure_ufw_rule', {
+          action: ruleAction,
+          port: rulePort,
+          proto: ruleProto !== 'any' ? ruleProto : null,
+          source: (ruleSource !== 'Anywhere' && ruleSource !== '') ? ruleSource : null,
+        });
         closeAddModal();
         await loadUfwStatus();
       };
@@ -283,10 +283,7 @@
         const action = async () => {
           isLoading = true;
           errorMsg = '';
-          await invoke('exec_custom_command', {
-            cmd: `ufw --force delete ${num}`,
-            useSudo: true
-          });
+          await invoke('secure_ufw_delete_rule', { ruleNum: num });
           await loadUfwStatus();
         };
         await handleActionWithSudo(action);

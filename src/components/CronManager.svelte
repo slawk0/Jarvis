@@ -126,7 +126,7 @@
       }
     }).join('\n') + '\n';
     
-    const tmpPath = `/tmp/cron_temp`;
+    const tmpPath = `/tmp/jarvis_cron_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     
     try {
       // 1. Save the updated list to a temporary file

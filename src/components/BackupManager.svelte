@@ -123,27 +123,30 @@
     await saveExtras();
   }
 
+  function shellQuote(s: string): string {
+    return "'" + s.replace(/'/g, "'\\''") + "'";
+  }
+
   function buildBackupCmd(t: BackupTemplate, remotePath: string): string {
-    const ts = Date.now();
     if (t.backup_type === 'files') {
       const dir = t.source_path.replace(/\/$/, '');
-      return `tar czf ${remotePath} -C ${dir} . 2>&1`;
+      return `tar czf ${shellQuote(remotePath)} -C ${shellQuote(dir)} . 2>&1`;
     }
     if (t.backup_type === 'mysql') {
       const db = t.db_name || 'mysql';
       const user = t.db_user || 'root';
-      const pass = t.db_password ? `-p'${t.db_password.replace(/'/g, "'\\''")}'` : '';
+      const pass = t.db_password ? `-p${shellQuote(t.db_password)}` : '';
       if (t.docker_container) {
-        return `docker exec ${t.docker_container} sh -c "mysqldump -u ${user} ${pass} ${db}" > ${remotePath} 2>&1`;
+        return `docker exec ${shellQuote(t.docker_container)} sh -c ${shellQuote(`mysqldump -u ${user} ${pass} ${db}`)} > ${shellQuote(remotePath)} 2>&1`;
       }
-      return `mysqldump -u ${user} ${pass} ${db} > ${remotePath} 2>&1`;
+      return `mysqldump -u ${shellQuote(user)} ${pass} ${shellQuote(db)} > ${shellQuote(remotePath)} 2>&1`;
     }
     const db = t.db_name || 'postgres';
     const user = t.db_user || 'postgres';
     if (t.docker_container) {
-      return `docker exec ${t.docker_container} pg_dump -U ${user} ${db} > ${remotePath} 2>&1`;
+      return `docker exec ${shellQuote(t.docker_container)} pg_dump -U ${shellQuote(user)} ${shellQuote(db)} > ${shellQuote(remotePath)} 2>&1`;
     }
-    return `pg_dump -U ${user} ${db} > ${remotePath} 2>&1`;
+    return `pg_dump -U ${shellQuote(user)} ${shellQuote(db)} > ${shellQuote(remotePath)} 2>&1`;
   }
 
   async function runBackup(t: BackupTemplate) {

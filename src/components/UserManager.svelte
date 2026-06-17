@@ -167,10 +167,11 @@
     const action = async () => {
       isLoading = true;
       errorMsg = '';
-      const homeArg = newUserHome ? `-d "${newUserHome}"` : '-m';
-      const cmd = `useradd ${homeArg} -s "${newUserShell}" "${newUsername}"`;
-      
-      await invoke('exec_custom_command', { cmd, useSudo: true });
+      await invoke('secure_create_user', {
+        username: newUsername.trim(),
+        shell: newUserShell.trim(),
+        homeDir: newUserHome.trim() || null,
+      });
       showCreateUserModal = false;
       newUsername = '';
       newUserHome = '';
@@ -185,10 +186,7 @@
       const action = async () => {
         isLoading = true;
         errorMsg = '';
-        await invoke('exec_custom_command', { 
-          cmd: `userdel -r "${username}"`, 
-          useSudo: true 
-        });
+        await invoke('secure_delete_user', { username });
         await loadData();
       };
       await handleActionWithSudo(action);
@@ -201,10 +199,9 @@
     const action = async () => {
       isLoading = true;
       errorMsg = '';
-      // Secure chpasswd in input stream
-      await invoke('exec_custom_command', {
-        cmd: `echo "${targetUser.username}:${targetPassword}" | chpasswd`,
-        useSudo: true
+      await invoke('secure_change_password', {
+        username: targetUser.username,
+        password: targetPassword,
       });
       showChangePassModal = false;
       targetPassword = '';
@@ -221,10 +218,7 @@
     const action = async () => {
       isLoading = true;
       errorMsg = '';
-      await invoke('exec_custom_command', {
-        cmd: `groupadd "${newGroupName}"`,
-        useSudo: true
-      });
+      await invoke('secure_create_group', { groupName: newGroupName.trim() });
       showCreateGroupModal = false;
       newGroupName = '';
       await loadData();
@@ -237,10 +231,7 @@
       const action = async () => {
         isLoading = true;
         errorMsg = '';
-        await invoke('exec_custom_command', {
-          cmd: `groupdel "${groupName}"`,
-          useSudo: true
-        });
+        await invoke('secure_delete_group', { groupName });
         await loadData();
       };
       await handleActionWithSudo(action);
@@ -264,34 +255,10 @@
       isLoading = true;
       errorMsg = '';
       
-      // 1. Determine all groups the user currently belongs to
-      const currentGroups = groups
-        .filter(g => g.members.includes(targetUser.username))
-        .map(g => g.name);
-      
-      // 2. Add the user to newly selected groups
-      for (const group of selectedUserGroups) {
-        if (!currentGroups.includes(group)) {
-          await invoke('exec_custom_command', {
-            cmd: `usermod -aG "${group}" "${targetUser.username}"`,
-            useSudo: true
-          });
-        }
-      }
-      
-      // 3. Remove the user from groups that were deselected
-      for (const group of currentGroups) {
-        if (!selectedUserGroups.includes(group)) {
-          // Avoid removing the user from their primary group
-          const groupObj = groups.find(g => g.name === group);
-          if (groupObj && groupObj.gid !== targetUser.gid) {
-            await invoke('exec_custom_command', {
-              cmd: `gpasswd -d "${targetUser.username}" "${group}"`,
-              useSudo: true
-            });
-          }
-        }
-      }
+      await invoke('secure_modify_user_groups', {
+        username: targetUser.username,
+        groups: selectedUserGroups,
+      });
 
       showGroupsModal = false;
       targetUser = null;

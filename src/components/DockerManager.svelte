@@ -24,6 +24,7 @@
     formatInvokeError,
     isSudoPasswordIncorrect,
     isSudoPasswordRequired,
+    parseAppError,
   } from '$lib/i18n/backendErrors';
 
   // Props
@@ -270,7 +271,11 @@
       const result: string = await invoke('exec_custom_command', { cmd, useSudo });
       return result;
     } catch (err: any) {
-      const errStr = err.toString().toLowerCase();
+      const appErr = parseAppError(err);
+      const errCode = appErr?.code || '';
+      const errDetails = appErr?.details || '';
+      const errStr = (errDetails || errCode || String(err)).toLowerCase();
+      
       if (errStr.includes('permission denied') || errStr.includes('got permission denied')) {
         // Retry with sudo
         useSudo = true;
@@ -278,13 +283,13 @@
           const result: string = await invoke('exec_custom_command', { cmd, useSudo: true });
           return result;
         } catch (err2: any) {
-          if (err2.toString() === 'SUDO_PASSWORD_REQUIRED') {
+          if (isSudoPasswordRequired(err2)) {
             throw new Error('SUDO_PASSWORD_REQUIRED');
           }
           throw err2;
         }
       }
-      if (err.toString() === 'SUDO_PASSWORD_REQUIRED') {
+      if (isSudoPasswordRequired(err)) {
         throw new Error('SUDO_PASSWORD_REQUIRED');
       }
       throw err;
@@ -333,8 +338,12 @@
       dockerVersion = versionOut.trim();
       dockerInstalled = true;
     } catch (err: any) {
-      const errStr = err.toString().toLowerCase();
-      if (errStr.includes('SUDO_PASSWORD_REQUIRED')) {
+      const appErr = parseAppError(err);
+      const errCode = appErr?.code || '';
+      const errDetails = appErr?.details || '';
+      const errStr = (errDetails || errCode || String(err)).toLowerCase();
+      
+      if (isSudoPasswordRequired(err) || errStr.includes('sudo_password_required')) {
         pendingAction = checkDockerStatus;
         showSudoModal = true;
         isLoading = false;
@@ -749,9 +758,12 @@
         pendingAction = loadComposeProjects;
         showSudoModal = true;
       } else {
-        // Compose might not be available
         composeProjects = [];
-        if (!err.toString().toLowerCase().includes('not found')) {
+        const appErr = parseAppError(err);
+        const errCode = appErr?.code || '';
+        const errDetails = appErr?.details || '';
+        const errStr = (errDetails || errCode || String(err)).toLowerCase();
+        if (!errStr.includes('not found')) {
           errorMsg = get(LL).docker.loadComposeFailed({ error: formatInvokeError(err) });
         }
       }

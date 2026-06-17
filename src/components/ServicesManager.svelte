@@ -160,10 +160,7 @@
       isLoading = true;
       errorMsg = '';
       try {
-        await invoke('exec_custom_command', {
-          cmd: `systemctl ${action} ${serviceName}.service`,
-          useSudo: true
-        });
+        await invoke('secure_systemctl', { action, service: serviceName });
         await loadServices();
       } catch (err: unknown) {
         if (isSudoPasswordRequired(err)) {

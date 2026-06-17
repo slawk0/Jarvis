@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use std::io::{BufRead, Write};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ServerStats {
@@ -62,15 +63,67 @@ pub struct FileInfo {
 }
 
 #[derive(Clone)]
-pub struct ClientHandler;
+pub struct ClientHandler {
+    pub known_hosts_path: Option<std::path::PathBuf>,
+    pub host_identifier: String,
+}
 
 impl client::Handler for ClientHandler {
     type Error = russh::Error;
 
     async fn check_server_key(
         &mut self,
-        _server_public_key: &russh::keys::PublicKey,
+        server_public_key: &russh::keys::PublicKey,
     ) -> Result<bool, Self::Error> {
+        let key_data = format!("{:?}", server_public_key);
+
+        let known_hosts_path = match self.known_hosts_path {
+            Some(ref p) => p.clone(),
+            None => return Ok(true),
+        };
+
+        let host_id = &self.host_identifier;
+
+        // Read existing known_hosts
+        if known_hosts_path.exists() {
+            if let Ok(file) = std::fs::File::open(&known_hosts_path) {
+                let reader = std::io::BufReader::new(file);
+                for line in reader.lines() {
+                    let line = match line {
+                        Ok(l) => l,
+                        Err(_) => continue,
+                    };
+                    let line = line.trim().to_string();
+                    if line.is_empty() || line.starts_with('#') {
+                        continue;
+                    }
+                    // Format: host:port <key_data>
+                    if let Some((stored_host, stored_key)) = line.split_once(' ') {
+                        if stored_host == host_id {
+                            // Host found - compare keys
+                            if stored_key == key_data {
+                                return Ok(true); // Key matches
+                            } else {
+                                return Ok(false); // KEY CHANGED - reject!
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Host not found - TOFU: accept and save
+        if let Some(parent) = known_hosts_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&known_hosts_path)
+        {
+            let _ = writeln!(file, "{} {}", host_id, key_data);
+        }
+
         Ok(true)
     }
 }
@@ -90,6 +143,7 @@ impl SshConnection {
         password: Option<&str>,
         private_key_path: Option<&Path>,
         passphrase: Option<&str>,
+        known_hosts_path: Option<&Path>,
     ) -> Result<Self, AppError> {
         let config = russh::client::Config::default();
         let config = Arc::new(config);
@@ -104,7 +158,11 @@ impl SshConnection {
             return Err(AppError::with_details("HOST_NOT_FOUND", host));
         }
 
-        let mut session = russh::client::connect(config, socket_addrs[0], ClientHandler)
+        let handler = ClientHandler {
+            known_hosts_path: known_hosts_path.map(|p| p.to_path_buf()),
+            host_identifier: format!("{}:{}", host, port),
+        };
+        let mut session = russh::client::connect(config, socket_addrs[0], handler)
             .await
             .map_err(|e| AppError::with_details("SSH_CONNECTION_FAILED", e.to_string()))?;
 
@@ -494,6 +552,16 @@ impl SshConnection {
 
     pub async fn sftp_read_file(&self, file_path: &str) -> Result<String, AppError> {
         let sftp = self.get_sftp().await?;
+
+        // Check file size first (50 MB limit)
+        let metadata = sftp.metadata(file_path).await
+            .map_err(|e| AppError::with_details("SFTP_FILE_STAT_FAILED", format!("{}: {}", file_path, e)))?;
+        if let Some(size) = metadata.size {
+            if size > 50 * 1024 * 1024 {
+                return Err(AppError::with_details("SFTP_FILE_TOO_LARGE", format!("{}B", size)));
+            }
+        }
+
         let mut file = sftp
             .open_with_flags(file_path, russh_sftp::protocol::OpenFlags::READ)
             .await

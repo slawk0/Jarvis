@@ -206,11 +206,7 @@
       const action = async () => {
         isLoading = true;
         errorMsg = '';
-        // Wyrzucenie sesji: pkill -9 -t <tty>
-        await invoke('exec_custom_command', {
-          cmd: `pkill -9 -t "${tty}"`,
-          useSudo: true
-        });
+        await invoke('secure_kill_session', { tty });
         await loadSessionsAndHistory();
       };
       await handleActionWithSudo(action);

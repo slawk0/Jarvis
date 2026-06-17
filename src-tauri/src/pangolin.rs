@@ -105,8 +105,11 @@ pub async fn save_pangolin_config(
     };
     let content = serde_json::to_string_pretty(&config)
         .map_err(|e| AppError::with_details("JSON_SERIALIZE_FAILED", e.to_string()))?;
-    std::fs::write(path, content)
+    let tmp_path = path.with_extension("tmp");
+    std::fs::write(&tmp_path, content)
         .map_err(|e| AppError::with_details("PANGOLIN_CONFIG_WRITE_FAILED", e.to_string()))?;
+    std::fs::rename(&tmp_path, path)
+        .map_err(|e| AppError::with_details("PANGOLIN_CONFIG_RENAME_FAILED", e.to_string()))?;
 
     if let Some(key) = api_key {
         if !key.is_empty() {
@@ -153,13 +156,22 @@ pub async fn pangolin_api_request(
 
     let base = config.api_url.trim_end_matches('/');
     let sub_path = path.trim_start_matches('/');
+
+    // Validate path - only allow API paths (SSRF prevention)
+    if sub_path.contains("..") || sub_path.contains("://") {
+        return Err(AppError::new("PANGOLIN_INVALID_PATH"));
+    }
+
     let url_str = if sub_path.is_empty() {
         base.to_string()
     } else {
         format!("{}/{}", base, sub_path)
     };
 
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| AppError::with_details("PANGOLIN_HTTP_CLIENT_FAILED", e.to_string()))?;
     let req_method = match method.to_uppercase().as_str() {
         "GET" => reqwest::Method::GET,
         "POST" => reqwest::Method::POST,

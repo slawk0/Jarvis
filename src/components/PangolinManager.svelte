@@ -23,6 +23,7 @@
     formatInvokeError,
     isSudoPasswordIncorrect,
     isSudoPasswordRequired,
+    parseAppError,
   } from '$lib/i18n/backendErrors';
   import { formatDate } from '$lib/i18n/formatLocale';
 
@@ -56,7 +57,7 @@
     offset: 0,
     action: [] as string[],
     method: [] as string[],
-    host: '',
+    host: [] as string[],
     path: '',
     actor: '',
     location: [] as string[],
@@ -98,8 +99,8 @@
       }
 
       // 5. Host Filter
-      if (logFilters.host) {
-        if (!log.host || !log.host.toLowerCase().includes(logFilters.host.toLowerCase())) return false;
+      if (logFilters.host.length > 0) {
+        if (!log.host || !logFilters.host.includes(log.host)) return false;
       }
 
       // 6. Path Filter
@@ -126,7 +127,7 @@
   let filterInputs = $state({
     action: [] as string[],
     method: [] as string[],
-    host: '',
+    host: [] as string[],
     path: '',
     reason: '',
     actor: '',
@@ -135,6 +136,7 @@
   });
 
   let locationSearchQuery = $state('');
+  let hostSearchQuery = $state('');
   let resourceSearchQuery = $state('');
 
   let isLoadingResourcesForFilter = $state(false);
@@ -168,7 +170,10 @@
         resourceSearchQuery = '';
         loadResourcesForFilter();
       }
-      if (field === 'host') filterInputs.host = logFilters.host;
+      if (field === 'host') {
+        filterInputs.host = [...logFilters.host];
+        hostSearchQuery = '';
+      }
       if (field === 'path') filterInputs.path = logFilters.path;
       if (field === 'reason') filterInputs.reason = logFilters.reason;
       if (field === 'actor') filterInputs.actor = logFilters.actor;
@@ -189,7 +194,7 @@
     if (field === 'method') logFilters.method = [...filterInputs.method];
     if (field === 'location') logFilters.location = [...filterInputs.location];
     if (field === 'resource') logFilters.resource = [...filterInputs.resource];
-    if (field === 'host') logFilters.host = filterInputs.host;
+    if (field === 'host') logFilters.host = [...filterInputs.host];
     if (field === 'path') logFilters.path = filterInputs.path;
     if (field === 'reason') logFilters.reason = filterInputs.reason;
     if (field === 'actor') logFilters.actor = filterInputs.actor;
@@ -203,7 +208,7 @@
     if (field === 'method') { logFilters.method = []; filterInputs.method = []; }
     if (field === 'location') { logFilters.location = []; filterInputs.location = []; locationSearchQuery = ''; }
     if (field === 'resource') { logFilters.resource = []; filterInputs.resource = []; resourceSearchQuery = ''; }
-    if (field === 'host') { logFilters.host = ''; filterInputs.host = ''; }
+    if (field === 'host') { logFilters.host = []; filterInputs.host = []; hostSearchQuery = ''; }
     if (field === 'path') { logFilters.path = ''; filterInputs.path = ''; }
     if (field === 'reason') { logFilters.reason = ''; filterInputs.reason = ''; }
     if (field === 'actor') { logFilters.actor = ''; filterInputs.actor = ''; }
@@ -364,11 +369,20 @@
         return true;
       }
     } catch (err: any) {
-      const errMsg = err.toString();
       console.warn('Failed to list organizations:', err);
+      const appErr = parseAppError(err);
+      const errCode = appErr?.code || '';
+      const errDetails = appErr?.details || '';
+      const errMsg = formatInvokeError(err);
       
       // Fallback for org-scoped API keys: they won't list all orgs
       const isAuthOrScopedError = 
+        errCode === 'PANGOLIN_API_KEY_NOT_CONFIGURED' ||
+        errDetails.includes('401') || 
+        errDetails.includes('403') || 
+        errDetails.includes('Unauthorized') || 
+        errDetails.includes('Forbidden') || 
+        errDetails.includes('root access') ||
         errMsg.includes('401') || 
         errMsg.includes('403') || 
         errMsg.includes('Unauthorized') || 
@@ -495,12 +509,13 @@
   // 1. Dashboard Tab Functions
   async function loadDashboardData() {
     if (!config.org_id) return;
+    countryStatsCache = {};
     isDashboardLoading = true;
     try {
       // Calculate start time based on range
       const end = new Date();
       const start = new Date();
-      if (timeRange === '{$LL.pangolin.range24h()}') start.setHours(start.getHours() - 24);
+      if (timeRange === '24h') start.setHours(start.getHours() - 24);
       else if (timeRange === '30d') start.setDate(start.getDate() - 30);
       else start.setDate(start.getDate() - 7); // '7d'
 
@@ -546,6 +561,9 @@
     day: any;
     rect: DOMRect;
   } | null>(null);
+
+  // Cache for country statistics: countryCode -> { blockedCount, loading }
+  let countryStatsCache = $state<Record<string, { blockedCount: number; loading: boolean }>>({});
 
   const sortedCountries = $derived(
     [...(dashboardStats.requestsPerCountry as CountryTraffic[])].sort(
@@ -602,6 +620,45 @@
     return get(LL).pangolin.mapHint() + ' ' + `${getCountryName(geo)}: ${formatCompact(total)} (${pct}%)`;
   }
 
+  async function fetchCountryStats(countryCode: string) {
+    if (!countryCode) return;
+    if (countryStatsCache[countryCode] && !countryStatsCache[countryCode].loading) return;
+
+    countryStatsCache[countryCode] = {
+      blockedCount: 0,
+      loading: true
+    };
+
+    try {
+      const end = new Date();
+      const start = new Date();
+      if (timeRange === '24h') start.setHours(start.getHours() - 24);
+      else if (timeRange === '30d') start.setDate(start.getDate() - 30);
+      else start.setDate(start.getDate() - 7);
+
+      const blockedRes = await apiCall('GET', `/org/${config.org_id}/logs/request`, {
+        timeStart: start.toISOString(),
+        timeEnd: end.toISOString(),
+        location: countryCode,
+        action: 'false',
+        limit: '1'
+      });
+
+      const blockedCount = blockedRes?.data?.pagination?.total || 0;
+
+      countryStatsCache[countryCode] = {
+        blockedCount,
+        loading: false
+      };
+    } catch (err) {
+      console.error(`Failed to fetch stats for country ${countryCode}:`, err);
+      countryStatsCache[countryCode] = {
+        blockedCount: 0,
+        loading: false
+      };
+    }
+  }
+
   // 2. Logs Tab Functions
   async function loadLogsData() {
     if (!config.org_id) return;
@@ -631,7 +688,7 @@
       if (logFilters.resource.length > 0) {
         qParams.resource = logFilters.resource[0];
       }
-      if (logFilters.host) qParams.host = logFilters.host;
+      if (logFilters.host.length > 0) qParams.host = logFilters.host[0];
       if (logFilters.path) qParams.path = logFilters.path;
       if (logFilters.actor) qParams.actor = logFilters.actor;
       if (logFilters.reason) qParams.reason = logFilters.reason;
@@ -645,10 +702,10 @@
         if (res.data.filterAttributes) {
           const fa = res.data.filterAttributes;
           uniqueFilters = {
-            actors: fa.actors?.map((a: any) => a.actor).filter(Boolean) || [],
-            hosts: fa.hosts?.map((h: any) => h.hosts).filter(Boolean) || [],
-            paths: fa.paths?.map((p: any) => p.paths).filter(Boolean) || [],
-            locations: fa.locations?.map((l: any) => l.locations).filter(Boolean) || []
+            actors: fa.actors?.filter(Boolean) || [],
+            hosts: fa.hosts?.filter(Boolean) || [],
+            paths: fa.paths?.filter(Boolean) || [],
+            locations: fa.locations?.filter(Boolean) || []
           };
         }
       }
@@ -1255,7 +1312,7 @@
               <h3>{$LL.pangolin.trafficOverTime()}</h3>
               <div class="filter-controls">
                 <select id="time-range-select" bind:value={timeRange} onchange={loadDashboardData} aria-label={$LL.pangolin.timeRange()}>
-                  <option value="{$LL.pangolin.range24h()}">{$LL.pangolin.range24h()}</option>
+                  <option value="24h">{$LL.pangolin.range24h()}</option>
                   <option value="7d">{$LL.pangolin.range7d()}</option>
                   <option value="30d">{$LL.pangolin.range30d()}</option>
                 </select>
@@ -1431,7 +1488,7 @@
                 <p class="empty-msg">{$LL.pangolin.noGeoData()}</p>
               {:else}
                 <div class="top-countries-header">
-                  <span>Kraj</span>
+                  <span>{$LL.pangolin.country()}</span>
                   <span>{$LL.pangolin.totalLabel()}</span>
                   <span>%</span>
                 </div>
@@ -1452,6 +1509,7 @@
                         hoveredMapCode = geo.code?.toUpperCase() || null;
                         const rect = e.currentTarget.getBoundingClientRect();
                         activeTooltip = { geo, pct, rect };
+                        fetchCountryStats(geo.code);
                       }}
                       onmouseleave={() => {
                         hoveredCountryRow = null;
@@ -1473,6 +1531,7 @@
             </div>
           </div>
           {#if activeTooltip}
+            {@const stats = countryStatsCache[activeTooltip.geo.code]}
             {@const showOnLeft = activeTooltip.rect.right + 250 > window.innerWidth}
             <div
               class="country-tooltip-fixed"
@@ -1484,10 +1543,25 @@
             >
               <strong>{getCountryName(activeTooltip.geo)}</strong>
               <span>{$LL.pangolin.tooltipRequestsTraffic({ count: formatCompact(activeTooltip.geo.count || 0), pct: activeTooltip.pct })}</span>
-              <span class="tooltip-detail">
-                {$LL.pangolin.filterAllowed()}: {formatCompact(activeTooltip.geo.allowedCount ?? ((activeTooltip.geo.count || 0) - (activeTooltip.geo.blockedCount || 0)))}
-                · {$LL.pangolin.filterBlocked()}: {formatCompact(activeTooltip.geo.blockedCount ?? 0)}
-              </span>
+              {#if stats}
+                {#if stats.loading}
+                  <span class="tooltip-detail text-muted">
+                    {$LL.pangolin.filterAllowed()}: ... · {$LL.pangolin.filterBlocked()}: ...
+                  </span>
+                {:else}
+                  {@const blocked = stats.blockedCount}
+                  {@const total = activeTooltip.geo.count || 0}
+                  {@const allowed = Math.max(total - blocked, 0)}
+                  <span class="tooltip-detail">
+                    {$LL.pangolin.filterAllowed()}: {formatCompact(allowed)}
+                    · {$LL.pangolin.filterBlocked()}: {formatCompact(blocked)}
+                  </span>
+                {/if}
+              {:else}
+                <span class="tooltip-detail text-muted">
+                  {$LL.pangolin.filterAllowed()}: ... · {$LL.pangolin.filterBlocked()}: ...
+                </span>
+              {/if}
             </div>
           {/if}
 
@@ -1530,17 +1604,18 @@
       {#if activeSubTab === 'logs'}
         <div class="logs-view">
           <div class="filters-bar-simple">
-            <span class="view-title">Logi {$LL.pangolin.tabAudit()}u (Pangolin Proxy)</span>
+            <span class="view-title">{$LL.pangolin.auditTitle()}</span>
             <div class="bar-actions">
-              {#if logFilters.action.length > 0 || logFilters.method.length > 0 || logFilters.host || logFilters.path || logFilters.actor || logFilters.location.length > 0 || logFilters.reason || logFilters.resource.length > 0}
+              {#if logFilters.action.length > 0 || logFilters.method.length > 0 || logFilters.host.length > 0 || logFilters.path || logFilters.actor || logFilters.location.length > 0 || logFilters.reason || logFilters.resource.length > 0}
                 <button class="secondary btn-sm text-orange" onclick={() => {
-                  logFilters = { limit: 50, offset: 0, action: [], method: [], host: '', path: '', actor: '', location: [], reason: '', resource: [] };
-                  filterInputs = { action: [], method: [], host: '', path: '', reason: '', actor: '', location: [], resource: [] };
+                  logFilters = { limit: 50, offset: 0, action: [], method: [], host: [], path: '', actor: '', location: [], reason: '', resource: [] };
+                  filterInputs = { action: [], method: [], host: [], path: '', reason: '', actor: '', location: [], resource: [] };
                   locationSearchQuery = '';
+                  hostSearchQuery = '';
                   resourceSearchQuery = '';
                   loadLogsData();
                 }}>
-                  Resetuj filtry
+                  {$LL.pangolin.resetFilters()}
                 </button>
               {/if}
               <button class="secondary btn-icon-compact" onclick={loadLogsData}>
@@ -1553,18 +1628,18 @@
             <table class="telemetry-table">
               <thead>
                 <tr>
-                  <th>Timestamp</th>
+                  <th>{$LL.pangolin.colTimestamp()}</th>
                   
                   <th class="filterable-th">
                     <div class="th-content">
-                      <span>Action</span>
+                      <span>{$LL.pangolin.colAction()}</span>
                       <button class="filter-btn {logFilters.action.length > 0 ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('action'); }}>
                         <Filter size={12} />
                       </button>
                     </div>
                     {#if activeFilterField === 'action'}
                       <div class="filter-dropdown glass" onclick={(e) => e.stopPropagation()}>
-                        <div class="dropdown-title">Filtruj Action</div>
+                        <div class="dropdown-title">{$LL.pangolin.filterAction()}</div>
                         <div class="options-list">
                           <label class="option-row-checkbox">
                             <input type="checkbox" checked={filterInputs.action.includes('allowed')} onchange={() => filterInputs.action = toggleArrayItem(filterInputs.action, 'allowed')} />
@@ -1577,7 +1652,7 @@
                         </div>
                         <div class="dropdown-actions">
                           <button class="btn-clear" onclick={() => clearFilter('action')}>{$LL.common.clear()}</button>
-                          <button class="btn-apply" onclick={() => applyFilter('action')}>Zastosuj</button>
+                          <button class="btn-apply" onclick={() => applyFilter('action')}>{$LL.common.apply()}</button>
                         </div>
                       </div>
                     {/if}
@@ -1587,16 +1662,16 @@
 
                   <th class="filterable-th">
                     <div class="th-content">
-                      <span>Location</span>
+                      <span>{$LL.pangolin.colLocation()}</span>
                       <button class="filter-btn {logFilters.location.length > 0 ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('location'); }}>
                         <Filter size={12} />
                       </button>
                     </div>
                     {#if activeFilterField === 'location'}
                       <div class="filter-dropdown glass" onclick={(e) => e.stopPropagation()}>
-                        <div class="dropdown-title">Filtruj Location</div>
+                        <div class="dropdown-title">{$LL.pangolin.filterLocation()}</div>
                         <div class="input-wrapper">
-                          <input type="text" placeholder="Szukaj kraju..." bind:value={locationSearchQuery} />
+                          <input type="text" placeholder="{$LL.pangolin.country()}..." bind:value={locationSearchQuery} />
                         </div>
                         {#if uniqueFilters.locations.length > 0}
                           <div class="suggestions-list" style="max-height: 180px;">
@@ -1610,24 +1685,22 @@
                         {/if}
                         <div class="dropdown-actions">
                           <button class="btn-clear" onclick={() => clearFilter('location')}>{$LL.common.clear()}</button>
-                          <button class="btn-apply" onclick={() => applyFilter('location')}>Zastosuj</button>
+                          <button class="btn-apply" onclick={() => applyFilter('location')}>{$LL.common.apply()}</button>
                         </div>
                       </div>
                     {/if}
-                  </th>
-
-                  <th class="filterable-th">
+                  </th>                  <th class="filterable-th">
                     <div class="th-content">
-                      <span>Resource</span>
+                      <span>{$LL.pangolin.colResource()}</span>
                       <button class="filter-btn {logFilters.resource.length > 0 ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('resource'); }}>
                         <Filter size={12} />
                       </button>
                     </div>
                     {#if activeFilterField === 'resource'}
                       <div class="filter-dropdown glass" onclick={(e) => e.stopPropagation()}>
-                        <div class="dropdown-title">Filtruj Resource</div>
+                        <div class="dropdown-title">{$LL.pangolin.filterResource()}</div>
                         <div class="input-wrapper">
-                          <input type="text" placeholder="Szukaj zasobu..." bind:value={resourceSearchQuery} />
+                          <input type="text" placeholder="{$LL.pangolin.colResource()}..." bind:value={resourceSearchQuery} />
                         </div>
                         
                         {#if isLoadingResourcesForFilter}
@@ -1642,7 +1715,7 @@
                                 <span class="pub-badge">PUB</span> <span title={res.name}>{res.name} ({res.resourceId})</span>
                               </label>
                             {/each}
-
+ 
                             <!-- Private Resources -->
                             {#each privResourcesList.filter(r => !resourceSearchQuery || r.name.toLowerCase().includes(resourceSearchQuery.toLowerCase()) || r.siteResourceId.toString().includes(resourceSearchQuery)) as res}
                               {@const sIdStr = res.siteResourceId.toString()}
@@ -1656,7 +1729,7 @@
                         
                         <div class="dropdown-actions">
                           <button class="btn-clear" onclick={() => clearFilter('resource')}>{$LL.common.clear()}</button>
-                          <button class="btn-apply" onclick={() => applyFilter('resource')}>Zastosuj</button>
+                          <button class="btn-apply" onclick={() => applyFilter('resource')}>{$LL.common.apply()}</button>
                         </div>
                       </div>
                     {/if}
@@ -1664,29 +1737,30 @@
 
                   <th class="filterable-th">
                     <div class="th-content">
-                      <span>Host</span>
-                      <button class="filter-btn {logFilters.host ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('host'); }}>
+                      <span>{$LL.pangolin.colHost()}</span>
+                      <button class="filter-btn {logFilters.host.length > 0 ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('host'); }}>
                         <Filter size={12} />
                       </button>
                     </div>
                     {#if activeFilterField === 'host'}
                       <div class="filter-dropdown glass" onclick={(e) => e.stopPropagation()}>
-                        <div class="dropdown-title">Filtruj Host</div>
+                        <div class="dropdown-title">{$LL.pangolin.filterHost()}</div>
                         <div class="input-wrapper">
-                          <input type="text" placeholder="Host (np. api.net)" bind:value={filterInputs.host} onkeydown={(e) => e.key === 'Enter' && applyFilter('host')} />
+                          <input type="text" placeholder="{$LL.pangolin.colHost()}..." bind:value={hostSearchQuery} />
                         </div>
                         {#if uniqueFilters.hosts.length > 0}
-                          <div class="suggestions-list">
-                            {#each uniqueFilters.hosts as h}
-                              <button class="suggestion-row {logFilters.host === h ? 'selected' : ''}" onclick={() => { filterInputs.host = h; applyFilter('host'); }}>
-                                {h}
-                              </button>
+                          <div class="suggestions-list" style="max-height: 180px;">
+                            {#each uniqueFilters.hosts.filter(h => !hostSearchQuery || h.toLowerCase().includes(hostSearchQuery.toLowerCase())) as h}
+                              <label class="option-row-checkbox">
+                                <input type="checkbox" checked={filterInputs.host.includes(h)} onchange={() => filterInputs.host = toggleArrayItem(filterInputs.host, h)} />
+                                <span>{h}</span>
+                              </label>
                             {/each}
                           </div>
                         {/if}
                         <div class="dropdown-actions">
                           <button class="btn-clear" onclick={() => clearFilter('host')}>{$LL.common.clear()}</button>
-                          <button class="btn-apply" onclick={() => applyFilter('host')}>Zastosuj</button>
+                          <button class="btn-apply" onclick={() => applyFilter('host')}>{$LL.common.apply()}</button>
                         </div>
                       </div>
                     {/if}
@@ -1694,7 +1768,7 @@
 
                   <th class="filterable-th">
                     <div class="th-content">
-                      <span>Path</span>
+                      <span>{$LL.pangolin.colPath()}</span>
                       <button class="filter-btn {logFilters.path ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('path'); }}>
                         <Filter size={12} />
                       </button>
@@ -1750,7 +1824,7 @@
 
                   <th class="filterable-th">
                     <div class="th-content">
-                      <span>Reason</span>
+                      <span>{$LL.pangolin.colReason()}</span>
                       <button class="filter-btn {logFilters.reason ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('reason'); }}>
                         <Filter size={12} />
                       </button>
@@ -1771,21 +1845,21 @@
 
                   <th class="filterable-th">
                     <div class="th-content">
-                      <span>Actor</span>
+                      <span>{$LL.pangolin.colActor()}</span>
                       <button class="filter-btn {logFilters.actor ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('actor'); }}>
                         <Filter size={12} />
                       </button>
                     </div>
                     {#if activeFilterField === 'actor'}
                       <div class="filter-dropdown glass align-right" onclick={(e) => e.stopPropagation()}>
-                        <div class="dropdown-title">Filtruj Actor</div>
+                        <div class="dropdown-title">{$LL.pangolin.filterActor()}</div>
                         <div class="input-wrapper">
-                          <input type="text" placeholder="Aktor..." bind:value={filterInputs.actor} onkeydown={(e) => e.key === 'Enter' && applyFilter('actor')} />
+                          <input type="text" placeholder="{$LL.pangolin.colActor()}..." bind:value={filterInputs.actor} onkeydown={(e) => e.key === 'Enter' && applyFilter('actor')} />
                         </div>
                         {#if uniqueFilters.actors.length > 0}
                           <div class="suggestions-list">
                             {#each uniqueFilters.actors.slice(0, 5) as act}
-                              <button class="suggestion-row {logFilters.actor === act ? 'selected' : ''}" onclick={() => { filterInputs.actor = act; applyFilter('actor'); }}>
+                              <button class="suggestion-row {logFilters.actor.includes(act) ? 'selected' : ''}" onclick={() => { filterInputs.actor = act; applyFilter('actor'); }}>
                                 {act}
                               </button>
                             {/each}
@@ -1793,7 +1867,7 @@
                         {/if}
                         <div class="dropdown-actions">
                           <button class="btn-clear" onclick={() => clearFilter('actor')}>{$LL.common.clear()}</button>
-                          <button class="btn-apply" onclick={() => applyFilter('actor')}>Zastosuj</button>
+                          <button class="btn-apply" onclick={() => applyFilter('actor')}>{$LL.common.apply()}</button>
                         </div>
                       </div>
                     {/if}
@@ -1859,7 +1933,7 @@
               }}>
                 <ChevronLeft size={16} />
               </button>
-              <span class="page-indicator">Offset: {logFilters.offset} - {logFilters.offset + logsList.length}</span>
+              <span class="page-indicator">{$LL.pangolin.pageOffset({ start: logFilters.offset, end: logFilters.offset + logsList.length })}</span>
               <button class="secondary btn-icon-compact" disabled={logFilters.offset + logFilters.limit >= logsPagination.total} onclick={() => {
                 logFilters.offset += logFilters.limit;
                 loadLogsData();
@@ -1881,11 +1955,11 @@
               <div class="modal-body scrollable">
                 <div class="grid-details">
                   <div class="detail-row">
-                    <span class="lbl">Czas zapytania:</span>
+                    <span class="lbl">{$LL.pangolin.detailTime()}</span>
                     <span class="val mono-stats">{formatTime(selectedLogDetail.timestamp)}</span>
                   </div>
                   <div class="detail-row">
-                    <span class="lbl">ID transakcji:</span>
+                    <span class="lbl">{$LL.pangolin.detailTxId()}</span>
                     <span class="val mono-stats">{selectedLogDetail.id}</span>
                   </div>
                   <div class="detail-row">
@@ -1893,14 +1967,14 @@
                     <span class="val text-orange truncate-text">{selectedLogDetail.scheme}://{selectedLogDetail.host}{selectedLogDetail.path}{selectedLogDetail.query || ''}</span>
                   </div>
                   <div class="detail-row">
-                    <span class="lbl">Metoda:</span>
+                    <span class="lbl">{$LL.pangolin.detailMethod()}</span>
                     <span class="val"><span class="method-tag {selectedLogDetail.method?.toLowerCase()}">{selectedLogDetail.method}</span></span>
                   </div>
                   <div class="detail-row">
-                    <span class="lbl">Autoryzacja:</span>
+                    <span class="lbl">{$LL.pangolin.detailAuth()}</span>
                     <span class="val">
                       <span class="status-badge {selectedLogDetail.action ? 'allowed' : 'blocked'}">
-                        {selectedLogDetail.action ? 'ZAAKCEPTOWANE' : 'ZABLOKOWANE'}
+                        {selectedLogDetail.action ? $LL.pangolin.filterAllowed().toUpperCase() : $LL.pangolin.filterBlocked().toUpperCase()}
                       </span>
                     </span>
                   </div>
@@ -1918,10 +1992,15 @@
                   </div>
                   <div class="detail-row">
                     <span class="lbl">{$LL.pangolin.detailResource()}</span>
-                    <span class="val">ID zasobu publicznego: {selectedLogDetail.resourceId || 'Brak'} | ID zasobu prywatnego: {selectedLogDetail.siteResourceId || 'Brak'}</span>
+                    <span class="val">
+                      {$LL.pangolin.detailResourceIds({
+                        pub: selectedLogDetail.resourceId || $LL.pangolin.detailNone(),
+                        priv: selectedLogDetail.siteResourceId || $LL.pangolin.detailNone()
+                      })}
+                    </span>
                   </div>
                   <div class="detail-row">
-                    <span class="lbl">User Agent:</span>
+                    <span class="lbl">{$LL.pangolin.detailUserAgent()}</span>
                     <span class="val font-xs">{selectedLogDetail.userAgent || '-'}</span>
                   </div>
                 </div>
@@ -1935,7 +2014,7 @@
 
                 {#if selectedLogDetail.tls}
                   <div class="json-section">
-                    <h4>Informacje o sesji TLS</h4>
+                    <h4>{$LL.pangolin.detailTls()}</h4>
                     <pre class="json-block font-xs">{typeof selectedLogDetail.tls === 'string' ? selectedLogDetail.tls : JSON.stringify(selectedLogDetail.tls, null, 2)}</pre>
                   </div>
                 {/if}
@@ -1958,10 +2037,10 @@
             <header class="section-header">
               <div class="sec-title">
                 <Radio class="text-orange" size={18} />
-                <h3>Tunele WireGuard / Exit Nodes (Sites)</h3>
+                <h3>{$LL.pangolin.tunnelsTitle()}</h3>
               </div>
               <button class="primary btn-sm" onclick={() => showCreateSiteModal = true}>
-                <Plus size={16} /> Nowy Tunel
+                <Plus size={16} /> {$LL.pangolin.newTunnel()}
               </button>
             </header>
 

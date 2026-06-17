@@ -289,15 +289,14 @@
         fetchWhitelist()
       ]);
     } catch (err: any) {
-      const errStr = err.toString();
-      if (errStr === 'SUDO_PASSWORD_REQUIRED' || errStr === 'SUDO_PASSWORD_INCORRECT') {
+      if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
         pendingAction = loadAllData;
         showSudoModal = true;
-        if (errStr === 'SUDO_PASSWORD_INCORRECT') {
+        if (isSudoPasswordIncorrect(err)) {
           sudoError = get(LL).common.sudoIncorrect();
         }
       } else {
-        errorMsg = get(LL).crowdsec.loadFailed({ error: formatInvokeError(errStr) });
+        errorMsg = get(LL).crowdsec.loadFailed({ error: formatInvokeError(err) });
       }
     } finally {
       isLoading = false;
@@ -331,7 +330,7 @@
         lapiVersion = match ? match[1] : 'Systemd Native';
       }
     } catch (err: any) {
-      if (err.toString() === 'SUDO_PASSWORD_REQUIRED' || err.toString() === 'SUDO_PASSWORD_INCORRECT') {
+      if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
         throw err;
       }
       console.error(err);
@@ -360,11 +359,10 @@
         }
         await fetchServiceStatus();
       } catch (err: any) {
-        const errStr = err.toString();
-        if (errStr === 'SUDO_PASSWORD_REQUIRED' || errStr === 'SUDO_PASSWORD_INCORRECT') {
+        if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
           throw err;
         }
-        errorMsg = get(LL).crowdsec.serviceActionFailed({ action, error: formatInvokeError(errStr) });
+        errorMsg = get(LL).crowdsec.serviceActionFailed({ action, error: formatInvokeError(err) });
       } finally {
         isLoading = false;
       }
@@ -380,7 +378,7 @@
       const parsed = JSON.parse(out);
       decisions = Array.isArray(parsed) ? parsed : [];
     } catch (err: any) {
-      if (err.toString() === 'SUDO_PASSWORD_REQUIRED' || err.toString() === 'SUDO_PASSWORD_INCORRECT') {
+      if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
         throw err;
       }
       console.error('Error fetching decisions:', err);
@@ -401,11 +399,10 @@
         newDecisionIp = '';
         await fetchDecisions();
       } catch (err: any) {
-        const errStr = err.toString();
-        if (errStr === 'SUDO_PASSWORD_REQUIRED' || errStr === 'SUDO_PASSWORD_INCORRECT') {
+        if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
           throw err;
         }
-        errorMsg = get(LL).crowdsec.addBanFailed({ error: formatInvokeError(errStr) });
+        errorMsg = get(LL).crowdsec.addBanFailed({ error: formatInvokeError(err) });
       } finally {
         isLoading = false;
       }
@@ -423,11 +420,10 @@
         await runCscliCommand(`decisions delete --ip ${ip}`, true);
         await fetchDecisions();
       } catch (err: any) {
-        const errStr = err.toString();
-        if (errStr === 'SUDO_PASSWORD_REQUIRED' || errStr === 'SUDO_PASSWORD_INCORRECT') {
+        if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
           throw err;
         }
-        errorMsg = get(LL).crowdsec.unbanFailed({ ip, error: formatInvokeError(errStr) });
+        errorMsg = get(LL).crowdsec.unbanFailed({ ip, error: formatInvokeError(err) });
       } finally {
         isLoading = false;
       }
@@ -445,11 +441,10 @@
         await runCscliCommand('decisions delete --all', true);
         await fetchDecisions();
       } catch (err: any) {
-        const errStr = err.toString();
-        if (errStr === 'SUDO_PASSWORD_REQUIRED' || errStr === 'SUDO_PASSWORD_INCORRECT') {
+        if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
           throw err;
         }
-        errorMsg = get(LL).crowdsec.removeAllFailed({ error: formatInvokeError(errStr) });
+        errorMsg = get(LL).crowdsec.removeAllFailed({ error: formatInvokeError(err) });
       } finally {
         isLoading = false;
       }
@@ -520,14 +515,14 @@
             }
           }
         } catch (fileErr: any) {
-          if (fileErr.toString() === 'SUDO_PASSWORD_REQUIRED' || fileErr.toString() === 'SUDO_PASSWORD_INCORRECT') {
+          if (isSudoPasswordRequired(fileErr) || isSudoPasswordIncorrect(fileErr)) {
             throw fileErr;
           }
           console.error(`Error reading whitelist file ${file}:`, fileErr);
         }
       }
     } catch (err: any) {
-      if (err.toString() === 'SUDO_PASSWORD_REQUIRED' || err.toString() === 'SUDO_PASSWORD_INCORRECT') {
+      if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
         throw err;
       }
       console.error('Error listing whitelist files:', err);
@@ -585,7 +580,7 @@
                   });
                 }
               } catch (inspectErr: any) {
-                if (inspectErr.toString() === 'SUDO_PASSWORD_REQUIRED' || inspectErr.toString() === 'SUDO_PASSWORD_INCORRECT') {
+                if (isSudoPasswordRequired(inspectErr) || isSudoPasswordIncorrect(inspectErr)) {
                   throw inspectErr;
                 }
                 console.error(`Error inspecting allowlist ${name}:`, inspectErr);
@@ -595,7 +590,7 @@
         }
       }
     } catch (lapiErr: any) {
-      if (lapiErr.toString() === 'SUDO_PASSWORD_REQUIRED' || lapiErr.toString() === 'SUDO_PASSWORD_INCORRECT') {
+      if (isSudoPasswordRequired(lapiErr) || isSudoPasswordIncorrect(lapiErr)) {
         throw lapiErr;
       }
       console.warn('LAPI allowlists are not supported or could not be fetched:', lapiErr);
@@ -677,11 +672,10 @@
         whitelistData = updatedData;
         await fetchWhitelist();
       } catch (err: any) {
-        const errStr = err.toString();
-        if (errStr === 'SUDO_PASSWORD_REQUIRED' || errStr === 'SUDO_PASSWORD_INCORRECT') {
+        if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
           throw err;
         }
-        errorMsg = get(LL).crowdsec.whitelistSaveFailed({ error: formatInvokeError(errStr) });
+        errorMsg = get(LL).crowdsec.whitelistSaveFailed({ error: formatInvokeError(err) });
       } finally {
         isLoading = false;
       }
@@ -720,11 +714,10 @@
           newWhitelistIp = '';
           await fetchWhitelist();
         } catch (err: any) {
-          const errStr = err.toString();
-          if (errStr === 'SUDO_PASSWORD_REQUIRED' || errStr === 'SUDO_PASSWORD_INCORRECT') {
+          if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
             throw err;
           }
-          errorMsg = get(LL).crowdsec.lapiAddFailed({ error: formatInvokeError(errStr) });
+          errorMsg = get(LL).crowdsec.lapiAddFailed({ error: formatInvokeError(err) });
         } finally {
           isLoading = false;
         }
@@ -784,11 +777,10 @@
           }
           await fetchWhitelist();
         } catch (err: any) {
-          const errStr = err.toString();
-          if (errStr === 'SUDO_PASSWORD_REQUIRED' || errStr === 'SUDO_PASSWORD_INCORRECT') {
+          if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
             throw err;
           }
-          errorMsg = get(LL).crowdsec.lapiRemoveFailed({ error: formatInvokeError(errStr) });
+          errorMsg = get(LL).crowdsec.lapiRemoveFailed({ error: formatInvokeError(err) });
         } finally {
           isLoading = false;
         }
@@ -856,11 +848,10 @@
         }
         await fetchWhitelist();
       } catch (err: any) {
-        const errStr = err.toString();
-        if (errStr === 'SUDO_PASSWORD_REQUIRED' || errStr === 'SUDO_PASSWORD_INCORRECT') {
+        if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
           throw err;
         }
-        errorMsg = get(LL).crowdsec.whitelistRemoveFailed({ error: formatInvokeError(errStr) });
+        errorMsg = get(LL).crowdsec.whitelistRemoveFailed({ error: formatInvokeError(err) });
       } finally {
         isLoading = false;
       }
@@ -876,7 +867,7 @@
       const parsed = JSON.parse(out);
       bouncers = Array.isArray(parsed) ? parsed : [];
     } catch (err: any) {
-      if (err.toString() === 'SUDO_PASSWORD_REQUIRED' || err.toString() === 'SUDO_PASSWORD_INCORRECT') {
+      if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
         throw err;
       }
       console.error('Error fetching bouncers:', err);
@@ -910,11 +901,10 @@
         newBouncerName = '';
         await fetchBouncers();
       } catch (err: any) {
-        const errStr = err.toString();
-        if (errStr === 'SUDO_PASSWORD_REQUIRED' || errStr === 'SUDO_PASSWORD_INCORRECT') {
+        if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
           throw err;
         }
-        errorMsg = get(LL).crowdsec.addBouncerFailed({ error: formatInvokeError(errStr) });
+        errorMsg = get(LL).crowdsec.addBouncerFailed({ error: formatInvokeError(err) });
       } finally {
         isLoading = false;
       }
@@ -938,11 +928,10 @@
         await runCscliCommand(`bouncers delete ${name}`, true);
         await fetchBouncers();
       } catch (err: any) {
-        const errStr = err.toString();
-        if (errStr === 'SUDO_PASSWORD_REQUIRED' || errStr === 'SUDO_PASSWORD_INCORRECT') {
+        if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
           throw err;
         }
-        errorMsg = get(LL).crowdsec.actionFailed({ error: formatInvokeError(errStr) });
+        errorMsg = get(LL).crowdsec.actionFailed({ error: formatInvokeError(err) });
       } finally {
         isLoading = false;
       }
@@ -960,11 +949,10 @@
         await runCscliCommand('bouncers prune -d 45m', true);
         await fetchBouncers();
       } catch (err: any) {
-        const errStr = err.toString();
-        if (errStr === 'SUDO_PASSWORD_REQUIRED' || errStr === 'SUDO_PASSWORD_INCORRECT') {
+        if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
           throw err;
         }
-        errorMsg = get(LL).crowdsec.cleanupBouncersFailed({ error: formatInvokeError(errStr) });
+        errorMsg = get(LL).crowdsec.cleanupBouncersFailed({ error: formatInvokeError(err) });
       } finally {
         isLoading = false;
       }
@@ -979,7 +967,7 @@
       const parsed = JSON.parse(out);
       alerts = Array.isArray(parsed) ? parsed : [];
     } catch (err: any) {
-      if (err.toString() === 'SUDO_PASSWORD_REQUIRED' || err.toString() === 'SUDO_PASSWORD_INCORRECT') {
+      if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
         throw err;
       }
       console.error('Error fetching alerts:', err);
@@ -993,7 +981,7 @@
       const out = await runCscliCommand('metrics show -o json', true);
       metrics = JSON.parse(out);
     } catch (err: any) {
-      if (err.toString() === 'SUDO_PASSWORD_REQUIRED' || err.toString() === 'SUDO_PASSWORD_INCORRECT') {
+      if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
         throw err;
       }
       console.error('Error fetching metrics:', err);
@@ -1025,7 +1013,7 @@
       }
       hubItems = allItems;
     } catch (err: any) {
-      if (err.toString() === 'SUDO_PASSWORD_REQUIRED' || err.toString() === 'SUDO_PASSWORD_INCORRECT') {
+      if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
         throw err;
       }
       console.error('Error fetching hub list:', err);
@@ -1046,11 +1034,10 @@
         // Attempt environment re-detection after installation
         await detectEnvironment();
       } catch (err: any) {
-        const errStr = err.toString();
-        if (errStr === 'SUDO_PASSWORD_REQUIRED' || errStr === 'SUDO_PASSWORD_INCORRECT') {
+        if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
           throw err;
         }
-        errorMsg = get(LL).crowdsec.installFailed({ error: formatInvokeError(errStr) });
+        errorMsg = get(LL).crowdsec.installFailed({ error: formatInvokeError(err) });
       } finally {
         isInstalling = false;
       }
