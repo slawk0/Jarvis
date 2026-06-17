@@ -969,6 +969,122 @@ type RootTranslation = {
 		 * @param {unknown} name
 		 */
 		containerBanner: RequiredParams<'name'>
+		/**
+		 * S​a​v​e​d​ ​C​o​m​m​a​n​d​s
+		 */
+		savedCommands: string
+		/**
+		 * A​d​d​ ​C​o​m​m​a​n​d
+		 */
+		addCommand: string
+		/**
+		 * E​d​i​t​ ​C​o​m​m​a​n​d
+		 */
+		editCommand: string
+		/**
+		 * N​a​m​e​/​L​a​b​e​l
+		 */
+		commandLabel: string
+		/**
+		 * C​o​m​m​a​n​d
+		 */
+		commandText: string
+		/**
+		 * e​.​g​.​ ​d​o​c​k​e​r​ ​p​s
+		 */
+		commandPlaceholder: string
+		/**
+		 * e​.​g​.​ ​L​i​s​t​ ​c​o​n​t​a​i​n​e​r​s
+		 */
+		labelPlaceholder: string
+		/**
+		 * N​o​ ​s​a​v​e​d​ ​c​o​m​m​a​n​d​s​ ​y​e​t​.​ ​C​l​i​c​k​ ​A​d​d​ ​t​o​ ​c​r​e​a​t​e​ ​o​n​e​!
+		 */
+		noSavedCommands: string
+		/**
+		 * C​o​p​y​ ​S​e​l​e​c​t​i​o​n
+		 */
+		copySelection: string
+		/**
+		 * P​a​s​t​e
+		 */
+		paste: string
+		/**
+		 * C​l​e​a​r​ ​T​e​r​m​i​n​a​l
+		 */
+		clearTerminal: string
+		/**
+		 * S​e​l​e​c​t​ ​A​l​l
+		 */
+		selectAll: string
+		/**
+		 * E​d​i​t​ ​F​i​l​e
+		 */
+		editFile: string
+		/**
+		 * O​p​e​n​ ​F​i​l​e​ ​f​o​r​ ​E​d​i​t​i​n​g
+		 */
+		openFileTitle: string
+		/**
+		 * O​p​e​n​ ​E​d​i​t​o​r
+		 */
+		openFileBtn: string
+		/**
+		 * F​i​l​e​ ​P​a​t​h
+		 */
+		filePath: string
+		/**
+		 * U​s​e​ ​S​u​d​o
+		 */
+		useSudo: string
+		/**
+		 * S​a​v​e
+		 */
+		save: string
+		/**
+		 * C​l​o​s​e
+		 */
+		close: string
+		/**
+		 * E​d​i​t​i​n​g​ ​{​f​i​l​e​}
+		 * @param {unknown} file
+		 */
+		editingFile: RequiredParams<'file'>
+		/**
+		 * S​a​v​e​d
+		 */
+		editorSaved: string
+		/**
+		 * S​a​v​i​n​g​.​.​.
+		 */
+		editorSaving: string
+		/**
+		 * U​n​s​a​v​e​d​ ​c​h​a​n​g​e​s
+		 */
+		editorDirty: string
+		/**
+		 * E​r​r​o​r​ ​s​a​v​i​n​g
+		 */
+		editorError: string
+		/**
+		 * F​i​l​e​ ​i​s​ ​t​o​o​ ​l​a​r​g​e​ ​(​{​s​i​z​e​}​ ​M​B​)​.​ ​M​a​x​i​m​u​m​ ​s​i​z​e​ ​i​s​ ​5​ ​M​B​.
+		 * @param {unknown} size
+		 */
+		fileTooLarge: RequiredParams<'size'>
+		/**
+		 * F​a​i​l​e​d​ ​t​o​ ​r​e​a​d​ ​f​i​l​e​:​ ​{​e​r​r​o​r​}
+		 * @param {unknown} error
+		 */
+		readError: RequiredParams<'error'>
+		/**
+		 * F​a​i​l​e​d​ ​t​o​ ​w​r​i​t​e​ ​f​i​l​e​:​ ​{​e​r​r​o​r​}
+		 * @param {unknown} error
+		 */
+		writeError: RequiredParams<'error'>
+		/**
+		 * O​p​e​n​ ​S​e​l​e​c​t​e​d​ ​P​a​t​h​ ​i​n​ ​E​d​i​t​o​r
+		 */
+		editSelectedPath: string
 	}
 	logs: {
 		/**
@@ -1964,6 +2080,10 @@ type RootTranslation = {
 		 * S​S​H​ ​p​r​i​v​a​t​e​ ​k​e​y
 		 */
 		authKey: string
+		/**
+		 * S​S​H​ ​p​a​s​s​w​o​r​d​ ​(​w​i​l​l​ ​b​e​ ​s​a​v​e​d​ ​i​n​ ​W​i​n​d​o​w​s​ ​C​r​e​d​e​n​t​i​a​l​ ​M​a​n​a​g​e​r​)
+		 */
+		passwordField: string
 		/**
 		 * P​r​i​v​a​t​e​ ​k​e​y​ ​p​a​t​h​ ​(​e​.​g​.​ ​C​:​\​U​s​e​r​s​\​u​s​e​r​\​.​s​s​h​\​i​d​_​r​s​a​)
 		 */
@@ -7879,6 +7999,118 @@ export type TranslationFunctions = {
 		 * [Jarvis — container shell: {name}]
 		 */
 		containerBanner: (arg: { name: unknown }) => LocalizedString
+		/**
+		 * Saved Commands
+		 */
+		savedCommands: () => LocalizedString
+		/**
+		 * Add Command
+		 */
+		addCommand: () => LocalizedString
+		/**
+		 * Edit Command
+		 */
+		editCommand: () => LocalizedString
+		/**
+		 * Name/Label
+		 */
+		commandLabel: () => LocalizedString
+		/**
+		 * Command
+		 */
+		commandText: () => LocalizedString
+		/**
+		 * e.g. docker ps
+		 */
+		commandPlaceholder: () => LocalizedString
+		/**
+		 * e.g. List containers
+		 */
+		labelPlaceholder: () => LocalizedString
+		/**
+		 * No saved commands yet. Click Add to create one!
+		 */
+		noSavedCommands: () => LocalizedString
+		/**
+		 * Copy Selection
+		 */
+		copySelection: () => LocalizedString
+		/**
+		 * Paste
+		 */
+		paste: () => LocalizedString
+		/**
+		 * Clear Terminal
+		 */
+		clearTerminal: () => LocalizedString
+		/**
+		 * Select All
+		 */
+		selectAll: () => LocalizedString
+		/**
+		 * Edit File
+		 */
+		editFile: () => LocalizedString
+		/**
+		 * Open File for Editing
+		 */
+		openFileTitle: () => LocalizedString
+		/**
+		 * Open Editor
+		 */
+		openFileBtn: () => LocalizedString
+		/**
+		 * File Path
+		 */
+		filePath: () => LocalizedString
+		/**
+		 * Use Sudo
+		 */
+		useSudo: () => LocalizedString
+		/**
+		 * Save
+		 */
+		save: () => LocalizedString
+		/**
+		 * Close
+		 */
+		close: () => LocalizedString
+		/**
+		 * Editing {file}
+		 */
+		editingFile: (arg: { file: unknown }) => LocalizedString
+		/**
+		 * Saved
+		 */
+		editorSaved: () => LocalizedString
+		/**
+		 * Saving...
+		 */
+		editorSaving: () => LocalizedString
+		/**
+		 * Unsaved changes
+		 */
+		editorDirty: () => LocalizedString
+		/**
+		 * Error saving
+		 */
+		editorError: () => LocalizedString
+		/**
+		 * File is too large ({size} MB). Maximum size is 5 MB.
+		 */
+		fileTooLarge: (arg: { size: unknown }) => LocalizedString
+		/**
+		 * Failed to read file: {error}
+		 */
+		readError: (arg: { error: unknown }) => LocalizedString
+		/**
+		 * Failed to write file: {error}
+		 */
+		writeError: (arg: { error: unknown }) => LocalizedString
+		/**
+		 * Open Selected Path in Editor
+		 */
+		editSelectedPath: () => LocalizedString
 	}
 	logs: {
 		/**
@@ -8848,6 +9080,10 @@ export type TranslationFunctions = {
 		 * SSH private key
 		 */
 		authKey: () => LocalizedString
+		/**
+		 * SSH password (will be saved in Windows Credential Manager)
+		 */
+		passwordField: () => LocalizedString
 		/**
 		 * Private key path (e.g. C:\Users\user\.ssh\id_rsa)
 		 */

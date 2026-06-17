@@ -1000,7 +1000,7 @@
                   profileLabel={currentProfileLabel}
                 />
               {:else if pane.activeTab === 'maintenance'}
-                <MaintenanceManager />
+                <MaintenanceManager onDisconnect={handleDisconnect} />
               {:else if pane.activeTab === 'backups'}
                 <BackupManager profileId={currentProfileId} />
               {:else if pane.activeTab === 'network'}

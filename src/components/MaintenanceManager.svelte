@@ -12,6 +12,10 @@
     isSudoPasswordRequired,
   } from '$lib/i18n/backendErrors';
 
+  let {
+    onDisconnect = () => {},
+  } = $props();
+
   let isLoading = $state(false);
   let isRunningAction = $state(false);
   let errorMsg = $state('');
@@ -24,6 +28,7 @@
   let rebootReason = $state('');
   let unattendedEnabled = $state<boolean | null>(null);
 
+  let showConfirmUpgradeModal = $state(false);
   let showSudoModal = $state(false);
   let pendingAction: (() => Promise<void>) | null = null;
 
@@ -84,10 +89,13 @@
     actionOutput = '';
     await withSudo(async () => {
       try {
-        actionOutput = await exec('DEBIAN_FRONTEND=noninteractive apt-get update -y 2>&1', true);
+        actionOutput = await exec('env DEBIAN_FRONTEND=noninteractive apt-get update -y 2>&1', true);
         showOutput = true;
         await loadStatus();
       } catch (err: unknown) {
+        if (isSudoPasswordRequired(err)) {
+          throw err;
+        }
         actionOutput = formatInvokeError(err);
         showOutput = true;
       } finally {
@@ -98,20 +106,21 @@
   }
 
   async function runAptUpgrade() {
-    if (!confirm(get(LL).maintenance.confirmUpgrade({ count: upgradableCount }))) {
-      return;
-    }
+    showConfirmUpgradeModal = false;
     isRunningAction = true;
     actionOutput = '';
     await withSudo(async () => {
       try {
         actionOutput = await exec(
-          'DEBIAN_FRONTEND=noninteractive apt-get upgrade -y 2>&1',
+          'env DEBIAN_FRONTEND=noninteractive apt-get upgrade -y 2>&1',
           true,
         );
         showOutput = true;
         await loadStatus();
       } catch (err: unknown) {
+        if (isSudoPasswordRequired(err)) {
+          throw err;
+        }
         actionOutput = formatInvokeError(err);
         showOutput = true;
       } finally {
@@ -129,7 +138,13 @@
         await exec('nohup bash -c "sleep 2 && reboot" >/dev/null 2>&1 &', true);
         actionOutput = get(LL).maintenance.rebooting();
         showOutput = true;
+        setTimeout(() => {
+          onDisconnect();
+        }, 1500);
       } catch (err: unknown) {
+        if (isSudoPasswordRequired(err)) {
+          throw err;
+        }
         actionOutput = formatInvokeError(err);
         showOutput = true;
       } finally {
@@ -207,7 +222,7 @@
       <button
         class="primary btn-compact"
         disabled={isRunningAction || upgradableCount === 0}
-        onclick={runAptUpgrade}
+        onclick={() => (showConfirmUpgradeModal = true)}
       >
         {#if isRunningAction}<Loader2 size={14} class="spin" />{:else}<Download size={14} />{/if}
         {$LL.maintenance.aptUpgrade({ count: upgradableCount })}
@@ -253,12 +268,45 @@
   {/if}
 </div>
 
+{#if showConfirmUpgradeModal}
+  <div class="modal-overlay" role="presentation" onclick={() => showConfirmUpgradeModal = false}>
+    <div class="confirm-modal glass" role="dialog" onclick={(e) => e.stopPropagation()}>
+      <div class="modal-header">
+        <AlertTriangle size={20} class="accent-amber-text" />
+        <h3>{$LL.docker.confirmTitle()}</h3>
+      </div>
+      <p class="modal-desc">
+        {$LL.maintenance.confirmUpgrade({ count: upgradableCount })}
+      </p>
+
+      <div class="modal-pkg-list">
+        {#each upgradableList.slice(0, 50) as pkg}
+          <div class="modal-pkg-item">{pkg.split('/')[0]}</div>
+        {/each}
+        {#if upgradableList.length > 50}
+          <div class="modal-pkg-more">{$LL.maintenance.andMore({ count: upgradableList.length - 50 })}</div>
+        {/if}
+      </div>
+
+      <div class="modal-actions">
+        <button class="secondary" onclick={() => { showConfirmUpgradeModal = false; }}>
+          {$LL.common.cancel()}
+        </button>
+        <button class="primary" onclick={runAptUpgrade}>
+          {$LL.common.confirm()}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <SudoModal
   bind:open={showSudoModal}
   onSuccess={() => {
     if (pendingAction) {
       const action = pendingAction;
       pendingAction = null;
+      isRunningAction = true;
       action();
     }
   }}
@@ -393,5 +441,86 @@
 
   @media (max-width: 900px) {
     .status-grid { grid-template-columns: 1fr; }
+  }
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+  }
+
+  .confirm-modal {
+    width: 450px;
+    max-width: 90%;
+    padding: 24px;
+    border-radius: var(--radius-lg);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.5);
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: white;
+  }
+
+  .modal-header h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .modal-desc {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    margin: 0;
+  }
+
+  .modal-pkg-list {
+    max-height: 180px;
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .modal-pkg-item {
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    padding: 2px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .modal-pkg-item:last-child {
+    border-bottom: none;
+  }
+
+  .modal-pkg-more {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    padding-top: 4px;
+    text-align: center;
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 8px;
   }
 </style>

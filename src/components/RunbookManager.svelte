@@ -137,6 +137,9 @@
       try {
         outputContent = await exec(rb.command, rb.use_sudo);
       } catch (err: unknown) {
+        if (isSudoPasswordRequired(err)) {
+          throw err;
+        }
         outputContent = get(LL).runbook.errorPrefix({ error: formatInvokeError(err) });
       } finally {
         isRunning = false;
@@ -255,6 +258,7 @@
     if (pendingAction) {
       const action = pendingAction;
       pendingAction = null;
+      isRunning = true;
       action();
     }
   }}

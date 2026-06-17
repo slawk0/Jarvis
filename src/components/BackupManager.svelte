@@ -167,6 +167,9 @@
         lastBackupMsg += `\n\n${ll.backup.downloading({ count })}`;
         await exec(`rm -f ${remotePath}`, false).catch(() => {});
       } catch (err: unknown) {
+        if (isSudoPasswordRequired(err)) {
+          throw err;
+        }
         errorMsg = get(LL).backup.error({ error: formatInvokeError(err) });
       } finally {
         isRunning = false;
@@ -286,6 +289,7 @@
     if (pendingAction) {
       const action = pendingAction;
       pendingAction = null;
+      isRunning = true;
       action();
     }
   }}
