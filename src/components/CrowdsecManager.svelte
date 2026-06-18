@@ -17,6 +17,7 @@
     isSudoPasswordRequired,
   } from '$lib/i18n/backendErrors';
   import { formatDate } from '$lib/i18n/formatLocale';
+  import { notifications } from '$lib/notifications.svelte';
 
   // Svelte 5 Props
   let { profileId } = $props<{ profileId: string }>();
@@ -34,6 +35,13 @@
   let isLoading = $state(false);
   let isInstalling = $state(false);
   let errorMsg = $state('');
+
+  $effect(() => {
+    if (errorMsg) {
+      notifications.error(errorMsg);
+      errorMsg = '';
+    }
+  });
   let activeSubTab = $state<'dashboard' | 'decisions' | 'whitelist' | 'alerts' | 'bouncers' | 'metrics' | 'hub'>('dashboard');
 
   // Modals
@@ -1241,9 +1249,6 @@
           ({connectionModeLabel})
         </span>
       {/if}
-      {#if errorMsg}
-        <div class="error-badge">{errorMsg}</div>
-      {/if}
     </div>
 
     <div class="header-actions">
@@ -2114,15 +2119,6 @@ services:
   .status-pill.unknown .status-dot {
     background-color: var(--accent-amber);
     box-shadow: 0 0 6px var(--accent-amber);
-  }
-
-  .error-badge {
-    background: var(--accent-red-glow);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    color: #ff8585;
-    padding: 6px 12px;
-    border-radius: var(--radius-sm);
-    font-size: 0.8rem;
   }
 
   /* Auth gate */

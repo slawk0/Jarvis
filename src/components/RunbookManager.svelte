@@ -7,6 +7,7 @@
   import { DEFAULT_PROFILE_EXTRAS } from '$lib/admin/types';
   import { get } from 'svelte/store';
   import { LL } from '$lib/i18n/i18n-svelte';
+  import { notifications } from '$lib/notifications.svelte';
   import {
     formatInvokeError,
     isSudoPasswordRequired,
@@ -18,6 +19,13 @@
   let isLoading = $state(false);
   let isRunning = $state(false);
   let errorMsg = $state('');
+
+  $effect(() => {
+    if (errorMsg) {
+      notifications.error(errorMsg);
+      errorMsg = '';
+    }
+  });
 
   let showAddModal = $state(false);
   let editId = $state<string | null>(null);
@@ -174,10 +182,6 @@
     </div>
   </header>
 
-  {#if errorMsg}
-    <div class="error-banner">{errorMsg}</div>
-  {/if}
-
   <section class="presets glass">
     <h3>{$LL.runbook.quickPresets()}</h3>
     <div class="preset-chips">
@@ -286,7 +290,6 @@
   .rb-actions { display: flex; gap: 6px; }
   .empty { padding: 40px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; border-radius: var(--radius-md); }
   .empty .muted { color: var(--text-muted); }
-  .error-banner { padding: 10px; border-radius: var(--radius-sm); background: var(--accent-red-glow); color: #ff8585; font-size: 0.85rem; }
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; }
   .modal { width: 480px; padding: 20px; border-radius: var(--radius-md); display: flex; flex-direction: column; gap: 10px; }
   .output-modal { width: 640px; max-height: 80vh; }

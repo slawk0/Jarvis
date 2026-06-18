@@ -8,6 +8,7 @@
   import SudoModal from './SudoModal.svelte';
   import { get } from 'svelte/store';
   import { LL } from '$lib/i18n/i18n-svelte';
+  import { notifications } from '$lib/notifications.svelte';
   import {
     formatInvokeError,
     isSudoPasswordRequired,
@@ -21,6 +22,13 @@
   let isLoading = $state(false);
   let isRunningAction = $state(false);
   let errorMsg = $state('');
+
+  $effect(() => {
+    if (errorMsg) {
+      notifications.error(errorMsg);
+      errorMsg = '';
+    }
+  });
   let actionOutput = $state('');
   let showOutput = $state(false);
 
@@ -213,10 +221,6 @@
       </button>
     </div>
   </header>
-
-  {#if errorMsg}
-    <div class="error-banner">{errorMsg}</div>
-  {/if}
 
   <section class="status-grid">
     <div class="status-card glass">
@@ -474,14 +478,6 @@
     background: rgba(0, 0, 0, 0.3);
     padding: 12px;
     border-radius: var(--radius-sm);
-  }
-
-  .error-banner {
-    padding: 10px;
-    border-radius: var(--radius-sm);
-    background: var(--accent-red-glow);
-    color: #ff8585;
-    font-size: 0.85rem;
   }
 
   .header-actions {

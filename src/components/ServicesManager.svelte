@@ -7,6 +7,7 @@
   import { stickToBottom } from '$lib/stickToBottom';
   import { get } from 'svelte/store';
   import { LL } from '$lib/i18n/i18n-svelte';
+  import { notifications } from '$lib/notifications.svelte';
   import {
     formatInvokeError,
     isSudoPasswordIncorrect,
@@ -33,6 +34,13 @@
   let searchQuery = $state('');
   let isLoading = $state(false);
   let errorMsg = $state('');
+
+  $effect(() => {
+    if (errorMsg) {
+      notifications.error(errorMsg);
+      errorMsg = '';
+    }
+  });
 
   // Sudo authentication management
   let showSudoModal = $state(false);
@@ -259,9 +267,6 @@ WantedBy=multi-user.target
 <div class="services-manager manager-shell fade-in">
   <header class="manager-header">
     <h1 class="page-title">{$LL.services.title()}</h1>
-    {#if errorMsg}
-      <div class="error-badge">{errorMsg}</div>
-    {/if}
   </header>
 
   <!-- Pasek operacji -->
@@ -469,15 +474,6 @@ WantedBy=multi-user.target
 <style>
   .services-manager {
     /* uses .manager-shell */
-  }
-
-  .error-badge {
-    background: var(--accent-red-glow);
-    border: 1px solid rgba(244, 63, 94, 0.3);
-    padding: 8px 16px;
-    border-radius: var(--radius-sm);
-    color: #ff8595;
-    font-size: 0.85rem;
   }
 
   /* Ops Bar */

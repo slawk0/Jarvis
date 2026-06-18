@@ -87,6 +87,7 @@
   let currentProfileId = $state('');
   let currentProfileLabel = $state('');
   let isSwitching = $state(false);
+  let isOnline = $state(true);
 
   // ────────────── Sidebar State ──────────────
 
@@ -101,6 +102,62 @@
 
   $effect(() => {
     localStorage.setItem('jarvis-sidebar-collapsed', String(sidebarCollapsed));
+  });
+
+  let pingInterval: any = null;
+  let isReconnecting = $state(false);
+
+  async function handleReconnect() {
+    if (isReconnecting || !currentProfileId) return;
+    isReconnecting = true;
+    connectError = '';
+    try {
+      const stats = await invoke<any>('connect_ssh', { profileId: currentProfileId });
+      serverStats = stats;
+      currentHostname = stats.hostname;
+      isOnline = true;
+      connectError = '';
+    } catch (err: unknown) {
+      connectError = formatInvokeError(err);
+      isOnline = false;
+    } finally {
+      isReconnecting = false;
+    }
+  }
+
+  $effect(() => {
+    if (isConnected && !isSwitching && !isConnecting) {
+      pingInterval = setInterval(async () => {
+        if (isOnline) {
+          try {
+            await invoke('ping_ssh');
+            isOnline = true;
+          } catch (err) {
+            console.error('Ping failed:', err);
+            isOnline = false;
+          }
+        } else {
+          // If we are offline, attempt to reconnect in the background
+          if (!isReconnecting) {
+            console.log('Server offline, attempting background reconnect...');
+            await handleReconnect();
+          }
+        }
+      }, 5000);
+    } else {
+      if (pingInterval) {
+        clearInterval(pingInterval);
+        pingInterval = null;
+      }
+      isOnline = true;
+    }
+
+    return () => {
+      if (pingInterval) {
+        clearInterval(pingInterval);
+        pingInterval = null;
+      }
+    };
   });
 
   // ────────────── Pane / Workspace State ──────────────
@@ -708,8 +765,10 @@
       layoutMode = 'single';
       tabHistory = [];
       isConnected = true;
+      isOnline = true;
     } catch (err: unknown) {
       connectError = formatInvokeError(err);
+      isOnline = false;
     } finally {
       isConnecting = false;
     }
@@ -727,8 +786,10 @@
       const prof = profiles.find((p) => p.id === profileId);
       currentProfileLabel = prof?.label || stats.hostname;
       resetAlertCooldowns();
+      isOnline = true;
     } catch (err: unknown) {
       connectError = formatInvokeError(err);
+      isOnline = false;
     } finally {
       isSwitching = false;
     }
@@ -804,6 +865,9 @@
       profiles={profiles}
       currentProfileId={currentProfileId}
       isSwitching={isSwitching}
+      isOnline={isOnline}
+      isReconnecting={isReconnecting}
+      onReconnect={handleReconnect}
       onSwitchProfile={handleSwitchProfile}
       onDisconnect={handleDisconnect}
       onTabSelect={(tab: string) => {

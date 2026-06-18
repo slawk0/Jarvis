@@ -388,6 +388,14 @@ type RootTranslation = {
 		 */
 		switching: string
 		/**
+		 * R​e​c​o​n​n​e​c​t
+		 */
+		reconnect: string
+		/**
+		 * C​o​n​n​e​c​t​i​n​g
+		 */
+		connecting: string
+		/**
 		 * O​p​e​r​a​t​i​o​n​s
 		 */
 		operations: string
@@ -7437,6 +7445,14 @@ export type TranslationFunctions = {
 		 * Switching
 		 */
 		switching: () => LocalizedString
+		/**
+		 * Reconnect
+		 */
+		reconnect: () => LocalizedString
+		/**
+		 * Connecting
+		 */
+		connecting: () => LocalizedString
 		/**
 		 * Operations
 		 */

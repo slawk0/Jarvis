@@ -6,6 +6,7 @@
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
   import { get } from 'svelte/store';
   import { LL } from '$lib/i18n/i18n-svelte';
+  import { notifications } from '$lib/notifications.svelte';
   import {
     formatInvokeError,
     isSudoPasswordRequired,
@@ -15,6 +16,13 @@
   let groups = $state<any[]>([]);
   let isLoading = $state(false);
   let errorMsg = $state('');
+
+  $effect(() => {
+    if (errorMsg) {
+      notifications.error(errorMsg);
+      errorMsg = '';
+    }
+  });
   let showSystemAccounts = $state(false);
 
   // Sudo management
@@ -276,9 +284,6 @@
 <div class="user-manager manager-shell fade-in">
   <header class="manager-header">
     <h1 class="page-title">{$LL.users.title()}</h1>
-    {#if errorMsg}
-      <div class="error-badge">{errorMsg}</div>
-    {/if}
   </header>
 
   <!-- Pasek operacji -->
@@ -514,15 +519,6 @@
 <style>
   .user-manager {
     /* uses .manager-shell */
-  }
-
-  .error-badge {
-    background: var(--accent-red-glow);
-    border: 1px solid rgba(244, 63, 94, 0.3);
-    padding: 8px 16px;
-    border-radius: var(--radius-sm);
-    color: #ff8595;
-    font-size: 0.85rem;
   }
 
   /* Ops Bar */

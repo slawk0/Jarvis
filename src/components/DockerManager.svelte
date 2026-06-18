@@ -20,6 +20,7 @@
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
   import { get } from 'svelte/store';
   import { LL } from '$lib/i18n/i18n-svelte';
+  import { notifications } from '$lib/notifications.svelte';
   import {
     formatInvokeError,
     isSudoPasswordIncorrect,
@@ -37,6 +38,20 @@
   let isLoading = $state(false);
   let errorMsg = $state('');
   let successMsg = $state('');
+
+  $effect(() => {
+    if (errorMsg) {
+      notifications.error(errorMsg);
+      errorMsg = '';
+    }
+  });
+
+  $effect(() => {
+    if (successMsg) {
+      notifications.success(successMsg);
+      successMsg = '';
+    }
+  });
 
   // Docker status
   let dockerInstalled = $state(true);
@@ -242,6 +257,13 @@
   let browserEditorInstance: any = null;
   let browserEditorSaving = $state(false);
   let browserErrorMsg = $state('');
+
+  $effect(() => {
+    if (browserErrorMsg) {
+      notifications.error(browserErrorMsg);
+      browserErrorMsg = '';
+    }
+  });
 
   // Modify Container modal state
   let showModifyModal = $state(false);
@@ -1864,18 +1886,6 @@ networks:
           <span class="stat-label">{$LL.docker.statNetworks()}</span>
         </div>
       </div>
-      {#if errorMsg}
-        <div class="error-badge">
-          <AlertCircle size={12} />
-          <span class="error-text">{errorMsg}</span>
-          <button class="dismiss-btn" onclick={() => errorMsg = ''}>
-            <X size={12} />
-          </button>
-        </div>
-      {/if}
-      {#if successMsg}
-        <div class="success-badge">{successMsg}</div>
-      {/if}
     </div>
 
     <!-- Sub-tabs -->
@@ -2734,9 +2744,6 @@ networks:
             </button>
             <span class="mono-val volume-path">{browserVolumePath}{browserRelativePath}</span>
           </div>
-          {#if browserErrorMsg}
-            <div class="error-text">{browserErrorMsg}</div>
-          {/if}
           <ListSortBar
             columns={[
               { id: 'name', label: 'Nazwa' },
@@ -2959,50 +2966,6 @@ networks:
 
   .docker-top-bar .page-title {
     flex-shrink: 0;
-  }
-
-  .error-badge {
-    background: var(--accent-red-glow);
-    border: 1px solid rgba(244, 63, 94, 0.3);
-    padding: 4px 10px;
-    border-radius: var(--radius-sm);
-    color: #ff8595;
-    font-size: 0.75rem;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    max-width: 360px;
-    margin-left: auto;
-  }
-
-  .error-text {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .dismiss-btn {
-    background: transparent;
-    border: none;
-    color: inherit;
-    padding: 2px;
-    cursor: pointer;
-    border-radius: 2px;
-    flex-shrink: 0;
-  }
-
-  .dismiss-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-  }
-
-  .success-badge {
-    background: var(--accent-green-glow);
-    border: 1px solid rgba(16, 185, 129, 0.3);
-    padding: 4px 10px;
-    border-radius: var(--radius-sm);
-    color: var(--accent-green);
-    font-size: 0.75rem;
-    margin-left: auto;
   }
 
   /* Not installed card */

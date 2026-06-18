@@ -25,6 +25,7 @@
   import { registerBackHandler } from '$lib/backNavigation.svelte';
   import { get } from 'svelte/store';
   import { LL } from '$lib/i18n/i18n-svelte';
+  import { notifications } from '$lib/notifications.svelte';
   import {
     formatInvokeError,
     isSudoPasswordRequired,
@@ -57,6 +58,13 @@
   let unsubscribeStdout: (() => void) | null = null;
   let isLoading = $state(false);
   let errorMsg = $state('');
+
+  $effect(() => {
+    if (errorMsg) {
+      notifications.error(errorMsg);
+      errorMsg = '';
+    }
+  });
   let activeContainer = $state<ContainerSession | null>(null);
   let resizeObserver: ResizeObserver | null = null;
 
@@ -679,9 +687,6 @@
           <h1 class="page-title">{$LL.terminal.sshConsole()}</h1>
         {/if}
       </div>
-      {#if errorMsg && !editingFile}
-        <div class="error-badge">{errorMsg}</div>
-      {/if}
       <div class="actions">
         {#if activeContainer}
           <button class="secondary" onclick={switchToServerShell} disabled={isLoading} title={$LL.terminal.backToServerShell()}>
@@ -829,10 +834,6 @@
         </label>
       </div>
 
-      {#if errorMsg && !editingFile}
-        <div class="modal-error">{errorMsg}</div>
-      {/if}
-
       <div class="modal-actions">
         <button class="primary" onclick={() => openFileForEditing(filePathToEdit)} disabled={!filePathToEdit || isLoading}>
           {$LL.terminal.openFileBtn()}
@@ -871,15 +872,6 @@
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
-  }
-
-  .error-badge {
-    background: var(--accent-red-glow);
-    border: 1px solid rgba(244, 63, 94, 0.3);
-    padding: 8px 16px;
-    border-radius: var(--radius-sm);
-    color: #ff8595;
-    font-size: 0.85rem;
   }
 
   .actions {

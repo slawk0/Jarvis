@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { Folder, File } from 'lucide-svelte';
   import type { FileInfo } from '$lib/sftp/types';
@@ -29,6 +30,7 @@
   let activeIndex = $state(-1);
   let isLoading = $state(false);
   let currentLoadedDir = $state('');
+  let hasManuallyNavigated = $state(false);
 
   // Scroll active item into view during keyboard navigation
   $effect(() => {
@@ -38,6 +40,15 @@
         activeLi.scrollIntoView({ block: 'nearest' });
       }
     }
+  });
+
+  // Automatically select the first element by default when suggestions change
+  $effect(() => {
+    const len = filteredSuggestions.length;
+    untrack(() => {
+      activeIndex = len > 0 ? 0 : -1;
+      hasManuallyNavigated = false;
+    });
   });
 
   // Helper to parse path into parent directory and last segment query
@@ -84,6 +95,7 @@
       return;
     }
     
+    suggestions = [];
     isLoading = true;
     try {
       const result = await invoke<FileInfo[]>('sftp_list', { path: dir });
@@ -102,7 +114,7 @@
     const dir = parsed.dir;
     const newPath = dir + item.name + (item.is_dir ? '/' : '');
     value = newPath;
-    showDropdown = false;
+    showDropdown = item.is_dir;
     activeIndex = -1;
     if (onSelect) {
       onSelect(newPath);
@@ -112,28 +124,36 @@
   }
 
   function handleKeyDown(e: KeyboardEvent) {
-    if (e.key === 'Enter' || e.key === 'Tab') {
-      if (showDropdown && activeIndex >= 0 && activeIndex < filteredSuggestions.length) {
+    if (e.key === 'Enter') {
+      if (showDropdown && activeIndex >= 0 && activeIndex < filteredSuggestions.length && hasManuallyNavigated) {
         e.preventDefault();
         handleSelect(filteredSuggestions[activeIndex]);
-      } else if (e.key === 'Enter') {
+      } else {
         showDropdown = false;
         if (onEnter) {
           onEnter();
         }
       }
+    } else if (e.key === 'Tab') {
+      if (showDropdown && activeIndex >= 0 && activeIndex < filteredSuggestions.length) {
+        e.preventDefault();
+        handleSelect(filteredSuggestions[activeIndex]);
+      }
     } else if (e.key === 'ArrowDown') {
       if (!showDropdown) {
         showDropdown = true;
         activeIndex = 0;
+        hasManuallyNavigated = true;
       } else if (filteredSuggestions.length > 0) {
         e.preventDefault();
         activeIndex = (activeIndex + 1) % filteredSuggestions.length;
+        hasManuallyNavigated = true;
       }
     } else if (e.key === 'ArrowUp') {
       if (showDropdown && filteredSuggestions.length > 0) {
         e.preventDefault();
         activeIndex = (activeIndex - 1 + filteredSuggestions.length) % filteredSuggestions.length;
+        hasManuallyNavigated = true;
       }
     } else if (e.key === 'Escape') {
       showDropdown = false;
@@ -179,6 +199,8 @@
     bind:value={value}
     onkeydown={handleKeyDown}
     onfocus={handleFocus}
+    oninput={handleFocus}
+    onclick={handleFocus}
   />
   
   {#if showDropdown && filteredSuggestions.length > 0}

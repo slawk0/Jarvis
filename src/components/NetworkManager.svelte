@@ -6,10 +6,18 @@
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
   import { LL } from '$lib/i18n/i18n-svelte';
   import { formatInvokeError } from '$lib/i18n/backendErrors';
+  import { notifications } from '$lib/notifications.svelte';
 
   let activeSubTab = $state<'listening' | 'connections'>('listening');
   let isLoading = $state(false);
   let errorMsg = $state('');
+
+  $effect(() => {
+    if (errorMsg) {
+      notifications.error(errorMsg);
+      errorMsg = '';
+    }
+  });
   let listening = $state<any[]>([]);
   let connections = $state<any[]>([]);
 
@@ -96,10 +104,6 @@
     </button>
   </header>
 
-  {#if errorMsg}
-    <div class="error-banner">{errorMsg}</div>
-  {/if}
-
   <div class="sub-tabs">
     <button class="sub-tab {activeSubTab === 'listening' ? 'active' : ''}" onclick={() => (activeSubTab = 'listening')}>
       <Network size={14} /> {$LL.network.listening({ count: listening.length })}
@@ -183,7 +187,6 @@
   th { color: var(--text-muted); font-weight: 500; position: sticky; top: 0; background: var(--bg-secondary); }
   .process-cell { color: var(--text-secondary); max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .hint { padding: 10px 12px; display: flex; gap: 8px; align-items: center; font-size: 0.78rem; color: var(--text-muted); border-radius: var(--radius-md); flex-shrink: 0; }
-  .error-banner { padding: 10px; border-radius: var(--radius-sm); background: var(--accent-red-glow); color: #ff8585; font-size: 0.85rem; }
   .spin { animation: spin 1s linear infinite; }
   @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 </style>

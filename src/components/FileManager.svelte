@@ -10,6 +10,7 @@
   import { registerBackHandler } from '$lib/backNavigation.svelte';
   import { get } from 'svelte/store';
   import { LL } from '$lib/i18n/i18n-svelte';
+  import { notifications } from '$lib/notifications.svelte';
   import {
     formatInvokeError,
     isSudoPasswordRequired,
@@ -18,6 +19,13 @@
   let errorMsg = $state('');
   let browserPath = $state('/');
   let browserRef: SftpFileBrowser | undefined = $state();
+
+  $effect(() => {
+    if (errorMsg) {
+      notifications.error(errorMsg);
+      errorMsg = '';
+    }
+  });
 
   // Edytor Monaco
   let editingFile = $state<string | null>(null);
@@ -474,10 +482,6 @@
 
 <div class="file-manager manager-shell fade-in">
   <div class="browser-layer" class:hidden={!!editingFile}>
-    {#if errorMsg}
-      <div class="error-badge">{errorMsg}</div>
-    {/if}
-
     <SftpFileBrowser
       bind:this={browserRef}
       onEdit={handleEdit}
@@ -640,17 +644,6 @@
 
   .browser-layer.hidden {
     display: none;
-  }
-
-  .error-badge {
-    flex-shrink: 0;
-    background: var(--accent-red-glow);
-    border: 1px solid rgba(244, 63, 94, 0.3);
-    padding: 8px 16px;
-    border-radius: var(--radius-sm);
-    color: #ff8595;
-    font-size: 0.85rem;
-    max-width: 50%;
   }
 
   .editor-view {

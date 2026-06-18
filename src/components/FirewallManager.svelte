@@ -6,6 +6,7 @@
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
   import { get } from 'svelte/store';
   import { LL } from '$lib/i18n/i18n-svelte';
+  import { notifications } from '$lib/notifications.svelte';
   import {
     formatInvokeError,
     isSudoPasswordRequired,
@@ -39,6 +40,13 @@
 
   let isLoading = $state(false);
   let errorMsg = $state('');
+
+  $effect(() => {
+    if (errorMsg) {
+      notifications.error(errorMsg);
+      errorMsg = '';
+    }
+  });
 
   // Sudo auth state
   let showSudoModal = $state(false);
@@ -347,9 +355,6 @@
         </div>
       {/if}
     </div>
-    {#if errorMsg}
-      <div class="error-badge">{errorMsg}</div>
-    {/if}
   </header>
 
   {#if !isSudoAuthorized && isInitialized}
@@ -639,15 +644,6 @@
     background: var(--bg-secondary);
     color: var(--text-primary);
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-  }
-
-  .error-badge {
-    background: var(--accent-red-glow);
-    border: 1px solid rgba(244, 63, 94, 0.3);
-    padding: 8px 16px;
-    border-radius: var(--radius-sm);
-    color: #ff8595;
-    font-size: 0.85rem;
   }
 
   /* Status Bar */

@@ -94,6 +94,8 @@ const en = {
 		online: 'Online',
 		offline: 'Offline',
 		switching: 'Switching',
+		reconnect: 'Reconnect',
+		connecting: 'Connecting',
 		operations: 'Operations',
 		sortBy: 'Sort by',
 		modified: 'Modified',

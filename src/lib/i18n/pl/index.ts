@@ -94,6 +94,8 @@ const pl = {
 		online: 'ONLINE',
 		offline: 'OFFLINE',
 		switching: 'PRZEŁĄCZANIE',
+		reconnect: 'Połącz ponownie',
+		connecting: 'Łączenie',
 		operations: 'Operacje',
 		sortBy: 'Sortuj według',
 		modified: 'Modyfikacja',

@@ -40,6 +40,9 @@
     onSwitchProfile = (_id: string) => {},
     isSwitching = false,
     onCustomDragStart,
+    isOnline = true,
+    isReconnecting = false,
+    onReconnect = () => {},
   } = $props();
 
   let showProfileMenu = $state(false);
@@ -114,7 +117,7 @@
           {#if isSwitching}
             <Loader2 size={12} class="spin" />
           {:else}
-            <span class="status-dot"></span>
+            <span class="status-dot" class:offline={!isOnline}></span>
           {/if}
           <span class="switcher-label">
             {currentProfile?.label || displayHostname}
@@ -189,10 +192,27 @@
         </div>
         <div class="hud-row">
           <span class="hud-label">{$LL.sidebar.statusLabel()}</span>
-          <span class="hud-status nominal">
-            <span class="heartbeat"></span> {isSwitching ? $LL.common.switching() : $LL.common.online()}
+          <span class="hud-status" class:nominal={isOnline} class:offline={!isOnline}>
+            <span class="status-indicator" class:online={isOnline} class:offline={!isOnline}></span>
+            {isSwitching ? $LL.common.switching() : (isOnline ? $LL.common.online() : $LL.common.offline())}
           </span>
         </div>
+        {#if !isOnline}
+          <div class="hud-row reconnect-row">
+            <button
+              type="button"
+              class="reconnect-btn"
+              onclick={(e) => { e.stopPropagation(); onReconnect(); }}
+              disabled={isReconnecting}
+            >
+              {#if isReconnecting}
+                <Loader2 size={10} class="spin" /> {$LL.common.connecting()}
+              {:else}
+                {$LL.common.reconnect()}
+              {/if}
+            </button>
+          </div>
+        {/if}
         <div class="hud-row">
           <span class="hud-label">{$LL.sidebar.tunnelLabel()}</span>
           <span class="hud-val secure">{$LL.sidebar.tunnelValue()}</span>
@@ -335,6 +355,11 @@
     background-color: var(--accent-green);
     box-shadow: 0 0 6px var(--accent-green);
     flex-shrink: 0;
+  }
+
+  .status-dot.offline {
+    background-color: var(--accent-red);
+    box-shadow: 0 0 6px var(--accent-red);
   }
 
   .chev { flex-shrink: 0; opacity: 0.6; }
@@ -526,20 +551,24 @@
   }
 
   .hud-status.nominal { color: var(--accent-green); }
+  .hud-status.offline { color: var(--accent-red); }
 
-  .heartbeat {
-    width: 5px;
-    height: 5px;
+  .status-indicator {
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
-    background: var(--accent-green);
     display: inline-block;
-    animation: heartbeat-pulse 1.8s infinite ease-in-out;
+    flex-shrink: 0;
   }
 
-  @keyframes heartbeat-pulse {
-    0% { transform: scale(0.9); opacity: 0.6; }
-    50% { transform: scale(1.1); opacity: 1; }
-    100% { transform: scale(0.9); opacity: 0.6; }
+  .status-indicator.online {
+    background: var(--accent-green);
+    box-shadow: 0 0 6px var(--accent-green);
+  }
+
+  .status-indicator.offline {
+    background: var(--accent-red);
+    box-shadow: 0 0 6px var(--accent-red);
   }
 
   .collapse-toggle {
@@ -557,6 +586,38 @@
     background: var(--accent-red-glow);
     border-color: rgba(239, 68, 68, 0.2);
     color: var(--accent-red);
+  }
+
+  .reconnect-row {
+    justify-content: center;
+    margin-top: 2px;
+  }
+
+  .reconnect-btn {
+    width: 100%;
+    background: var(--accent-muted);
+    border: 1px solid var(--accent-primary);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    padding: 4px 8px;
+    font-size: 0.65rem;
+    font-family: var(--font-mono);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background 0.1s ease, color 0.1s ease;
+  }
+
+  .reconnect-btn:hover:not(:disabled) {
+    background: var(--accent-primary);
+    color: white;
+  }
+
+  .reconnect-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 
   .spin { animation: spin 1s linear infinite; }

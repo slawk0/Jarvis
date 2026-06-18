@@ -7,6 +7,7 @@
   import { get } from 'svelte/store';
   import { LL } from '$lib/i18n/i18n-svelte';
   import { formatInvokeError } from '$lib/i18n/backendErrors';
+  import { notifications } from '$lib/notifications.svelte';
 
   let cronJobs = $state<any[]>([]);
   type CronSortCol = 'active' | 'expression' | 'command';
@@ -28,7 +29,6 @@
     cronSort = nextSort(cronSort, column as CronSortCol);
   }
   let isLoading = $state(false);
-  let errorMsg = $state('');
 
   // Modale
   let showCreateModal = $state(false);
@@ -52,7 +52,6 @@
 
   async function loadCronJobs() {
     isLoading = true;
-    errorMsg = '';
     try {
       // crontab -l returns exit code 1 if no crontab exists, we handle it in Rust or here
       const result: string = await invoke('exec_custom_command', {
@@ -60,40 +59,57 @@
         useSudo: false
       });
       
-      const lines = result.trim().split('\n');
-      let parsedJobs = [];
-      let idCounter = 0;
-      
+      const parsedJobs = [];
+      const lines = result.split('\n');
       for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed === '') continue;
+        if (!line.trim()) continue;
         
-        let isCommented = trimmed.startsWith('#');
-        let cleanLine = isCommented ? trimmed.substring(1).trim() : trimmed;
-        
-        // A cron expression has 5 columns separated by spaces, the rest is the command
-        const parts = cleanLine.split(/\s+/);
-        if (parts.length >= 6) {
-          const expression = parts.slice(0, 5).join(' ');
-          const command = parts.slice(5).join(' ');
+        if (line.startsWith('#')) {
+          // Check if it's a commented-out cron job
+          const cleaned = line.replace(/^#\s*/, '').trim();
+          const parts = cleaned.split(/\s+/);
           
-          parsedJobs.push({
-            id: idCounter++,
-            expression,
-            command,
-            is_active: !isCommented,
-            raw: trimmed
-          });
+          if (parts.length >= 6 && (
+            parts[0] === '*' || /^\d+/.test(parts[0]) || parts[0].startsWith('*/') || parts[0].startsWith('@')
+          )) {
+            const expr = parts.slice(0, 5).join(' ');
+            const cmd = parts.slice(5).join(' ');
+            parsedJobs.push({
+              id: crypto.randomUUID(),
+              expression: expr,
+              command: cmd,
+              is_active: false
+            });
+          } else {
+            // regular comment
+            parsedJobs.push({
+              id: crypto.randomUUID(),
+              raw: line,
+              is_meta: true
+            });
+          }
         } else {
-          // Other lines (e.g., header comments or environment variables like MAILTO)
-          parsedJobs.push({
-            id: idCounter++,
-            expression: '',
-            command: cleanLine,
-            is_active: false,
-            raw: trimmed,
-            is_meta: true
-          });
+          // Active cron job or env definition
+          const parts = line.trim().split(/\s+/);
+          if (parts.length >= 6 && (
+            parts[0] === '*' || /^\d+/.test(parts[0]) || parts[0].startsWith('*/') || parts[0].startsWith('@')
+          )) {
+            const expr = parts.slice(0, 5).join(' ');
+            const cmd = parts.slice(5).join(' ');
+            parsedJobs.push({
+              id: crypto.randomUUID(),
+              expression: expr,
+              command: cmd,
+              is_active: true
+            });
+          } else {
+            // env definition or something else
+            parsedJobs.push({
+              id: crypto.randomUUID(),
+              raw: line,
+              is_meta: true
+            });
+          }
         }
       }
       
@@ -103,7 +119,7 @@
       if (String(err).includes('no crontab') || String(err).includes('kod 1')) {
         cronJobs = [];
       } else {
-        errorMsg = get(LL).cron.loadFailed({ error: formatInvokeError(err) });
+        notifications.error(get(LL).cron.loadFailed({ error: formatInvokeError(err) }));
       }
     } finally {
       isLoading = false;
@@ -112,7 +128,6 @@
 
   async function saveCronJobs(jobsList: any[]) {
     isLoading = true;
-    errorMsg = '';
     
     // Build the crontab file content
     const fileContent = jobsList.map(job => {
@@ -138,7 +153,7 @@
       });
       await loadCronJobs();
     } catch (err: unknown) {
-      errorMsg = get(LL).cron.saveFailed({ error: formatInvokeError(err) });
+      notifications.error(get(LL).cron.saveFailed({ error: formatInvokeError(err) }));
     } finally {
       isLoading = false;
     }
@@ -219,9 +234,6 @@
 <div class="cron-manager manager-shell fade-in">
   <header class="manager-header">
     <h1 class="page-title">{$LL.cron.title()}</h1>
-    {#if errorMsg}
-      <div class="error-badge">{errorMsg}</div>
-    {/if}
   </header>
 
   <!-- Pasek operacyjny -->
@@ -380,15 +392,6 @@
 <style>
   .cron-manager {
     /* uses .manager-shell */
-  }
-
-  .error-badge {
-    background: var(--accent-red-glow);
-    border: 1px solid rgba(244, 63, 94, 0.3);
-    padding: 8px 16px;
-    border-radius: var(--radius-sm);
-    color: #ff8595;
-    font-size: 0.85rem;
   }
 
   /* Ops Bar */

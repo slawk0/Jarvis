@@ -306,6 +306,15 @@ async fn get_server_stats(state: State<'_, AppState>) -> Result<ServerStats, App
 }
 
 #[tauri::command]
+async fn ping_ssh(state: State<'_, AppState>) -> Result<(), AppError> {
+    let conn = {
+        let conn_guard = state.connection.lock();
+        conn_guard.as_ref().ok_or_else(no_ssh_connection)?.clone()
+    };
+    conn.exec("true").await.map(|_| ())
+}
+
+#[tauri::command]
 async fn get_extended_server_stats(
     state: State<'_, AppState>,
 ) -> Result<ExtendedServerStats, AppError> {
@@ -1836,6 +1845,7 @@ pub fn run() {
             delete_profile,
             connect_ssh,
             disconnect_ssh,
+            ping_ssh,
             switch_ssh,
             get_server_stats,
             get_extended_server_stats,

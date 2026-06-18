@@ -10,6 +10,7 @@
   import { DEFAULT_PROFILE_EXTRAS } from '$lib/admin/types';
   import { get } from 'svelte/store';
   import { LL } from '$lib/i18n/i18n-svelte';
+  import { notifications } from '$lib/notifications.svelte';
   import {
     formatInvokeError,
     isSudoPasswordRequired,
@@ -20,8 +21,6 @@
   let extras = $state<ProfileExtras>({ ...DEFAULT_PROFILE_EXTRAS });
   let isLoading = $state(false);
   let isRunning = $state(false);
-  let errorMsg = $state('');
-  let lastBackupMsg = $state('');
 
   let showAddModal = $state(false);
   let editId = $state<string | null>(null);
@@ -48,7 +47,7 @@
         pendingAction = () => withSudo(action);
         showSudoModal = true;
       } else {
-        errorMsg = formatInvokeError(err);
+        notifications.error(formatInvokeError(err));
       }
     }
   }
@@ -59,7 +58,7 @@
     try {
       extras = await invoke<ProfileExtras>('get_profile_extras', { profileId });
     } catch (err: unknown) {
-      errorMsg = formatInvokeError(err);
+      notifications.error(formatInvokeError(err));
     } finally {
       isLoading = false;
     }
@@ -151,8 +150,6 @@
 
   async function runBackup(t: BackupTemplate) {
     isRunning = true;
-    lastBackupMsg = '';
-    errorMsg = '';
     const ext = t.backup_type === 'files' ? 'tar.gz' : 'sql';
     const remotePath = `/tmp/jarvis-backup-${Date.now()}.${ext}`;
 
@@ -161,19 +158,20 @@
         const ll = get(LL);
         const cmd = buildBackupCmd(t, remotePath);
         const out = await exec(cmd, t.backup_type === 'files');
-        lastBackupMsg = ll.backup.createdOnServer({ path: remotePath, output: out });
+        let msg = String(ll.backup.createdOnServer({ path: remotePath, output: out }));
 
         const count = await invoke<number>('sftp_start_download_batch', {
           remotePaths: [remotePath],
           localDir: null,
         });
-        lastBackupMsg += `\n\n${ll.backup.downloading({ count })}`;
+        msg += `\n\n${String(ll.backup.downloading({ count }))}`;
+        notifications.success(msg);
         await exec(`rm -f ${remotePath}`, false).catch(() => {});
       } catch (err: unknown) {
         if (isSudoPasswordRequired(err)) {
           throw err;
         }
-        errorMsg = get(LL).backup.error({ error: formatInvokeError(err) });
+        notifications.error(get(LL).backup.error({ error: formatInvokeError(err) }));
       } finally {
         isRunning = false;
       }
@@ -200,14 +198,6 @@
       </button>
     </div>
   </header>
-
-  {#if errorMsg}
-    <div class="error-banner">{errorMsg}</div>
-  {/if}
-
-  {#if lastBackupMsg}
-    <div class="success-banner">{lastBackupMsg}</div>
-  {/if}
 
   {#if extras.backup_templates.length === 0}
     <div class="empty glass">
@@ -309,9 +299,6 @@
   .empty { padding: 40px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; border-radius: var(--radius-md); }
   .empty .muted { color: var(--text-muted); }
   .info { padding: 12px; display: flex; gap: 10px; align-items: flex-start; font-size: 0.8rem; color: var(--text-secondary); border-radius: var(--radius-md); }
-  .error-banner, .success-banner { padding: 10px; border-radius: var(--radius-sm); font-size: 0.85rem; white-space: pre-wrap; }
-  .error-banner { background: var(--accent-red-glow); color: #ff8585; }
-  .success-banner { background: var(--accent-green-glow); color: var(--accent-green); }
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; }
   .modal { width: 420px; padding: 20px; border-radius: var(--radius-md); display: flex; flex-direction: column; gap: 10px; }
   .modal h3 { color: white; font-size: 1rem; }

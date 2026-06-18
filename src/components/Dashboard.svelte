@@ -9,6 +9,7 @@
   import { get } from 'svelte/store';
   import { LL } from '$lib/i18n/i18n-svelte';
   import { formatInvokeError } from '$lib/i18n/backendErrors';
+  import { notifications } from '$lib/notifications.svelte';
 
   let {
     initialStats,
@@ -22,6 +23,20 @@
   let extended = $state<ExtendedServerStats | null>(null);
   let alertConfig = $state<ProfileExtras['alert_thresholds']>({ ...DEFAULT_PROFILE_EXTRAS.alert_thresholds });
   let errorMsg = $state('');
+
+  $effect(() => {
+    if (errorMsg) {
+      notifications.error(errorMsg);
+      errorMsg = '';
+    }
+  });
+
+  $effect(() => {
+    if (proxyStats.error) {
+      notifications.error(proxyStats.error);
+      proxyStats.error = '';
+    }
+  });
   let cpuHistory = $state<number[]>([]);
   let ramHistory = $state<number[]>([]);
   let networkHistory = $state<{rx: number, tx: number}[]>([]);
@@ -212,9 +227,6 @@
 <div class="dashboard manager-shell scrollable fade-in">
   <header class="manager-header">
     <h1 class="page-title">{$LL.dashboard.title()}</h1>
-    {#if errorMsg}
-      <div class="error-badge">{errorMsg}</div>
-    {/if}
   </header>
 
   <!-- Sekcja informacji systemowych -->
@@ -531,15 +543,6 @@
 <style>
   .dashboard {
     /* uses .manager-shell */
-  }
-
-  .error-badge {
-    background: var(--accent-red-glow);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    padding: 8px 16px;
-    border-radius: var(--radius-sm);
-    color: #ff8585;
-    font-size: 0.85rem;
   }
 
   /* Info panel */
