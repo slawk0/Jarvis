@@ -1327,7 +1327,7 @@
   .layout-btn.active {
     background: var(--bg-active);
     color: var(--accent-amber);
-    border-color: rgba(245, 158, 11, 0.2);
+    border-color: rgba(29, 78, 216, 0.2);
   }
 
   .layout-btn:disabled {
@@ -1340,6 +1340,7 @@
   .panes-grid {
     flex: 1;
     overflow: hidden;
+    position: relative;
   }
 
   .panes-grid.multi {
@@ -1365,11 +1366,11 @@
   }
 
   .pane-container.pane-focused {
-    border-color: rgba(245, 158, 11, 0.15);
+    border-color: var(--accent-muted);
   }
 
   .panes-grid.multi .pane-container.pane-focused {
-    border-color: rgba(245, 158, 11, 0.35);
+    border-color: rgba(29, 78, 216, 0.45);
   }
 
   /* ────────────── Pane Header ────────────── */
@@ -1521,9 +1522,9 @@
     align-items: center;
     justify-content: center;
     border-radius: var(--radius-sm);
-    background: rgba(245, 158, 11, 0.03);
-    border: 2px dashed rgba(245, 158, 11, 0.12);
-    color: rgba(245, 158, 11, 0.3);
+    background: rgba(29, 78, 216, 0.03);
+    border: 2px dashed rgba(29, 78, 216, 0.12);
+    color: rgba(29, 78, 216, 0.3);
     transition: background 0.1s ease, border-color 0.1s ease, color 0.1s ease;
     font-size: 0.72rem;
     font-weight: 600;
@@ -1531,10 +1532,10 @@
   }
 
   .drop-zone.active {
-    background: rgba(245, 158, 11, 0.1);
-    border-color: rgba(245, 158, 11, 0.5);
+    background: rgba(29, 78, 216, 0.1);
+    border-color: rgba(29, 78, 216, 0.5);
     color: var(--accent-amber);
-    box-shadow: inset 0 0 20px rgba(245, 158, 11, 0.08);
+    box-shadow: inset 0 0 20px rgba(29, 78, 216, 0.08);
   }
 
   .drop-zone-top {
@@ -1589,7 +1590,7 @@
     position: absolute;
     width: 600px;
     height: 600px;
-    background: radial-gradient(circle, rgba(245, 158, 11, 0.08) 0%, rgba(194, 65, 12, 0.02) 50%, rgba(0,0,0,0) 100%);
+    background: radial-gradient(circle, rgba(29, 78, 216, 0.08) 0%, rgba(30, 64, 175, 0.02) 50%, rgba(0,0,0,0) 100%);
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
@@ -1628,7 +1629,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+    box-shadow: 0 0 20px rgba(29, 78, 216, 0.3);
     margin-bottom: 16px;
   }
 
@@ -1705,7 +1706,7 @@
 
   .profile-card:hover {
     background: var(--bg-hover);
-    border-color: rgba(245, 158, 11, 0.2);
+    border-color: rgba(29, 78, 216, 0.2);
     transform: translateY(-1px);
   }
 
@@ -1735,8 +1736,8 @@
 
   .profile-card:hover .server-icon-box {
     color: var(--accent-amber);
-    background: rgba(245, 158, 11, 0.08);
-    border-color: rgba(245, 158, 11, 0.2);
+    background: rgba(29, 78, 216, 0.08);
+    border-color: rgba(29, 78, 216, 0.2);
   }
 
   .profile-card-info {
@@ -1886,10 +1887,10 @@
 
   .resizer {
     background: transparent;
-    transition: background 0.2s;
+    transition: background 0.15s ease-in-out;
   }
   .resizer:hover, .resizer:active {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(29, 78, 216, 0.35);
   }
   .resizer-v {
     border-left: 1px solid transparent;

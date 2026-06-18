@@ -1,4 +1,5 @@
 use crate::app_error::AppError;
+use tauri::Emitter;
 use russh::client;
 use russh::keys::PrivateKeyWithHashAlg;
 use russh_sftp::client::SftpSession;
@@ -238,7 +239,7 @@ impl SshConnection {
                     exit_status = code as i32;
                 }
                 russh::ChannelMsg::Eof => {
-                    break;
+                    // Do not break here, as the ExitStatus message might arrive after Eof
                 }
                 _ => {}
             }
@@ -248,6 +249,47 @@ impl SshConnection {
         let stderr_str = String::from_utf8_lossy(&stderr).into_owned();
 
         Ok((exit_status, stdout_str, stderr_str))
+    }
+
+    pub async fn exec_stream(
+        &self,
+        cmd: &str,
+        app_handle: &tauri::AppHandle,
+        event_id: &str,
+    ) -> Result<i32, AppError> {
+        let session = self.session.lock().await;
+        let mut channel = session
+            .channel_open_session()
+            .await
+            .map_err(|e| AppError::with_details("SSH_CHANNEL_OPEN_FAILED", e.to_string()))?;
+
+        channel
+            .exec(true, cmd)
+            .await
+            .map_err(|e| AppError::with_details("SSH_COMMAND_EXEC_FAILED", e.to_string()))?;
+
+        let mut exit_status = 0;
+
+        while let Some(msg) = channel.wait().await {
+            match msg {
+                russh::ChannelMsg::Data { data } => {
+                    let text = String::from_utf8_lossy(&data).into_owned();
+                    app_handle.emit(&format!("exec-stdout-{}", event_id), text).ok();
+                }
+                russh::ChannelMsg::ExtendedData { data, ext } => {
+                    if ext == 1 {
+                        let text = String::from_utf8_lossy(&data).into_owned();
+                        app_handle.emit(&format!("exec-stderr-{}", event_id), text).ok();
+                    }
+                }
+                russh::ChannelMsg::ExitStatus { exit_status: code } => {
+                    exit_status = code as i32;
+                }
+                _ => {}
+            }
+        }
+
+        Ok(exit_status)
     }
 
     pub async fn get_stats(&self) -> Result<ServerStats, AppError> {

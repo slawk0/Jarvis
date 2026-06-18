@@ -53,6 +53,7 @@ pub struct AppState {
     pub sudo_locked_until: Arc<Mutex<Option<std::time::Instant>>>,
     pub ssh_creds: Arc<Mutex<Option<SshCreds>>>,
     pub terminal_txs: Arc<Mutex<HashMap<String, mpsc::Sender<String>>>>,
+    pub terminal_resizes: Arc<Mutex<HashMap<String, mpsc::Sender<(u32, u32)>>>>,
     pub terminal_cancels: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<()>>>>,
     pub docker_log_cancel: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
     pub docker_compose_cancel: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
@@ -63,6 +64,8 @@ pub struct AppState {
 fn stop_terminal_sessions(state: &AppState) {
     let txs: Vec<_> = state.terminal_txs.lock().drain().collect();
     drop(txs);
+    let resizes: Vec<_> = state.terminal_resizes.lock().drain().collect();
+    drop(resizes);
     let cancels: Vec<(String, _)> = state.terminal_cancels.lock().drain().collect();
     for (_, cancel) in cancels {
         cancel.send(()).ok();
@@ -71,6 +74,7 @@ fn stop_terminal_sessions(state: &AppState) {
 
 fn stop_terminal_session(state: &AppState, session_id: &str) {
     state.terminal_txs.lock().remove(session_id);
+    state.terminal_resizes.lock().remove(session_id);
     if let Some(cancel) = state.terminal_cancels.lock().remove(session_id) {
         cancel.send(()).ok();
     }
@@ -395,7 +399,7 @@ async fn exec_custom_command(
             return Ok(stdout);
         }
 
-        let is_perm_error = is_permission_denied(&stderr, &stdout);
+        let is_perm_error = is_permission_denied(&stderr, &stdout) || exit_code != 0;
         if is_perm_error {
             // Try passwordless sudo
             let sudo_test_cmd = format!("export LC_ALL=C; sudo -n -S -- {}", cmd);
@@ -430,6 +434,103 @@ async fn exec_custom_command(
             ));
         }
         Ok(stdout)
+    }
+}
+
+#[tauri::command]
+async fn exec_custom_command_stream(
+    app_handle: AppHandle,
+    state: State<'_, AppState>,
+    cmd: String,
+    use_sudo: bool,
+    event_id: String,
+) -> Result<(), AppError> {
+    let conn = {
+        let conn_guard = state.connection.lock();
+        conn_guard.as_ref().ok_or_else(no_ssh_connection)?.clone()
+    };
+
+    if use_sudo {
+        let mut sudo_pass_opt = {
+            let guard = state.sudo_password.lock();
+            guard.clone()
+        };
+
+        if sudo_pass_opt.is_some() {
+            let expired = {
+                let set_at = state.sudo_password_set_at.lock();
+                if let Some(t) = *set_at {
+                    t.elapsed().as_secs() > SUDO_TIMEOUT_SECS
+                } else {
+                    true
+                }
+            };
+
+            if expired {
+                *state.sudo_password.lock() = None;
+                *state.sudo_password_set_at.lock() = None;
+                sudo_pass_opt = None;
+            }
+        }
+
+        if let Some(sudo_pass) = sudo_pass_opt {
+            let escaped_pass = crate::du_size::shell_single_quote(&sudo_pass);
+            let formatted_cmd = format!("echo {} | sudo -S -- {}", escaped_pass, cmd);
+            let exit_code = conn.exec_stream(&formatted_cmd, &app_handle, &event_id).await?;
+
+            if exit_code != 0 {
+                return Err(AppError::with_details(
+                    "REMOTE_COMMAND_FAILED",
+                    format!("exit={}", exit_code),
+                ));
+            }
+            return Ok(());
+        }
+
+        // Check if we are root
+        let (whoami_exit, whoami_out, _) = conn.exec("whoami").await?;
+        if whoami_exit == 0 && whoami_out.trim() == "root" {
+            let exit_code = conn.exec_stream(&cmd, &app_handle, &event_id).await?;
+            if exit_code != 0 {
+                return Err(AppError::with_details(
+                    "REMOTE_COMMAND_FAILED",
+                    format!("exit={}", exit_code),
+                ));
+            }
+            return Ok(());
+        }
+
+        // Test if passwordless sudo works
+        let (sudo_exit, _, sudo_stderr) = conn.exec("sudo -n -S -- true").await?;
+        if sudo_exit == 0 {
+            let formatted_cmd = format!("sudo -n -S -- {}", cmd);
+            let exit_code = conn.exec_stream(&formatted_cmd, &app_handle, &event_id).await?;
+            if exit_code != 0 {
+                return Err(AppError::with_details(
+                    "REMOTE_COMMAND_FAILED",
+                    format!("exit={}", exit_code),
+                ));
+            }
+            return Ok(());
+        }
+
+        if is_permission_denied(&sudo_stderr, "") || sudo_stderr.contains("password") {
+            return Err(AppError::new("SUDO_PASSWORD_REQUIRED"));
+        } else {
+            return Err(AppError::with_details(
+                "REMOTE_COMMAND_FAILED",
+                format!("exit={}\nstderr={}", sudo_exit, sudo_stderr),
+            ));
+        }
+    } else {
+        let exit_code = conn.exec_stream(&cmd, &app_handle, &event_id).await?;
+        if exit_code != 0 {
+            return Err(AppError::with_details(
+                "REMOTE_COMMAND_FAILED",
+                format!("exit={}", exit_code),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -601,6 +702,8 @@ async fn start_terminal(
     container_id: Option<String>,
     use_sudo: Option<bool>,
     shell: Option<String>,
+    cols: Option<u32>,
+    rows: Option<u32>,
 ) -> Result<(), AppError> {
     let use_sudo = use_sudo.unwrap_or(false);
     let shell = shell.unwrap_or_else(|| "/bin/sh".to_string());
@@ -629,6 +732,9 @@ async fn start_terminal(
     let (tx, mut rx) = mpsc::channel::<String>(100);
     state.terminal_txs.lock().insert(session_id.clone(), tx);
 
+    let (resize_tx, mut resize_rx) = mpsc::channel::<(u32, u32)>(10);
+    state.terminal_resizes.lock().insert(session_id.clone(), resize_tx);
+
     let app_handle_clone = app_handle.clone();
     let session_id_clone = session_id.clone();
 
@@ -653,8 +759,10 @@ async fn start_terminal(
                     .await
                     .map_err(|e| AppError::with_details("SSH_CHANNEL_OPEN_FAILED", e.to_string()))?;
 
+                let term_cols = cols.unwrap_or(80);
+                let term_rows = rows.unwrap_or(24);
                 channel
-                    .request_pty(true, "xterm-256color", 80, 24, 0, 0, &[])
+                    .request_pty(true, "xterm-256color", term_cols, term_rows, 0, 0, &[])
                     .await
                     .map_err(|e| AppError::with_details("SSH_PTY_FAILED", e.to_string()))?;
 
@@ -738,6 +846,16 @@ async fn start_terminal(
                             None => break,
                         }
                     }
+                    resize_opt = resize_rx.recv() => {
+                        match resize_opt {
+                            Some((c, r)) => {
+                                if let Err(e) = channel.window_change(c, r, 0, 0).await {
+                                    eprintln!("Failed to change terminal window size: {}", e);
+                                }
+                            }
+                            None => break,
+                        }
+                    }
                     _ = &mut cancel_rx => {
                         break;
                     }
@@ -776,6 +894,24 @@ fn send_terminal_input(
     if let Some(tx) = txs_guard.get(&session_id) {
         tx.try_send(input).map_err(|e| {
             AppError::with_details("TERMINAL_SEND_FAILED", e.to_string())
+        })?;
+        Ok(())
+    } else {
+        Err(AppError::new("TERMINAL_NOT_RUNNING"))
+    }
+}
+
+#[tauri::command]
+fn resize_terminal(
+    state: State<'_, AppState>,
+    session_id: String,
+    cols: u32,
+    rows: u32,
+) -> Result<(), AppError> {
+    let resizes_guard = state.terminal_resizes.lock();
+    if let Some(tx) = resizes_guard.get(&session_id) {
+        tx.try_send((cols, rows)).map_err(|e| {
+            AppError::with_details("TERMINAL_RESIZE_FAILED", e.to_string())
         })?;
         Ok(())
     } else {
@@ -1687,6 +1823,7 @@ pub fn run() {
             sudo_locked_until: Arc::new(Mutex::new(None)),
             ssh_creds: Arc::new(Mutex::new(None)),
             terminal_txs: Arc::new(Mutex::new(HashMap::new())),
+            terminal_resizes: Arc::new(Mutex::new(HashMap::new())),
             terminal_cancels: Arc::new(Mutex::new(HashMap::new())),
             docker_log_cancel: Arc::new(Mutex::new(None)),
             docker_compose_cancel: Arc::new(Mutex::new(None)),
@@ -1703,6 +1840,7 @@ pub fn run() {
             get_server_stats,
             get_extended_server_stats,
             exec_custom_command,
+            exec_custom_command_stream,
             set_sudo_password,
             has_sudo_password,
             sftp_list,
@@ -1716,6 +1854,7 @@ pub fn run() {
             start_terminal,
             stop_terminal,
             send_terminal_input,
+            resize_terminal,
             open_external_terminal,
             start_container_logs,
             stop_container_logs,

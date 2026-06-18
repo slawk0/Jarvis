@@ -30,6 +30,7 @@
     isSudoPasswordRequired,
   } from '$lib/i18n/backendErrors';
   import PathAutocomplete from './ui/PathAutocomplete.svelte';
+  import SudoModal from './SudoModal.svelte';
 
   type ContainerSession = {
     containerId: string;
@@ -86,6 +87,9 @@
   let usedSudoForRead = $state(false);
   let homeDir = $state('');
 
+  let showSudoModal = $state(false);
+  let pendingAction = $state<(() => Promise<void>) | null>(null);
+
   $effect(() => {
     activeContainer = containerSession ?? null;
   });
@@ -134,6 +138,10 @@
         invoke('send_terminal_input', { sessionId, input: data });
       });
 
+      term.onResize((size: { cols: number; rows: number }) => {
+        invoke('resize_terminal', { sessionId, cols: size.cols, rows: size.rows }).catch(() => {});
+      });
+
       const eventName = `terminal-stdout-${sessionId}`;
       unsubscribeStdout = await listen<string>(eventName, (event) => {
         if (term) {
@@ -146,6 +154,8 @@
         containerId: activeContainer?.containerId ?? null,
         useSudo: activeContainer?.useSudo ?? false,
         shell: activeContainer?.shell ?? null,
+        cols: term.cols,
+        rows: term.rows,
       });
 
       if (activeContainer) {
@@ -436,91 +446,111 @@
     errorMsg = '';
     showFileModal = false;
 
-    try {
-      let content = '';
-      usedSudoForRead = useSudoForEdit;
+    const run = async () => {
+      try {
+        let content = '';
+        usedSudoForRead = useSudoForEdit;
 
-      if (usedSudoForRead) {
-        const escapedPath = "'" + filePath.replace(/'/g, "'\\''") + "'";
-        const b64: string = await invoke('exec_custom_command', {
-          cmd: `sudo cat ${escapedPath} | base64`,
-          useSudo: true
-        });
-        const cleanB64 = b64.replace(/\s/g, '');
-        content = decodeURIComponent(escape(atob(cleanB64)));
-      } else {
-        content = await invoke('sftp_read', { path: filePath });
-      }
-
-      editingFile = filePath;
-      editorSaveStatus = 'saved';
-
-      setTimeout(() => {
-        if (editorElement) {
-          (window as any).MonacoEnvironment = {
-            getWorkerUrl: function () {
-              return `data:text/javascript;charset=utf-8,${encodeURIComponent(`
-                self.MonacoEnvironment = {
-                  baseUrl: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.43.0/min/'
-                };
-                importScripts('https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.43.0/min/vs/base/worker/workerMain.js');
-              `)}`;
-            },
-          };
-
-          import('monaco-editor').then((monaco) => {
-            if (editorInstance) editorInstance.dispose();
-            editorInstance = monaco.editor.create(editorElement!, {
-              value: content,
-              language: detectLanguage(filePath.split('/').pop() || ''),
-              theme: 'vs-dark',
-              automaticLayout: true,
-              fontSize: 14,
-              fontFamily: '"JetBrains Mono", Consolas, monospace',
-              minimap: { enabled: false },
-            });
-
-            editorInstance.onDidChangeModelContent(() => {
-              editorSaveStatus = 'dirty';
-            });
-
-            editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-              saveFile();
-            });
+        if (usedSudoForRead) {
+          const escapedPath = "'" + filePath.replace(/'/g, "'\\''") + "'";
+          const b64: string = await invoke('exec_custom_command', {
+            cmd: `sudo cat ${escapedPath} | base64`,
+            useSudo: true
           });
+          const cleanB64 = b64.replace(/\s/g, '');
+          content = decodeURIComponent(escape(atob(cleanB64)));
+        } else {
+          content = await invoke('sftp_read', { path: filePath });
         }
-      }, 100);
-    } catch (err: unknown) {
-      errorMsg = get(LL).terminal.readError({ error: formatInvokeError(err) });
-    } finally {
-      isLoading = false;
-    }
+
+        editingFile = filePath;
+        editorSaveStatus = 'saved';
+
+        setTimeout(() => {
+          if (editorElement) {
+            (window as any).MonacoEnvironment = {
+              getWorkerUrl: function () {
+                return `data:text/javascript;charset=utf-8,${encodeURIComponent(`
+                  self.MonacoEnvironment = {
+                    baseUrl: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.43.0/min/'
+                  };
+                  importScripts('https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.43.0/min/vs/base/worker/workerMain.js');
+                `)}`;
+              },
+            };
+
+            import('monaco-editor').then((monaco) => {
+              if (editorInstance) editorInstance.dispose();
+              editorInstance = monaco.editor.create(editorElement!, {
+                value: content,
+                language: detectLanguage(filePath.split('/').pop() || ''),
+                theme: 'vs-dark',
+                automaticLayout: true,
+                fontSize: 14,
+                fontFamily: '"JetBrains Mono", Consolas, monospace',
+                minimap: { enabled: false },
+              });
+
+              editorInstance.onDidChangeModelContent(() => {
+                editorSaveStatus = 'dirty';
+              });
+
+              editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+                saveFile();
+              });
+            });
+          }
+        }, 100);
+      } catch (err: unknown) {
+        if (isSudoPasswordRequired(err)) {
+          pendingAction = run;
+          showSudoModal = true;
+        } else {
+          errorMsg = get(LL).terminal.readError({ error: formatInvokeError(err) });
+        }
+      } finally {
+        isLoading = false;
+      }
+    };
+
+    await run();
   }
 
   async function saveFile() {
     if (!editingFile || !editorInstance) return;
+    const file = editingFile;
     isLoading = true;
     errorMsg = '';
     editorSaveStatus = 'saving';
-    try {
-      const content = editorInstance.getValue();
-      if (usedSudoForRead) {
-        const escapedPath = "'" + editingFile.replace(/'/g, "'\\''") + "'";
-        const b64 = btoa(unescape(encodeURIComponent(content)));
-        await invoke('exec_custom_command', {
-          cmd: `echo ${b64} | base64 -d | sudo tee ${escapedPath} > /dev/null`,
-          useSudo: true
-        });
-      } else {
-        await invoke('sftp_write', { path: editingFile, content });
+    
+    const run = async () => {
+      try {
+        const content = editorInstance.getValue();
+        if (usedSudoForRead) {
+          const escapedPath = "'" + file.replace(/'/g, "'\\''") + "'";
+          const b64 = btoa(unescape(encodeURIComponent(content)));
+          await invoke('exec_custom_command', {
+            cmd: `echo ${b64} | base64 -d | sudo tee ${escapedPath} > /dev/null`,
+            useSudo: true
+          });
+        } else {
+          await invoke('sftp_write', { path: file, content });
+        }
+        editorSaveStatus = 'saved';
+      } catch (err: unknown) {
+        if (isSudoPasswordRequired(err)) {
+          pendingAction = run;
+          showSudoModal = true;
+        } else {
+          errorMsg = get(LL).terminal.writeError({ error: formatInvokeError(err) });
+          editorSaveStatus = 'error';
+        }
+      } finally {
+        isLoading = false;
       }
-      editorSaveStatus = 'saved';
-    } catch (err: unknown) {
-      errorMsg = get(LL).terminal.writeError({ error: formatInvokeError(err) });
-      editorSaveStatus = 'error';
-    } finally {
-      isLoading = false;
-    }
+    };
+
+    await run();
   }
 
   function closeEditor() {
@@ -814,6 +844,17 @@
     </div>
   </div>
 {/if}
+
+<SudoModal
+  bind:open={showSudoModal}
+  onSuccess={() => {
+    if (pendingAction) {
+      const action = pendingAction;
+      pendingAction = null;
+      action();
+    }
+  }}
+/>
 
 
 <style>

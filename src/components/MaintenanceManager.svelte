@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
+  import { listen } from '@tauri-apps/api/event';
   import {
     RefreshCw, Download, RotateCw, AlertTriangle, Package, Loader2, Power,
   } from 'lucide-svelte';
@@ -10,6 +11,7 @@
   import {
     formatInvokeError,
     isSudoPasswordRequired,
+    parseAppError,
   } from '$lib/i18n/backendErrors';
 
   let {
@@ -29,11 +31,28 @@
   let unattendedEnabled = $state<boolean | null>(null);
 
   let showConfirmUpgradeModal = $state(false);
+  let isRebooting = $state(false);
   let showSudoModal = $state(false);
   let pendingAction: (() => Promise<void>) | null = null;
 
   async function exec(cmd: string, useSudo = false): Promise<string> {
     return invoke<string>('exec_custom_command', { cmd, useSudo });
+  }
+
+  async function execStream(cmd: string, useSudo = false, onChunk: (text: string) => void): Promise<void> {
+    const eventId = Math.random().toString(36).substring(7);
+    const unlistenStdout = await listen<string>(`exec-stdout-${eventId}`, (event) => {
+      onChunk(event.payload);
+    });
+    const unlistenStderr = await listen<string>(`exec-stderr-${eventId}`, (event) => {
+      onChunk(event.payload);
+    });
+    try {
+      await invoke('exec_custom_command_stream', { cmd, useSudo, eventId });
+    } finally {
+      unlistenStdout();
+      unlistenStderr();
+    }
   }
 
   async function withSudo(action: () => Promise<void>) {
@@ -54,7 +73,7 @@
     errorMsg = '';
     try {
       const listOut = await exec(
-        'apt list --upgradable 2>/dev/null | grep -v "^Listing" | grep -v "^$"',
+        'apt list --upgradable 2>/dev/null | grep -v "^Listing" | grep -v "^$" || true',
       );
       const lines = listOut.trim().split('\n').filter(Boolean);
       upgradableList = lines;
@@ -87,17 +106,23 @@
   async function runAptUpdate() {
     isRunningAction = true;
     actionOutput = '';
+    showOutput = true;
     await withSudo(async () => {
       try {
-        actionOutput = await exec('env DEBIAN_FRONTEND=noninteractive apt-get update -y 2>&1', true);
-        showOutput = true;
+        actionOutput = '';
+        await execStream(
+          'env DEBIAN_FRONTEND=noninteractive apt-get update -y 2>&1',
+          true,
+          (chunk) => {
+            actionOutput += chunk;
+          }
+        );
         await loadStatus();
       } catch (err: unknown) {
         if (isSudoPasswordRequired(err)) {
           throw err;
         }
-        actionOutput = formatInvokeError(err);
-        showOutput = true;
+        actionOutput += `\nError: ${formatInvokeError(err)}`;
       } finally {
         isRunningAction = false;
       }
@@ -109,20 +134,23 @@
     showConfirmUpgradeModal = false;
     isRunningAction = true;
     actionOutput = '';
+    showOutput = true;
     await withSudo(async () => {
       try {
-        actionOutput = await exec(
+        actionOutput = '';
+        await execStream(
           'env DEBIAN_FRONTEND=noninteractive apt-get upgrade -y 2>&1',
           true,
+          (chunk) => {
+            actionOutput += chunk;
+          }
         );
-        showOutput = true;
         await loadStatus();
       } catch (err: unknown) {
         if (isSudoPasswordRequired(err)) {
           throw err;
         }
-        actionOutput = formatInvokeError(err);
-        showOutput = true;
+        actionOutput += `\nError: ${formatInvokeError(err)}`;
       } finally {
         isRunningAction = false;
       }
@@ -133,20 +161,39 @@
   async function runReboot() {
     if (!confirm(get(LL).maintenance.confirmReboot())) return;
     isRunningAction = true;
+    let disconnectTimer: any = null;
     await withSudo(async () => {
       try {
-        await exec('nohup bash -c "sleep 2 && reboot" >/dev/null 2>&1 &', true);
-        actionOutput = get(LL).maintenance.rebooting();
-        showOutput = true;
-        setTimeout(() => {
+        await exec(
+          'sh -c "reboot || /sbin/reboot || /usr/sbin/reboot || shutdown -r now || /sbin/shutdown -r now || systemctl reboot"',
+          true,
+        );
+        isRebooting = true;
+        showOutput = false;
+        disconnectTimer = setTimeout(() => {
           onDisconnect();
         }, 1500);
       } catch (err: unknown) {
         if (isSudoPasswordRequired(err)) {
           throw err;
         }
-        actionOutput = formatInvokeError(err);
-        showOutput = true;
+        
+        const parsed = parseAppError(err);
+        if (parsed?.code === 'REMOTE_COMMAND_FAILED') {
+          actionOutput = formatInvokeError(err);
+          showOutput = true;
+          isRebooting = false;
+          if (disconnectTimer) {
+            clearTimeout(disconnectTimer);
+          }
+        } else {
+          // Connection loss is expected when rebooting, so we treat it as success
+          isRebooting = true;
+          showOutput = false;
+          disconnectTimer = setTimeout(() => {
+            onDisconnect();
+          }, 1500);
+        }
       } finally {
         isRunningAction = false;
       }
@@ -296,6 +343,18 @@
           {$LL.common.confirm()}
         </button>
       </div>
+    </div>
+  </div>
+{/if}
+
+{#if isRebooting}
+  <div class="modal-overlay">
+    <div class="confirm-modal glass" role="dialog" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 1.5rem; padding: 2.5rem;">
+      <Loader2 size={36} class="spin accent-blue-text" />
+      <h3>{$LL.maintenance.rebootServer()}</h3>
+      <p class="modal-desc" style="max-width: 320px; margin: 0;">
+        {$LL.maintenance.rebooting()}
+      </p>
     </div>
   </div>
 {/if}
