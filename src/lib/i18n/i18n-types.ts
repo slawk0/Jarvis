@@ -1075,6 +1075,10 @@ type RootTranslation = {
 		 */
 		editorError: string
 		/**
+		 * ●​ ​S​y​n​t​a​x​ ​e​r​r​o​r
+		 */
+		editorSyntaxError: string
+		/**
 		 * F​i​l​e​ ​i​s​ ​t​o​o​ ​l​a​r​g​e​ ​(​{​s​i​z​e​}​ ​M​B​)​.​ ​M​a​x​i​m​u​m​ ​s​i​z​e​ ​i​s​ ​5​ ​M​B​.
 		 * @param {unknown} size
 		 */
@@ -2840,6 +2844,10 @@ type RootTranslation = {
 		 * ●​ ​S​a​v​e​ ​e​r​r​o​r
 		 */
 		errorBadge: string
+		/**
+		 * ●​ ​S​y​n​t​a​x​ ​e​r​r​o​r
+		 */
+		syntaxErrorBadge: string
 		/**
 		 * A​u​t​o​-​s​a​v​e
 		 */
@@ -8116,6 +8124,10 @@ export type TranslationFunctions = {
 		 */
 		editorError: () => LocalizedString
 		/**
+		 * ● Syntax error
+		 */
+		editorSyntaxError: () => LocalizedString
+		/**
 		 * File is too large ({size} MB). Maximum size is 5 MB.
 		 */
 		fileTooLarge: (arg: { size: unknown }) => LocalizedString
@@ -9814,6 +9826,10 @@ export type TranslationFunctions = {
 		 * ● Save error
 		 */
 		errorBadge: () => LocalizedString
+		/**
+		 * ● Syntax error
+		 */
+		syntaxErrorBadge: () => LocalizedString
 		/**
 		 * Auto-save
 		 */

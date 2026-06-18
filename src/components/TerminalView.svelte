@@ -32,6 +32,7 @@
   } from '$lib/i18n/backendErrors';
   import PathAutocomplete from './ui/PathAutocomplete.svelte';
   import SudoModal from './SudoModal.svelte';
+  import { validateContent } from '$lib/syntaxValidator';
 
   type ContainerSession = {
     containerId: string;
@@ -90,6 +91,7 @@
   let useSudoForEdit = $state(false);
   let editingFile = $state<string | null>(null);
   let editorSaveStatus = $state<'saved' | 'saving' | 'dirty' | 'error'>('saved');
+  let syntaxError = $state<string | null>(null);
   let editorElement = $state<HTMLDivElement | null>(null);
   let editorInstance = $state<any>(null);
   let usedSudoForRead = $state(false);
@@ -499,7 +501,11 @@
                 minimap: { enabled: false },
               });
 
+              // Initial syntax check
+              syntaxError = validateContent(monaco, editorInstance.getModel(), filePath);
+
               editorInstance.onDidChangeModelContent(() => {
+                syntaxError = validateContent(monaco, editorInstance.getModel(), filePath);
                 editorSaveStatus = 'dirty';
               });
 
@@ -563,6 +569,7 @@
 
   function closeEditor() {
     editingFile = null;
+    syntaxError = null;
     if (editorInstance) {
       editorInstance.dispose();
       editorInstance = null;
@@ -663,6 +670,9 @@
             <span class="save-status-badge dirty">{$LL.terminal.editorDirty()}</span>
           {:else if editorSaveStatus === 'error'}
             <span class="save-status-badge error">{$LL.terminal.editorError()}</span>
+          {/if}
+          {#if syntaxError}
+            <span class="save-status-badge error" title={syntaxError}>{$LL.terminal.editorSyntaxError()}</span>
           {/if}
         </div>
         <div class="editor-actions">

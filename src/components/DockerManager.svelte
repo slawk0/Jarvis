@@ -27,6 +27,7 @@
     isSudoPasswordRequired,
     parseAppError,
   } from '$lib/i18n/backendErrors';
+  import { validateContent } from '$lib/syntaxValidator';
 
   // Props
   let { onRequestTerminalExec = (_ctx: { containerId: string; containerName: string; useSudo: boolean; shell: string }) => {} } = $props();
@@ -256,6 +257,7 @@
   let browserEditorElement: HTMLDivElement | null = $state(null);
   let browserEditorInstance: any = null;
   let browserEditorSaving = $state(false);
+  let browserSyntaxError = $state<string | null>(null);
   let browserErrorMsg = $state('');
 
   $effect(() => {
@@ -1517,6 +1519,13 @@ networks:
                fontFamily: '"JetBrains Mono", Consolas, monospace',
                minimap: { enabled: false },
             });
+
+            // Initial syntax check
+            browserSyntaxError = validateContent(monaco, browserEditorInstance.getModel(), name);
+
+            browserEditorInstance.onDidChangeModelContent(() => {
+              browserSyntaxError = validateContent(monaco, browserEditorInstance.getModel(), name);
+            });
           });
         }
       }, 100);
@@ -1555,6 +1564,7 @@ networks:
 
   function closeVolumeEditor() {
     browserEditingFile = null;
+    browserSyntaxError = null;
     if (browserEditorInstance) {
       browserEditorInstance.dispose();
       browserEditorInstance = null;
@@ -2716,7 +2726,14 @@ networks:
       <div class="modal-content glass fullscreen-modal volume-browser-modal">
         {#if browserEditingFile}
           <div class="volume-editor-header">
-            <h3>Edycja: {browserEditingFile.split('/').pop()}</h3>
+            <h3 style="display: flex; align-items: center; gap: 0.5rem;">
+              Edycja: {browserEditingFile.split('/').pop()}
+              {#if browserSyntaxError}
+                <span class="save-status-badge error" title={browserSyntaxError} style="font-size: 0.75rem; font-weight: normal; margin-left: 0.5rem; display: inline-flex; align-items: center;">
+                  ● Błąd składni
+                </span>
+              {/if}
+            </h3>
             <div class="volume-editor-actions">
               <button class="primary btn-sm" onclick={saveVolumeFile} disabled={browserEditorSaving}>
                 {#if browserEditorSaving}
@@ -3839,6 +3856,14 @@ networks:
     border-radius: var(--radius-sm);
     overflow: hidden;
   }
+
+  .save-status-badge {
+    font-size: 0.8rem;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+  .save-status-badge.error { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
 
   .volume-editor-header {
     display: flex;

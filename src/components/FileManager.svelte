@@ -15,6 +15,7 @@
     formatInvokeError,
     isSudoPasswordRequired,
   } from '$lib/i18n/backendErrors';
+  import { validateContent } from '$lib/syntaxValidator';
 
   let errorMsg = $state('');
   let browserPath = $state('/');
@@ -32,6 +33,7 @@
   let editorElement: HTMLDivElement | null = $state(null);
   let editorInstance: any = null;
   let editorSaveStatus = $state<'saved' | 'saving' | 'dirty' | 'error'>('saved');
+  let syntaxError = $state<string | null>(null);
   let autoSaveEnabled = $state(true);
   let saveTimeout: ReturnType<typeof setTimeout> | null = null;
   let isLoading = $state(false);
@@ -139,7 +141,11 @@
               minimap: { enabled: false },
             });
 
+            // Initial syntax check
+            syntaxError = validateContent(monaco, editorInstance.getModel(), editingFile!);
+
             editorInstance.onDidChangeModelContent(() => {
+              syntaxError = validateContent(monaco, editorInstance.getModel(), editingFile!);
               if (!autoSaveEnabled) {
                 editorSaveStatus = 'dirty';
                 return;
@@ -225,7 +231,11 @@
               minimap: { enabled: false },
             });
 
+            // Initial syntax check
+            syntaxError = validateContent(monaco, editorInstance.getModel(), editingFile!);
+
             editorInstance.onDidChangeModelContent(() => {
+              syntaxError = validateContent(monaco, editorInstance.getModel(), editingFile!);
               if (!autoSaveEnabled) {
                 editorSaveStatus = 'dirty';
                 return;
@@ -282,6 +292,7 @@
   function closeEditor() {
     if (saveTimeout) clearTimeout(saveTimeout);
     editingFile = null;
+    syntaxError = null;
     if (editorInstance) {
       editorInstance.dispose();
       editorInstance = null;
@@ -513,6 +524,9 @@
             <span class="save-status-badge dirty">{$LL.files.dirtyBadge()}</span>
           {:else if editorSaveStatus === 'error'}
             <span class="save-status-badge error">{$LL.files.errorBadge()}</span>
+          {/if}
+          {#if syntaxError}
+            <span class="save-status-badge error" title={syntaxError}>{$LL.files.syntaxErrorBadge()}</span>
           {/if}
         </div>
         <div class="editor-actions">
