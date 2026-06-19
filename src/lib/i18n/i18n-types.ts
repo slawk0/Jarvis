@@ -1739,6 +1739,47 @@ type RootTranslation = {
 		 * @param {unknown} policy
 		 */
 		confirmChangePolicy: RequiredParams<'chain' | 'policy'>
+		/**
+		 * A​l​l​ ​c​h​a​i​n​s
+		 */
+		allChains: string
+		/**
+		 * R​u​l​e​ ​p​o​s​i​t​i​o​n​ ​(​P​r​i​o​r​i​t​y​)
+		 */
+		iptablesPriority: string
+		/**
+		 * A​t​ ​t​h​e​ ​e​n​d​ ​(​L​o​w​ ​p​r​i​o​r​i​t​y​ ​/​ ​A​p​p​e​n​d​)
+		 */
+		iptablesPriorityAppend: string
+		/**
+		 * A​t​ ​t​h​e​ ​t​o​p​ ​(​H​i​g​h​e​s​t​ ​p​r​i​o​r​i​t​y​ ​/​ ​I​n​s​e​r​t​ ​f​i​r​s​t​)
+		 */
+		iptablesPriorityFirst: string
+		/**
+		 * C​u​s​t​o​m​ ​l​i​n​e​ ​n​u​m​b​e​r
+		 */
+		iptablesPriorityCustom: string
+		/**
+		 * L​i​n​e​ ​n​u​m​b​e​r​ ​i​n​ ​t​a​b​l​e
+		 */
+		iptablesLineNumber: string
+		/**
+		 * S​e​l​e​c​t​ ​T​a​b​l​e​:
+		 */
+		selectTable: string
+		/**
+		 * S​h​o​w​ ​r​a​w​ ​o​u​t​p​u​t
+		 */
+		showRawOutput: string
+		/**
+		 * R​a​w​ ​o​u​t​p​u​t​:​ ​{​c​o​m​m​a​n​d​}
+		 * @param {unknown} command
+		 */
+		rawOutputTitle: RequiredParams<'command'>
+		/**
+		 * T​a​r​g​e​t​ ​c​h​a​i​n​ ​(​C​h​a​i​n​)
+		 */
+		ruleChain: string
 	}
 	services: {
 		/**
@@ -8764,6 +8805,46 @@ export type TranslationFunctions = {
 		 * Change default policy for chain {chain} to {policy}?
 		 */
 		confirmChangePolicy: (arg: { chain: unknown, policy: unknown }) => LocalizedString
+		/**
+		 * All chains
+		 */
+		allChains: () => LocalizedString
+		/**
+		 * Rule position (Priority)
+		 */
+		iptablesPriority: () => LocalizedString
+		/**
+		 * At the end (Low priority / Append)
+		 */
+		iptablesPriorityAppend: () => LocalizedString
+		/**
+		 * At the top (Highest priority / Insert first)
+		 */
+		iptablesPriorityFirst: () => LocalizedString
+		/**
+		 * Custom line number
+		 */
+		iptablesPriorityCustom: () => LocalizedString
+		/**
+		 * Line number in table
+		 */
+		iptablesLineNumber: () => LocalizedString
+		/**
+		 * Select Table:
+		 */
+		selectTable: () => LocalizedString
+		/**
+		 * Show raw output
+		 */
+		showRawOutput: () => LocalizedString
+		/**
+		 * Raw output: {command}
+		 */
+		rawOutputTitle: (arg: { command: unknown }) => LocalizedString
+		/**
+		 * Target chain (Chain)
+		 */
+		ruleChain: () => LocalizedString
 	}
 	services: {
 		/**

@@ -21,6 +21,9 @@
   // iptables state
   let iptablesChains = $state<{name: string, policy: string, rules: any[]}[]>([]);
   let activeChain = $state('INPUT');
+  let iptablesTable = $state<'filter' | 'nat' | 'mangle' | 'raw'>('filter');
+  let iptablesRawOutput = $state('');
+  let showRawModal = $state(false);
 
   type RuleSortCol = 'num' | 'to' | 'action' | 'from';
   let ruleSort = $state<SortState<RuleSortCol>>({ column: 'num', direction: 'asc' });
@@ -78,12 +81,51 @@
     showSudoModal = true;
   }
 
+  function formatProtocol(prot: string): string {
+    const p = String(prot).toLowerCase().trim();
+    if (p === '6' || p === 'tcp') return 'TCP';
+    if (p === '17' || p === 'udp') return 'UDP';
+    if (p === '1' || p === 'icmp') return 'ICMP';
+    if (p === '0' || p === 'all') return 'all';
+    if (p === '47') return 'GRE';
+    if (p === '50') return 'ESP';
+    if (p === '51') return 'AH';
+    if (p === '89') return 'OSPF';
+    return prot;
+  }
+
   // New rule form
   let showAddModal = $state(false);
   let ruleAction = $state('allow');
   let rulePort = $state('');
   let ruleProto = $state('any');
   let ruleSource = $state('Anywhere');
+  let iptablesPosition = $state<'append' | 'first' | 'custom'>('append');
+  let iptablesInsertIndex = $state(1);
+  let previousActiveChain = $state('');
+  let ruleTable = $state<'filter' | 'nat' | 'mangle' | 'raw'>('filter');
+  let ruleChain = $state('INPUT');
+
+  function getChainsForTable(table: string): string[] {
+    if (table === iptablesTable) {
+      return iptablesChains.map(c => c.name);
+    }
+    if (table === 'filter') return ['INPUT', 'FORWARD', 'OUTPUT'];
+    if (table === 'nat') return ['PREROUTING', 'INPUT', 'OUTPUT', 'POSTROUTING'];
+    if (table === 'mangle') return ['PREROUTING', 'INPUT', 'FORWARD', 'OUTPUT', 'POSTROUTING'];
+    if (table === 'raw') return ['PREROUTING', 'OUTPUT'];
+    return ['INPUT', 'FORWARD', 'OUTPUT'];
+  }
+
+  function openAddModal(chainName?: string) {
+    ruleTable = iptablesTable;
+    if (chainName) {
+      ruleChain = chainName;
+    } else {
+      ruleChain = activeChain === 'ALL' ? (getChainsForTable(ruleTable)[0] || 'INPUT') : activeChain;
+    }
+    showAddModal = true;
+  }
 
   async function loadUfwStatus() {
     isLoading = true;
@@ -141,9 +183,10 @@
     errorMsg = '';
     try {
       const out: string = await invoke('exec_custom_command', {
-        cmd: 'iptables -L -n --line-numbers',
+        cmd: `iptables -t ${iptablesTable} -L -n --line-numbers`,
         useSudo: true
       });
+      iptablesRawOutput = out;
       
       const lines = out.trim().split('\n');
       let currentChain: any = null;
@@ -176,7 +219,7 @@
         }
       }
       iptablesChains = chains;
-      if (!chains.find(c => c.name === activeChain) && chains.length > 0) {
+      if (activeChain !== 'ALL' && !chains.find(c => c.name === activeChain) && chains.length > 0) {
         activeChain = chains[0].name;
       }
     } catch (err: unknown) {
@@ -262,15 +305,32 @@
         if (ruleAction.toLowerCase() === 'deny') target = 'DROP';
         else if (ruleAction.toLowerCase() === 'reject') target = 'REJECT';
 
-        let cmd = `iptables -A ${activeChain}`;
+        let cmd = '';
+        if (iptablesPosition === 'first') {
+          cmd = `iptables -t ${ruleTable} -I ${ruleChain} 1`;
+        } else if (iptablesPosition === 'custom') {
+          cmd = `iptables -t ${ruleTable} -I ${ruleChain} ${iptablesInsertIndex}`;
+        } else {
+          cmd = `iptables -t ${ruleTable} -A ${ruleChain}`;
+        }
+
         if (prot !== 'any') {
           cmd += ` -p ${prot}`;
           if (rulePort && rulePort !== 'any') cmd += ` --dport ${rulePort}`;
         }
-        if (ruleSource && ruleSource !== 'Anywhere') cmd += ` -s ${ruleSource}`;
+        if (ruleSource && ruleSource !== 'Anywhere' && ruleSource !== '0.0.0.0/0') {
+          cmd += ` -s ${ruleSource}`;
+        }
         cmd += ` -j ${target}`;
 
         await invoke('exec_custom_command', { cmd, useSudo: true });
+        
+        // Auto-switch view to the table/chain where the rule was added
+        iptablesTable = ruleTable;
+        if (activeChain !== 'ALL') {
+          activeChain = ruleChain;
+        }
+
         closeAddModal();
         await loadIptablesStatus();
       };
@@ -281,11 +341,17 @@
   function closeAddModal() {
     showAddModal = false;
     rulePort = '';
-    ruleSource = 'Anywhere';
+    ruleSource = firewallMode === 'ufw' ? 'Anywhere' : '0.0.0.0/0';
     ruleProto = 'any';
+    iptablesPosition = 'append';
+    iptablesInsertIndex = 1;
+    if (previousActiveChain) {
+      activeChain = previousActiveChain;
+      previousActiveChain = '';
+    }
   }
 
-  async function deleteRule(num: number) {
+  async function deleteRule(num: number, chainName?: string) {
     if (firewallMode === 'ufw') {
       if (confirm(get(LL).firewall.confirmDeleteUfwRule({ num }))) {
         const action = async () => {
@@ -297,12 +363,13 @@
         await handleActionWithSudo(action);
       }
     } else {
-      if (confirm(get(LL).firewall.confirmDeleteIptablesRule({ num, chain: activeChain }))) {
+      const chain = chainName || activeChain;
+      if (confirm(get(LL).firewall.confirmDeleteIptablesRule({ num, chain }))) {
         const action = async () => {
           isLoading = true;
           errorMsg = '';
           await invoke('exec_custom_command', {
-            cmd: `iptables -D ${activeChain} ${num}`,
+            cmd: `iptables -t ${iptablesTable} -D ${chain} ${num}`,
             useSudo: true
           });
           await loadIptablesStatus();
@@ -312,13 +379,14 @@
     }
   }
 
-  async function setIptablesPolicy(policy: string) {
-    if (confirm(get(LL).firewall.confirmChangePolicy({ chain: activeChain, policy }))) {
+  async function setIptablesPolicy(policy: string, chainName?: string) {
+    const chain = chainName || activeChain;
+    if (confirm(get(LL).firewall.confirmChangePolicy({ chain, policy }))) {
       const action = async () => {
         isLoading = true;
         errorMsg = '';
         await invoke('exec_custom_command', {
-          cmd: `iptables -P ${activeChain} ${policy}`,
+          cmd: `iptables -t ${iptablesTable} -P ${chain} ${policy}`,
           useSudo: true
         });
         await loadIptablesStatus();
@@ -331,8 +399,10 @@
     firewallMode = mode;
     errorMsg = '';
     if (mode === 'ufw') {
+      ruleSource = 'Anywhere';
       loadUfwStatus();
     } else {
+      ruleSource = '0.0.0.0/0';
       loadIptablesStatus();
     }
   }
@@ -447,83 +517,165 @@
   {:else}
     <!-- IPTABLES MODE -->
     <div class="status-bar glass iptables-header">
-      <div class="iptables-chain-selector">
-        <label for="chain-select" class="status-title">{$LL.firewall.selectChain()}</label>
-        <select id="chain-select" class="form-select" bind:value={activeChain}>
-          {#each iptablesChains as chain}
-            <option value={chain.name}>{$LL.firewall.chainPolicy({ name: chain.name, policy: chain.policy })}</option>
-          {/each}
-        </select>
-      </div>
+      <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+        <div class="iptables-chain-selector">
+          <label for="table-select" class="status-title">{$LL.firewall.selectTable()}</label>
+          <select id="table-select" class="form-select" bind:value={iptablesTable} onchange={loadIptablesStatus}>
+            <option value="filter">filter</option>
+            <option value="nat">nat</option>
+            <option value="mangle">mangle</option>
+            <option value="raw">raw</option>
+          </select>
+        </div>
 
+        <div class="iptables-chain-selector">
+          <label for="chain-select" class="status-title">{$LL.firewall.selectChain()}</label>
+          <select id="chain-select" class="form-select" bind:value={activeChain}>
+            <option value="ALL">{$LL.firewall.allChains()}</option>
+            {#each iptablesChains as chain}
+              <option value={chain.name}>{$LL.firewall.chainPolicy({ name: chain.name, policy: chain.policy })}</option>
+            {/each}
+          </select>
+        </div>
+      </div>
+ 
       <div class="status-actions">
+        <button class="secondary" onclick={() => showRawModal = true}>
+          {$LL.firewall.showRawOutput()}
+        </button>
         <button class="secondary" onclick={loadIptablesStatus} disabled={isLoading}>
           <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> {$LL.common.refresh()}
         </button>
       </div>
     </div>
-
-    {#if activeChainData && activeChainData.policy !== '-'}
-      <div class="policy-bar">
-        <span>{$LL.firewall.defaultPolicy()} <strong>{activeChainData.policy}</strong></span>
-        <div class="policy-actions">
-          <button class="btn-sm {activeChainData.policy === 'ACCEPT' ? 'active-policy success' : 'secondary'}" onclick={() => setIptablesPolicy('ACCEPT')}>ACCEPT</button>
-          <button class="btn-sm {activeChainData.policy === 'DROP' ? 'active-policy danger' : 'secondary'}" onclick={() => setIptablesPolicy('DROP')}>DROP</button>
-        </div>
-      </div>
-    {/if}
-
+ 
     <div class="rules-header">
-      <h2>{$LL.firewall.iptablesRules({ chain: activeChain })}</h2>
-      <button class="primary" onclick={() => showAddModal = true}>
+      <h2>
+        {#if activeChain === 'ALL'}
+          {$LL.firewall.iptablesRules({ chain: $LL.firewall.allChains() })}
+        {:else}
+          {$LL.firewall.iptablesRules({ chain: activeChain })}
+        {/if}
+      </h2>
+      <button class="primary" onclick={() => openAddModal()}>
         <Plus size={16} /> {$LL.firewall.addRule()}
       </button>
     </div>
 
-    <div class="table-container glass">
-      <table class="rules-table iptables-table">
-        <thead>
-          <tr>
-            <th style="width: 5%">{$LL.firewall.num()}</th>
-            <th style="width: 15%">{$LL.firewall.target()}</th>
-            <th style="width: 10%">{$LL.firewall.protocol()}</th>
-            <th style="width: 20%">{$LL.firewall.source()}</th>
-            <th style="width: 20%">{$LL.firewall.destination()}</th>
-            <th style="width: 20%">{$LL.firewall.extra()}</th>
-            <th style="width: 10%; text-align: right;">{$LL.common.delete()}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#if activeChainData && activeChainData.rules.length > 0}
-            {#each activeChainData.rules as rule}
-              <tr>
-                <td><span class="badge warning mono-val">{rule.num}</span></td>
-                <td>
-                  <span class="badge {rule.target === 'ACCEPT' ? 'success' : (rule.target === 'DROP' || rule.target === 'REJECT' ? 'danger' : 'neutral')}">
-                    {rule.target}
-                  </span>
-                </td>
-                <td class="mono-val">{rule.prot}</td>
-                <td class="mono-val"><code>{rule.source}</code></td>
-                <td class="mono-val"><code>{rule.destination}</code></td>
-                <td class="mono-val small-text">{rule.extra}</td>
-                <td class="actions-cell">
-                  <button class="btn-table danger-text" onclick={() => deleteRule(parseInt(rule.num))} title={$LL.firewall.deleteRule()}>
-                    <Trash2 size={14} />
-                  </button>
-                </td>
-              </tr>
-            {/each}
-          {:else}
+    {#if activeChain === 'ALL'}
+      <div class="all-chains-container">
+        {#each iptablesChains as chain}
+          <div class="chain-block glass">
+            <div class="chain-block-header">
+              <h3>{$LL.firewall.iptablesRules({ chain: chain.name })} {#if chain.policy !== '-'}(Polityka: <strong>{chain.policy}</strong>){/if}</h3>
+              <div class="chain-block-actions">
+                {#if chain.policy !== '-'}
+                  <button class="btn-sm {chain.policy === 'ACCEPT' ? 'active-policy success' : 'secondary'}" onclick={() => setIptablesPolicy('ACCEPT', chain.name)}>ACCEPT</button>
+                  <button class="btn-sm {chain.policy === 'DROP' ? 'active-policy danger' : 'secondary'}" onclick={() => setIptablesPolicy('DROP', chain.name)}>DROP</button>
+                {/if}
+              </div>
+            </div>
+ 
+            <div class="table-container">
+              <table class="rules-table iptables-table">
+                <thead>
+                  <tr>
+                    <th style="width: 5%">{$LL.firewall.num()}</th>
+                    <th style="width: 15%">{$LL.firewall.target()}</th>
+                    <th style="width: 10%">{$LL.firewall.protocol()}</th>
+                    <th style="width: 20%">{$LL.firewall.source()}</th>
+                    <th style="width: 20%">{$LL.firewall.destination()}</th>
+                    <th style="width: 20%">{$LL.firewall.extra()}</th>
+                    <th style="width: 10%; text-align: right;">{$LL.common.delete()}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#if chain.rules.length > 0}
+                    {#each chain.rules as rule}
+                      <tr>
+                        <td><span class="badge warning mono-val">{rule.num}</span></td>
+                        <td>
+                          <span class="badge {rule.target === 'ACCEPT' ? 'success' : (rule.target === 'DROP' || rule.target === 'REJECT' ? 'danger' : 'neutral')}">
+                            {rule.target}
+                          </span>
+                        </td>
+                        <td class="mono-val">{formatProtocol(rule.prot)}</td>
+                        <td class="mono-val"><code>{rule.source}</code></td>
+                        <td class="mono-val"><code>{rule.destination}</code></td>
+                        <td class="mono-val small-text">{rule.extra}</td>
+                        <td class="actions-cell">
+                          <button class="btn-table danger-text" onclick={() => deleteRule(parseInt(rule.num), chain.name)} title={$LL.firewall.deleteRule()}>
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    {/each}
+                  {:else}
+                    <tr>
+                      <td colspan="7" class="empty-state">{$LL.firewall.emptyChain()}</td>
+                    </tr>
+                  {/if}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        {/each}
+      </div>
+    {:else}
+      {#if activeChainData && activeChainData.policy !== '-'}
+        <div class="policy-bar">
+          <span>{$LL.firewall.defaultPolicy()} <strong>{activeChainData.policy}</strong></span>
+          <div class="policy-actions">
+            <button class="btn-sm {activeChainData.policy === 'ACCEPT' ? 'active-policy success' : 'secondary'}" onclick={() => setIptablesPolicy('ACCEPT')}>ACCEPT</button>
+            <button class="btn-sm {activeChainData.policy === 'DROP' ? 'active-policy danger' : 'secondary'}" onclick={() => setIptablesPolicy('DROP')}>DROP</button>
+          </div>
+        </div>
+      {/if}
+ 
+      <div class="table-container glass">
+        <table class="rules-table iptables-table">
+          <thead>
             <tr>
-              <td colspan="7" class="empty-state">{$LL.firewall.emptyChain()}</td>
+              <th style="width: 5%">{$LL.firewall.num()}</th>
+              <th style="width: 15%">{$LL.firewall.target()}</th>
+              <th style="width: 10%">{$LL.firewall.protocol()}</th>
+              <th style="width: 20%">{$LL.firewall.source()}</th>
+              <th style="width: 20%">{$LL.firewall.destination()}</th>
+              <th style="width: 20%">{$LL.firewall.extra()}</th>
+              <th style="width: 10%; text-align: right;">{$LL.common.delete()}</th>
             </tr>
-          {/if}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {#if activeChainData && activeChainData.rules.length > 0}
+              {#each activeChainData.rules as rule}
+                <tr>
+                  <td><span class="badge warning mono-val">{rule.num}</span></td>
+                  <td>
+                    <span class="badge {rule.target === 'ACCEPT' ? 'success' : (rule.target === 'DROP' || rule.target === 'REJECT' ? 'danger' : 'neutral')}">
+                      {rule.target}
+                    </span>
+                  </td>
+                  <td class="mono-val">{formatProtocol(rule.prot)}</td>
+                  <td class="mono-val"><code>{rule.source}</code></td>
+                  <td class="mono-val"><code>{rule.destination}</code></td>
+                  <td class="mono-val small-text">{rule.extra}</td>
+                  <td class="actions-cell">
+                    <button class="btn-table danger-text" onclick={() => deleteRule(parseInt(rule.num))} title={$LL.firewall.deleteRule()}>
+                      <Trash2 size={14} />
+                    </button>
+                  </td>
+                </tr>
+              {/each}
+            {:else}
+              <tr>
+                <td colspan="7" class="empty-state">{$LL.firewall.emptyChain()}</td>
+              </tr>
+            {/if}
+          </tbody>
+        </table>
+      </div>
+    {/if}
   {/if}
-
   {/if}
 
   <!-- Sudo Password Prompt Modal -->
@@ -569,6 +721,27 @@
           </select>
         </div>
 
+        {#if firewallMode === 'iptables'}
+          <div class="form-group">
+            <label for="rule-table">{$LL.firewall.selectTable()}</label>
+            <select id="rule-table" bind:value={ruleTable} onchange={() => { ruleChain = getChainsForTable(ruleTable)[0] || 'INPUT'; }}>
+              <option value="filter">filter</option>
+              <option value="nat">nat</option>
+              <option value="mangle">mangle</option>
+              <option value="raw">raw</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="rule-chain">{$LL.firewall.ruleChain()}</label>
+            <select id="rule-chain" bind:value={ruleChain}>
+              {#each getChainsForTable(ruleTable) as chainName}
+                <option value={chainName}>{chainName}</option>
+              {/each}
+            </select>
+          </div>
+        {/if}
+
         <div class="form-group">
           <label for="rule-port">{$LL.firewall.rulePort()}{firewallMode === 'iptables' ? $LL.firewall.rulePortOptional() : ''}</label>
           <input id="rule-port" type="text" placeholder={$LL.firewall.rulePortPlaceholder()} bind:value={rulePort} />
@@ -588,9 +761,40 @@
           <input id="rule-source" type="text" placeholder={$LL.firewall.ruleSourcePlaceholder()} bind:value={ruleSource} />
         </div>
 
+        {#if firewallMode === 'iptables'}
+          <div class="form-group">
+            <label for="iptables-position">{$LL.firewall.iptablesPriority()}</label>
+            <select id="iptables-position" bind:value={iptablesPosition}>
+              <option value="append">{$LL.firewall.iptablesPriorityAppend()}</option>
+              <option value="first">{$LL.firewall.iptablesPriorityFirst()}</option>
+              <option value="custom">{$LL.firewall.iptablesPriorityCustom()}</option>
+            </select>
+          </div>
+
+          {#if iptablesPosition === 'custom'}
+            <div class="form-group">
+              <label for="iptables-insert-index">{$LL.firewall.iptablesLineNumber()}</label>
+              <input id="iptables-insert-index" type="number" min="1" bind:value={iptablesInsertIndex} />
+            </div>
+          {/if}
+        {/if}
+
         <div class="modal-actions">
           <button class="primary" onclick={addRule} disabled={firewallMode === 'ufw' && !rulePort}>{$LL.common.addRule()}</button>
           <button class="secondary" onclick={closeAddModal}>{$LL.common.cancel()}</button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Raw Output Modal -->
+  {#if showRawModal}
+    <div class="modal-overlay">
+      <div class="modal-content glass raw-modal">
+        <h3>{$LL.firewall.rawOutputTitle({ command: `iptables -t ${iptablesTable} -L -n --line-numbers` })}</h3>
+        <pre class="raw-output-pre"><code>{iptablesRawOutput}</code></pre>
+        <div class="modal-actions">
+          <button class="secondary" onclick={() => showRawModal = false}>{$LL.common.cancel()}</button>
         </div>
       </div>
     </div>
@@ -978,5 +1182,62 @@
 
   input:focus, select:focus {
     border-color: var(--accent-blue);
+  }
+
+  .chain-block {
+    margin-bottom: 24px;
+    padding: 16px;
+    border-radius: var(--radius-md);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .chain-block-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+  }
+
+  .chain-block-header h3 {
+    font-size: 1.05rem;
+    color: white;
+    margin: 0;
+  }
+
+  .chain-block-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .raw-modal {
+    width: 800px;
+    max-width: 95vw;
+  }
+
+  .raw-output-pre {
+    background: #090a0f;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    max-height: 550px;
+    overflow: auto;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.82rem;
+    color: #e4e4e7;
+    white-space: pre-wrap;
+    text-align: left;
+  }
+
+  .all-chains-container {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-right: 4px;
   }
 </style>
