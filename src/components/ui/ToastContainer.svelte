@@ -1,6 +1,6 @@
 <script lang="ts">
   import { notifications } from '$lib/notifications.svelte';
-  import { AlertCircle, Check, Info, AlertTriangle, X } from 'lucide-svelte';
+  import { AlertCircle, Check, Info, AlertTriangle, X, Copy } from 'lucide-svelte';
   import { fly } from 'svelte/transition';
 </script>
 
@@ -31,6 +31,15 @@
       <div class="toast-content">
         <p class="toast-message">{toast.message}</p>
       </div>
+
+      <button
+        class="toast-copy"
+        onclick={() => navigator.clipboard.writeText(toast.message)}
+        title="Copy to clipboard"
+        aria-label="Copy to clipboard"
+      >
+        <Copy size={14} />
+      </button>
 
       <button
         class="toast-close"
@@ -94,6 +103,32 @@
     white-space: pre-wrap;
     word-break: break-word;
     text-wrap: pretty;
+    user-select: text;
+    -webkit-user-select: text;
+  }
+
+  .toast-copy {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border-radius: 50%;
+    margin-left: auto;
+    flex-shrink: 0;
+    transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  }
+
+  .toast-copy:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+  }
+
+  .toast-copy:active {
+    transform: scale(0.96);
   }
 
   .toast-close {
@@ -106,7 +141,7 @@
     justify-content: center;
     padding: 4px;
     border-radius: 50%;
-    margin-left: 8px;
+    margin-left: 4px;
     flex-shrink: 0;
     transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
   }

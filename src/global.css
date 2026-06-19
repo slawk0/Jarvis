@@ -389,3 +389,16 @@ td {
   flex-shrink: 0;
   margin: 0 2px;
 }
+
+/* Allow text selection for codes, values, errors, logs, etc. */
+code,
+pre,
+.mono-stats,
+.mono-val,
+.error-text,
+.error-message,
+.badge,
+td {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}

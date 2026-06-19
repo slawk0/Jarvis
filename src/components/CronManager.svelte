@@ -116,10 +116,12 @@
       cronJobs = parsedJobs;
     } catch (err: any) {
       // We treat the absence of crontab as an empty list, not an error
-      if (String(err).includes('no crontab') || String(err).includes('kod 1')) {
+      const errString = formatInvokeError(err);
+      const lowerErr = errString.toLowerCase();
+      if (lowerErr.includes('no crontab') || lowerErr.includes('kod 1')) {
         cronJobs = [];
       } else {
-        notifications.error(get(LL).cron.loadFailed({ error: formatInvokeError(err) }));
+        notifications.error(get(LL).cron.loadFailed({ error: errString }));
       }
     } finally {
       isLoading = false;
