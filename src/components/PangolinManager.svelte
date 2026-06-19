@@ -3589,8 +3589,8 @@
     color: var(--text-secondary);
     font-weight: 600;
     text-align: left;
-    padding: 12px 16px;
-    font-size: 0.75rem;
+    padding: 8px 12px;
+    font-size: 0.72rem;
     letter-spacing: 0.05em;
     text-transform: uppercase;
     border-bottom: 1px solid var(--border-color);
@@ -3919,7 +3919,8 @@
   }
 
   .telemetry-table td {
-    padding: 12px 16px;
+    padding: 8px 12px;
+    font-size: 0.9rem;
     border-bottom: 1px solid var(--border-color);
     vertical-align: middle;
   }

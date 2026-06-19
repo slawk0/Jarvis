@@ -759,7 +759,7 @@
           {/if}
 
           <div class="panel-search">
-            <Search size={16} class="search-icon" />
+            <span class="search-icon-wrapper"><Search size={16} /></span>
             <input type="text" bind:value={searchQuery} placeholder={$LL.logs.filterResults()} />
           </div>
 
@@ -1003,16 +1003,21 @@
     align-items: center;
   }
 
-  .panel-search .search-icon {
+  .panel-search .search-icon-wrapper {
     position: absolute;
     left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
     color: var(--text-muted);
     pointer-events: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .panel-search input {
     width: 100%;
-    padding: 6px 12px 6px 32px !important;
+    padding: 6px 12px 6px 36px !important;
     font-size: 0.85rem;
     background: var(--bg-element);
     border: 1px solid var(--border-white);

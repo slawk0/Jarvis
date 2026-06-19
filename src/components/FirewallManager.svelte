@@ -346,7 +346,7 @@
 
 <div class="firewall-manager manager-shell fade-in">
   <header class="manager-header">
-    <div class="header-content">
+    <div class="header-title-section">
       <h1 class="page-title">{$LL.firewall.title()}</h1>
       {#if isSudoAuthorized}
         <div class="mode-selector">
@@ -412,7 +412,7 @@
               <SortableTh label={$LL.firewall.portService()} column="to" activeColumn={ruleSort.column} direction={ruleSort.direction} onsort={setRuleSort} width="25%" />
               <SortableTh label={$LL.firewall.action()} column="action" activeColumn={ruleSort.column} direction={ruleSort.direction} onsort={setRuleSort} width="20%" />
               <SortableTh label={$LL.firewall.fromIp()} column="from" activeColumn={ruleSort.column} direction={ruleSort.direction} onsort={setRuleSort} width="25%" />
-              <th style="width: 20%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">{$LL.common.delete()}</th>
+              <th style="width: 20%; text-align: right;">{$LL.common.delete()}</th>
             </tr>
           </thead>
           <tbody>
@@ -605,16 +605,11 @@
     gap: 16px;
   }
 
-  .manager-header {
+  .header-title-section {
     display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .header-content {
-    display: flex;
-    justify-content: space-between;
     align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
   }
 
   .mode-selector {
@@ -772,12 +767,16 @@
   }
 
   .rules-table th, .rules-table td {
-    padding: 14px 20px;
+    padding: 8px 12px;
     border-bottom: 1px solid var(--border-color);
   }
 
+  .rules-table td {
+    font-size: 0.9rem;
+  }
+
   .rules-table th {
-    font-size: 0.8rem;
+    font-size: 0.72rem;
     text-transform: uppercase;
     color: var(--text-muted);
     font-weight: 600;
@@ -789,7 +788,10 @@
   }
 
   .iptables-table th, .iptables-table td {
-    padding: 12px 16px;
+    padding: 8px 12px;
+  }
+
+  .iptables-table td {
     font-size: 0.9rem;
   }
 

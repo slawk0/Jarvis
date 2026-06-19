@@ -887,8 +887,12 @@
       <!-- Workspace Control Bar -->
       <div class="workspace-bar">
         <div class="workspace-bar-left">
-          <span class="workspace-label">{$LL.shell.workspaceLabel()}</span>
-          <span class="workspace-pane-count">{panes.length} {panes.length === 1 ? $LL.shell.workspacePaneCountOne() : panes.length < 5 ? $LL.shell.workspacePaneCountFew() : $LL.shell.workspacePaneCountMany()}</span>
+          {#if panes.length === 1}
+            <span class="workspace-label">{navLabels[activeTab] ?? activeTab}</span>
+          {:else}
+            <span class="workspace-label">{$LL.shell.workspaceLabel()}</span>
+            <span class="workspace-pane-count">{panes.length} {panes.length === 1 ? $LL.shell.workspacePaneCountOne() : panes.length < 5 ? $LL.shell.workspacePaneCountFew() : $LL.shell.workspacePaneCountMany()}</span>
+          {/if}
         </div>
         <div class="workspace-bar-right">
           <button

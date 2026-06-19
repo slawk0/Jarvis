@@ -836,11 +836,13 @@
   <div class="search-panel glass" class:search-active={isSearchLoading && recursiveSearch}>
     <div class="search-panel-row">
       <div class="search-panel-input-row">
-        {#if isSearchLoading && recursiveSearch && searchQuery.trim()}
-          <Loader2 size={14} class="spin search-leading-icon" />
-        {:else}
-          <Search size={14} class="search-leading-icon" />
-        {/if}
+        <span class="search-leading-icon-wrapper">
+          {#if isSearchLoading && recursiveSearch && searchQuery.trim()}
+            <Loader2 size={14} class="spin" />
+          {:else}
+            <Search size={14} />
+          {/if}
+        </span>
         <input
           type="text"
           class="search-panel-input mono-val"
@@ -1219,12 +1221,17 @@
     min-width: 160px;
   }
 
-  .search-leading-icon {
+  .search-leading-icon-wrapper {
     position: absolute;
     left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
     color: var(--text-muted);
     flex-shrink: 0;
     pointer-events: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .search-scope-toggle {
@@ -1269,7 +1276,7 @@
 
   .search-panel-input {
     width: 100%;
-    padding: 6px 32px 6px 30px;
+    padding: 6px 32px 6px 34px;
     font-size: 0.82rem;
     border-radius: var(--radius-sm);
     border: 1px solid var(--border-color);

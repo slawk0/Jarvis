@@ -575,12 +575,16 @@
 
   .users-table th, .users-table td,
   .groups-table th, .groups-table td {
-    padding: 12px 16px;
+    padding: 8px 12px;
     border-bottom: 1px solid var(--border-color);
   }
 
+  .users-table td, .groups-table td {
+    font-size: 0.9rem;
+  }
+
   .users-table th, .groups-table th {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     text-transform: uppercase;
     color: var(--text-muted);
     font-weight: 600;

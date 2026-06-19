@@ -273,7 +273,7 @@
       </div>
 
       <div class="search-bar">
-        <Search size={16} class="search-icon" />
+        <span class="search-icon-wrapper"><Search size={16} /></span>
         <input type="text" placeholder={$LL.logs.filterResults()} bind:value={logSearchQuery} />
       </div>
 
@@ -479,12 +479,16 @@
     padding-left: 36px;
   }
 
-  .search-icon {
+  .search-icon-wrapper {
     position: absolute;
-    left: 12px;
+    left: 10px;
     top: 50%;
     transform: translateY(-50%);
     color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
   }
 
   .stream-actions {

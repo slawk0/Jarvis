@@ -375,7 +375,7 @@ WantedBy=multi-user.target
               </button>
             </div>
             <div class="search-bar search-bar-sm">
-              <Search size={14} class="search-icon" />
+              <span class="search-icon-wrapper"><Search size={14} /></span>
               <input type="text" placeholder={$LL.services.filter()} bind:value={statusSearch} />
             </div>
             <button class="secondary btn-sm" onclick={loadStatusContent} disabled={statusLoading}>
@@ -504,12 +504,16 @@ WantedBy=multi-user.target
   }
 
   .services-table th, .services-table td {
-    padding: 14px 20px;
+    padding: 8px 12px;
     border-bottom: 1px solid var(--border-color);
   }
 
+  .services-table td {
+    font-size: 0.9rem;
+  }
+
   .services-table th {
-    font-size: 0.8rem;
+    font-size: 0.72rem;
     text-transform: uppercase;
     color: var(--text-muted);
     font-weight: 600;
@@ -747,17 +751,20 @@ WantedBy=multi-user.target
 
   .search-bar-sm input {
     width: 100%;
-    padding: 6px 10px 6px 32px;
+    padding: 6px 10px 6px 34px;
     font-size: 0.8rem;
   }
 
-  .search-bar-sm .search-icon {
+  .search-bar-sm .search-icon-wrapper {
     position: absolute;
     left: 10px;
     top: 50%;
     transform: translateY(-50%);
     color: var(--text-muted);
     pointer-events: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .status-display {

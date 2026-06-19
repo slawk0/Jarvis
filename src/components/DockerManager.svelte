@@ -1923,7 +1923,7 @@ networks:
         <!-- ======== CONTAINERS TAB ======== -->
         <div class="ops-bar glass">
           <div class="search-bar">
-            <Search size={16} class="search-icon" />
+            <span class="search-icon-wrapper"><Search size={16} /></span>
             <input type="text" placeholder={$LL.docker.searchContainers()} bind:value={containerSearch} />
           </div>
           {#if selectedContainers.length > 0}
@@ -1956,7 +1956,7 @@ networks:
                   <SortableTh label={$LL.docker.colStatus()} column="status" activeColumn={containerSort.column} direction={containerSort.direction} onsort={(c) => containerSort = nextSort(containerSort, c)} width="12%" />
                   <SortableTh label={$LL.docker.colPorts()} column="ports" activeColumn={containerSort.column} direction={containerSort.direction} onsort={(c) => containerSort = nextSort(containerSort, c)} width="15%" />
                   <SortableTh label={$LL.docker.colCreated()} column="created" activeColumn={containerSort.column} direction={containerSort.direction} onsort={(c) => containerSort = nextSort(containerSort, c)} width="13%" />
-                  <th style="width: 17%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">{$LL.docker.operations()}</th>
+                  <th style="width: 17%; text-align: right;">{$LL.docker.operations()}</th>
                 </tr>
               </thead>
               <tbody>
@@ -2050,7 +2050,7 @@ networks:
         <!-- ======== IMAGES TAB ======== -->
         <div class="ops-bar glass">
           <div class="search-bar">
-            <Search size={16} class="search-icon" />
+            <span class="search-icon-wrapper"><Search size={16} /></span>
             <input type="text" placeholder={$LL.docker.searchImages()} bind:value={imageSearch} />
           </div>
           {#if selectedImages.length > 0}
@@ -2086,7 +2086,7 @@ networks:
                   <SortableTh label={$LL.docker.id()} column="id" activeColumn={imageSort.column} direction={imageSort.direction} onsort={(c) => imageSort = nextSort(imageSort, c)} width="18%" />
                   <SortableTh label={$LL.docker.colSize()} column="size" activeColumn={imageSort.column} direction={imageSort.direction} onsort={(c) => imageSort = nextSort(imageSort, c)} width="12%" />
                   <SortableTh label={$LL.docker.colCreated()} column="created" activeColumn={imageSort.column} direction={imageSort.direction} onsort={(c) => imageSort = nextSort(imageSort, c)} width="12%" />
-                  <th style="width: 13%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">{$LL.docker.operations()}</th>
+                  <th style="width: 13%; text-align: right;">{$LL.docker.operations()}</th>
                 </tr>
               </thead>
               <tbody>
@@ -2161,7 +2161,7 @@ networks:
                   <SortableTh label={$LL.docker.colDriver()} column="driver" activeColumn={networkSort.column} direction={networkSort.direction} onsort={(c) => networkSort = nextSort(networkSort, c)} width="18%" />
                   <SortableTh label={$LL.docker.colScope()} column="scope" activeColumn={networkSort.column} direction={networkSort.direction} onsort={(c) => networkSort = nextSort(networkSort, c)} width="15%" />
                   <SortableTh label="ID Sieci" column="id" activeColumn={networkSort.column} direction={networkSort.direction} onsort={(c) => networkSort = nextSort(networkSort, c)} width="22%" />
-                  <th style="width: 15%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">{$LL.docker.operations()}</th>
+                  <th style="width: 15%; text-align: right;">{$LL.docker.operations()}</th>
                 </tr>
               </thead>
               <tbody>
@@ -2250,7 +2250,7 @@ networks:
                   <SortableTh label="Nazwa Projektu" column="name" activeColumn={composeSort.column} direction={composeSort.direction} onsort={(c) => composeSort = nextSort(composeSort, c)} width="20%" />
                   <SortableTh label={$LL.docker.colStatus()} column="status" activeColumn={composeSort.column} direction={composeSort.direction} onsort={(c) => composeSort = nextSort(composeSort, c)} width="12%" />
                   <SortableTh label="Plik Konfiguracyjny" column="config" activeColumn={composeSort.column} direction={composeSort.direction} onsort={(c) => composeSort = nextSort(composeSort, c)} width="28%" />
-                  <th style="width: 35%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">{$LL.docker.operations()}</th>
+                  <th style="width: 35%; text-align: right;">{$LL.docker.operations()}</th>
                 </tr>
               </thead>
               <tbody>
@@ -2308,7 +2308,7 @@ networks:
         <!-- ======== VOLUMES TAB ======== -->
         <div class="ops-bar glass">
           <div class="search-bar">
-            <Search size={16} class="search-icon" />
+            <span class="search-icon-wrapper"><Search size={16} /></span>
             <input type="text" placeholder={$LL.docker.searchVolumes()} bind:value={volumeSearch} />
           </div>
           <button class="secondary" onclick={loadVolumes} disabled={isLoading}>
@@ -2328,7 +2328,7 @@ networks:
                 <tr>
                   <SortableTh label={$LL.docker.colName()} column="name" activeColumn={volumeSort.column} direction={volumeSort.direction} onsort={(c) => volumeSort = nextSort(volumeSort, c)} width="30%" />
                   <SortableTh label={$LL.docker.colDriver()} column="driver" activeColumn={volumeSort.column} direction={volumeSort.direction} onsort={(c) => volumeSort = nextSort(volumeSort, c)} width="20%" />
-                  <th style="width: 35%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">{$LL.docker.operations()}</th>
+                  <th style="width: 35%; text-align: right;">{$LL.docker.operations()}</th>
                 </tr>
               </thead>
               <tbody>
@@ -2444,7 +2444,7 @@ networks:
           <h3>{$LL.docker.logsTitle({ name: logsContainerName })}</h3>
           <div class="logs-controls">
             <div class="search-bar search-bar-sm">
-              <Search size={14} class="search-icon" />
+              <span class="search-icon-wrapper"><Search size={14} /></span>
               <input type="text" placeholder="Filtruj logi..." bind:value={logSearch} />
             </div>
             <button class="secondary btn-sm" onclick={() => logsPaused = !logsPaused}>
@@ -3175,12 +3175,16 @@ networks:
     padding-left: 36px;
   }
 
-  .search-icon {
+  .search-icon-wrapper {
     position: absolute;
-    left: 12px;
+    left: 10px;
     top: 50%;
     transform: translateY(-50%);
     color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
   }
 
   /* Table */
@@ -3199,12 +3203,16 @@ networks:
 
   .data-table th,
   .data-table td {
-    padding: 12px 16px;
+    padding: 8px 12px;
     border-bottom: 1px solid var(--border-color);
   }
 
+  .data-table td {
+    font-size: 0.9rem;
+  }
+
   .data-table th {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     text-transform: uppercase;
     color: var(--text-muted);
     font-weight: 600;
@@ -3513,11 +3521,11 @@ networks:
   }
 
   .search-bar-sm input {
-    padding: 6px 10px 6px 32px;
+    padding: 6px 10px 6px 34px;
     font-size: 0.8rem;
   }
 
-  .search-bar-sm .search-icon {
+  .search-bar-sm .search-icon-wrapper {
     left: 10px;
   }
 

@@ -3001,13 +3001,16 @@ services:
   }
 
   th, td {
-    padding: 14px 16px;
+    padding: 8px 12px;
     border-bottom: 1px solid var(--border-color);
-    font-size: 0.85rem;
+  }
+
+  td {
+    font-size: 0.9rem;
   }
 
   th {
-    font-size: 0.8rem;
+    font-size: 0.72rem;
     text-transform: uppercase;
     color: var(--text-muted);
     font-weight: 600;

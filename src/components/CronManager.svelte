@@ -418,12 +418,16 @@
   }
 
   .cron-table th, .cron-table td {
-    padding: 14px 20px;
+    padding: 8px 12px;
     border-bottom: 1px solid var(--border-color);
   }
 
+  .cron-table td {
+    font-size: 0.9rem;
+  }
+
   .cron-table th {
-    font-size: 0.8rem;
+    font-size: 0.72rem;
     text-transform: uppercase;
     color: var(--text-muted);
     font-weight: 600;
