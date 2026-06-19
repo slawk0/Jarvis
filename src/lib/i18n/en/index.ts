@@ -1309,7 +1309,7 @@ const en = {
 		emptyAudit: 'No log entries match the filters.',
 		resetFilters: 'Reset filters',
 		totalLogs: 'Total: {count} logs',
-		pageOffset: 'Offset: {start} - {end}',
+		pageOffset: 'Page {start} of {end}',
 		auditDetailTitle: 'Audit request details',
 		detailTime: 'Request time:',
 		detailTxId: 'Transaction ID:',

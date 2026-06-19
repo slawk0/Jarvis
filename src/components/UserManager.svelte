@@ -742,10 +742,6 @@
     background: var(--bg-hover);
   }
 
-  .group-checkbox-item input {
-    width: auto;
-  }
-
   .error-text {
     color: var(--accent-red);
     font-size: 0.8rem;

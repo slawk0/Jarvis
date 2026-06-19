@@ -560,7 +560,7 @@ export function largeNamespaces(buildNs, L) {
     ['loadingAudit', 'Loading audit logs…', 'Wczytywanie logów audytu...'],
     ['emptyAudit', 'No log entries match the filters.', 'Brak wpisów logów pasujących do filtrów.'],
     ['totalLogs', 'Total: {count} logs', 'Łącznie: {count} logów'],
-    ['pageOffset', 'Offset: {start} - {end}', 'Offset: {start} - {end}'],
+    ['pageOffset', 'Page {start} of {end}', 'Strona {start} z {end}'],
     ['auditDetailTitle', 'Audit request details', 'Szczegóły zapytania audytu'],
     ['detailTime', 'Request time:', 'Czas zapytania:'],
     ['detailTxId', 'Transaction ID:', 'ID transakcji:'],

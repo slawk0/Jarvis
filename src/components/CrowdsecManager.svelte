@@ -4,7 +4,8 @@
   import { 
     ShieldAlert, Shield, ShieldOff, Play, Square, RotateCw, RefreshCw, 
     Plus, Trash2, KeyRound, Check, HelpCircle, Settings, Clipboard,
-    ArrowUpRight, AlertCircle, Cpu, FileText, Activity, Users, Box, HardDrive, List, Info
+    ArrowUpRight, AlertCircle, Cpu, FileText, Activity, Users, Box, HardDrive, List, Info,
+    Search, Pause
   } from 'lucide-svelte';
   import SortableTh from './ui/SortableTh.svelte';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
@@ -89,7 +90,7 @@
   let searchAlertQuery = $state('');
   let searchHubQuery = $state('');
   
-  type DecisionSortCol = 'value' | 'type' | 'reason' | 'duration' | 'until';
+  type DecisionSortCol = 'value' | 'type' | 'origin' | 'reason' | 'cn' | 'duration' | 'until';
   let decisionSort = $state<SortState<DecisionSortCol>>({ column: 'value', direction: 'asc' });
 
   type AlertSortCol = 'id' | 'source' | 'scenario' | 'events_count' | 'created_at';
@@ -100,6 +101,14 @@
 
   // Selected detailed alert for preview
   let selectedAlert = $state<any | null>(null);
+
+  // Metric Log Viewer state
+  let selectedMetricLogPath = $state<string | null>(null);
+  let metricLogContent = $state<string>('');
+  let isMetricLogLoading = $state<boolean>(false);
+  let metricLogSearchQuery = $state<string>('');
+  let isMetricLogStreaming = $state<boolean>(false);
+  let metricLogIntervalId = $state<any>(null);
 
   // Local storage configuration
   const configKey = $derived(`crowdsec_config_${profileId}`);
@@ -379,12 +388,53 @@
     await handleActionWithSudo(run);
   }
 
+  function parseDurationToMs(durationStr: string): number {
+    if (!durationStr) return 0;
+    const regex = /(\d+(?:\.\d+)?)(d|h|m|s)/g;
+    let matches;
+    let totalMs = 0;
+    while ((matches = regex.exec(durationStr)) !== null) {
+      const value = parseFloat(matches[1]);
+      const unit = matches[2];
+      switch (unit) {
+        case 'd': totalMs += value * 24 * 60 * 60 * 1000; break;
+        case 'h': totalMs += value * 60 * 60 * 1000; break;
+        case 'm': totalMs += value * 60 * 1000; break;
+        case 's': totalMs += value * 1000; break;
+      }
+    }
+    return totalMs;
+  }
+
   // Fetch decisions (Bans)
   async function fetchDecisions() {
     try {
       const out = await runCscliCommand('decisions list -o json', true);
       const parsed = JSON.parse(out);
-      decisions = Array.isArray(parsed) ? parsed : [];
+      let flatDecisions: any[] = [];
+      if (Array.isArray(parsed)) {
+        for (const item of parsed) {
+          if (item && Array.isArray(item.decisions)) {
+            for (const dec of item.decisions) {
+              const untilVal = dec.until || (dec.duration ? new Date(Date.now() + parseDurationToMs(dec.duration)).toISOString() : '');
+              flatDecisions.push({
+                ...dec,
+                until: untilVal,
+                cn: item.source?.cn || '',
+                as_name: item.source?.as_name || '',
+                as_number: item.source?.as_number || '',
+              });
+            }
+          } else if (item && item.value && item.type) {
+            const untilVal = item.until || (item.duration ? new Date(Date.now() + parseDurationToMs(item.duration)).toISOString() : '');
+            flatDecisions.push({
+              ...item,
+              until: untilVal
+            });
+          }
+        }
+      }
+      decisions = flatDecisions;
     } catch (err: any) {
       if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
         throw err;
@@ -1090,10 +1140,15 @@
     decisions.filter(d => {
       if (!searchDecisionQuery) return true;
       const q = searchDecisionQuery.toLowerCase();
+      const reason = (d.reason || d.scenario || '').toLowerCase();
       return (
         (d.value && d.value.toLowerCase().includes(q)) ||
         (d.type && d.type.toLowerCase().includes(q)) ||
-        (d.reason && d.reason.toLowerCase().includes(q))
+        (d.origin && d.origin.toLowerCase().includes(q)) ||
+        (d.scope && d.scope.toLowerCase().includes(q)) ||
+        (d.cn && d.cn.toLowerCase().includes(q)) ||
+        (d.as_name && d.as_name.toLowerCase().includes(q)) ||
+        reason.includes(q)
       );
     })
   );
@@ -1102,7 +1157,9 @@
     applySort(filteredDecisions, decisionSort, {
       value: (d) => d.value || '',
       type: (d) => d.type || '',
-      reason: (d) => d.reason || '',
+      origin: (d) => d.origin || '',
+      reason: (d) => d.reason || d.scenario || '',
+      cn: (d) => d.cn || '',
       duration: (d) => d.duration || '',
       until: (d) => d.until || '',
     })
@@ -1228,6 +1285,140 @@
   const configuredContainerName = $derived(
     (connectionMode === 'docker' || (connectionMode === 'auto' && detectedMode === 'docker')) ? containerName : ''
   );
+
+  // Statistics computed from decisions and alerts
+  const stats = $derived.by(() => {
+    const scenarioCounts: Record<string, number> = {};
+    const ipCounts: Record<string, number> = {};
+    const countryCounts: Record<string, number> = {};
+    const originCounts: Record<string, number> = {};
+
+    // Process decisions
+    decisions.forEach(d => {
+      if (d.origin) {
+        originCounts[d.origin] = (originCounts[d.origin] || 0) + 1;
+      }
+      const reason = d.reason || d.scenario || 'unknown';
+      scenarioCounts[reason] = (scenarioCounts[reason] || 0) + 1;
+      if (d.value) {
+        ipCounts[d.value] = (ipCounts[d.value] || 0) + 1;
+      }
+      if (d.cn) {
+        countryCounts[d.cn] = (countryCounts[d.cn] || 0) + 1;
+      }
+    });
+
+    // Process alerts
+    const alertScenarios: Record<string, number> = {};
+    const alertIps: Record<string, number> = {};
+    const alertCountries: Record<string, number> = {};
+
+    alerts.forEach(a => {
+      if (a.scenario) {
+        alertScenarios[a.scenario] = (alertScenarios[a.scenario] || 0) + 1;
+      }
+      if (a.source?.value) {
+        alertIps[a.source.value] = (alertIps[a.source.value] || 0) + 1;
+      }
+      if (a.source?.cn) {
+        alertCountries[a.source.cn] = (alertCountries[a.source.cn] || 0) + 1;
+      }
+    });
+
+    const getTop = (record: Record<string, number>, limit = 5) => {
+      return Object.entries(record)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, limit);
+    };
+
+    return {
+      topDecisionsScenarios: getTop(scenarioCounts),
+      topDecisionsIps: getTop(ipCounts),
+      topDecisionsCountries: getTop(countryCounts),
+      decisionsOrigins: Object.entries(originCounts).map(([name, count]) => ({ name, count })),
+      
+      topAlertScenarios: getTop(alertScenarios),
+      topAlertIps: getTop(alertIps),
+      topAlertCountries: getTop(alertCountries),
+    };
+  });
+
+  // Country Flag Emoji Helper
+  function getFlagEmoji(countryCode: string): string {
+    if (!countryCode || countryCode.length !== 2) return '🏳️';
+    const codePoints = countryCode
+      .toUpperCase()
+      .split('')
+      .map(char => 127397 + char.charCodeAt(0));
+    try {
+      return String.fromCodePoint(...codePoints);
+    } catch {
+      return '🏳️';
+    }
+  }
+
+  // Metric Log Viewer functions
+  async function fetchMetricLogContent() {
+    if (!selectedMetricLogPath) return;
+    isMetricLogLoading = true;
+    try {
+      const cmd = `tail -n 150 "${selectedMetricLogPath}"`;
+      const output = await runCscliCommand(cmd, true);
+      metricLogContent = output;
+    } catch (err: any) {
+      if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
+        pendingAction = fetchMetricLogContent;
+        showSudoModal = true;
+        isMetricLogStreaming = false;
+      } else {
+        metricLogContent = `Error loading log file: ${formatInvokeError(err)}`;
+      }
+    } finally {
+      isMetricLogLoading = false;
+    }
+  }
+
+  function startMetricLogStreaming() {
+    isMetricLogStreaming = true;
+    fetchMetricLogContent();
+    if (metricLogIntervalId) clearInterval(metricLogIntervalId);
+    metricLogIntervalId = setInterval(fetchMetricLogContent, 3000);
+  }
+
+  function stopMetricLogStreaming() {
+    isMetricLogStreaming = false;
+    if (metricLogIntervalId) {
+      clearInterval(metricLogIntervalId);
+      metricLogIntervalId = null;
+    }
+  }
+
+  function closeMetricLogViewer() {
+    stopMetricLogStreaming();
+    selectedMetricLogPath = null;
+    metricLogContent = '';
+    metricLogSearchQuery = '';
+  }
+
+  const filteredMetricLogs = $derived.by(() => {
+    if (!metricLogSearchQuery) return metricLogContent;
+    const q = metricLogSearchQuery.toLowerCase();
+    return metricLogContent
+      .split('\n')
+      .filter(line => line.toLowerCase().includes(q))
+      .join('\n');
+  });
+
+  // Handle auto streaming lifecycle
+  $effect(() => {
+    if (selectedMetricLogPath) {
+      startMetricLogStreaming();
+    } else {
+      stopMetricLogStreaming();
+    }
+    return () => stopMetricLogStreaming();
+  });
 
   onMount(() => {
     initCrowdsec();
@@ -1429,22 +1620,22 @@ services:
           <div class="dash-card glass stats-overview-card">
             <h3>{$LL.crowdsec.dbSummary()}</h3>
             <div class="stats-grid">
-              <div class="stat-item clickable" onclick={() => activeSubTab = 'decisions'}>
+              <button class="stat-item clickable" onclick={() => activeSubTab = 'decisions'} style="background: transparent; border: 1px solid var(--border-color); text-align: center; width: 100%;">
                 <span class="stat-num mono-stats">{decisions.length}</span>
                 <span class="stat-label">{$LL.crowdsec.activeBans()}</span>
-              </div>
-              <div class="stat-item clickable" onclick={() => activeSubTab = 'bouncers'}>
+              </button>
+              <button class="stat-item clickable" onclick={() => activeSubTab = 'bouncers'} style="background: transparent; border: 1px solid var(--border-color); text-align: center; width: 100%;">
                 <span class="stat-num mono-stats">{bouncers.length}</span>
                 <span class="stat-label">{$LL.crowdsec.tabBouncers()}</span>
-              </div>
-              <div class="stat-item clickable" onclick={() => activeSubTab = 'alerts'}>
+              </button>
+              <button class="stat-item clickable" onclick={() => activeSubTab = 'alerts'} style="background: transparent; border: 1px solid var(--border-color); text-align: center; width: 100%;">
                 <span class="stat-num mono-stats">{alerts.length}</span>
                 <span class="stat-label">{$LL.crowdsec.alertHistory()}</span>
-              </div>
-              <div class="stat-item clickable" onclick={() => activeSubTab = 'whitelist'}>
+              </button>
+              <button class="stat-item clickable" onclick={() => activeSubTab = 'whitelist'} style="background: transparent; border: 1px solid var(--border-color); text-align: center; width: 100%;">
                 <span class="stat-num mono-stats">{whitelistData.ip.length + whitelistData.cidr.length}</span>
                 <span class="stat-label">{$LL.crowdsec.tabWhitelist()}</span>
-              </div>
+              </button>
             </div>
           </div>
 
@@ -1463,6 +1654,110 @@ services:
                 <span class="leg-item"><span class="dot success"></span> {$LL.crowdsec.parsedLabel()} <strong class="mono-stats">{logStats.parsed}</strong></span>
                 <span class="leg-item"><span class="dot danger"></span> {$LL.crowdsec.skipped()} <strong class="mono-stats">{logStats.unparsed}</strong></span>
                 <span class="leg-item">{$LL.crowdsec.totalRead()} <strong class="mono-stats">{logStats.read}</strong></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Threat Intelligence & Statistics Section -->
+          <div class="threat-intel-section" style="grid-column: span 2; margin-top: 12px; display: flex; flex-direction: column; gap: 16px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <Activity size={18} class="accent-amber-text" />
+              <h3 style="font-size: 1.05rem; font-weight: 600; color: white; margin: 0;">Threat Intelligence & Telemetry</h3>
+            </div>
+            
+            <div class="stats-details-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+              <!-- Top Alert Scenarios -->
+              <div class="dash-card glass">
+                <h4 style="font-size: 0.9rem; color: white; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin: 0 0 10px 0; font-weight: 500;">Top Scenario Alerts</h4>
+                <div class="stats-list" style="display: flex; flex-direction: column; gap: 12px;">
+                  {#each stats.topAlertScenarios as item}
+                    {@const maxCount = Math.max(...stats.topAlertScenarios.map(s => s.count), 1)}
+                    {@const percentage = (item.count / maxCount) * 100}
+                    <div class="stats-row" style="display: flex; flex-direction: column; gap: 4px;">
+                      <div class="stats-row-header" style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem;">
+                        <span class="stats-row-name font-bold text-secondary" style="word-break: break-all;" title={item.name}>{item.name.replace('crowdsecurity/', '')}</span>
+                        <span class="stats-row-value mono-stats font-bold">{item.count}</span>
+                      </div>
+                      <div class="progress-bar-container compact">
+                        <div class="progress-bar-fill" style="width: {percentage}%"></div>
+                      </div>
+                    </div>
+                  {/each}
+                  {#if stats.topAlertScenarios.length === 0}
+                    <span class="text-muted text-xs italic">No scenario alerts registered.</span>
+                  {/if}
+                </div>
+              </div>
+
+              <!-- Top Alert IPs -->
+              <div class="dash-card glass">
+                <h4 style="font-size: 0.9rem; color: white; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin: 0 0 10px 0; font-weight: 500;">Top Active Attacking IPs</h4>
+                <div class="stats-list" style="display: flex; flex-direction: column; gap: 12px;">
+                  {#each stats.topAlertIps as item}
+                    {@const maxCount = Math.max(...stats.topAlertIps.map(s => s.count), 1)}
+                    {@const percentage = (item.count / maxCount) * 100}
+                    <div class="stats-row" style="display: flex; flex-direction: column; gap: 4px;">
+                      <div class="stats-row-header" style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem;">
+                        <span class="stats-row-name font-bold text-secondary"><code>{item.name}</code></span>
+                        <span class="stats-row-value mono-stats font-bold">{item.count} alerts</span>
+                      </div>
+                      <div class="progress-bar-container compact">
+                        <div class="progress-bar-fill" style="width: {percentage}%"></div>
+                      </div>
+                    </div>
+                  {/each}
+                  {#if stats.topAlertIps.length === 0}
+                    <span class="text-muted text-xs italic">No attacker IP data available.</span>
+                  {/if}
+                </div>
+              </div>
+
+              <!-- Top Alert Countries -->
+              <div class="dash-card glass">
+                <h4 style="font-size: 0.9rem; color: white; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin: 0 0 10px 0; font-weight: 500;">Top Attack Country Sources</h4>
+                <div class="stats-list" style="display: flex; flex-direction: column; gap: 12px;">
+                  {#each stats.topAlertCountries.length > 0 ? stats.topAlertCountries : stats.topDecisionsCountries as item}
+                    {@const maxCount = Math.max(...(stats.topAlertCountries.length > 0 ? stats.topAlertCountries : stats.topDecisionsCountries).map(s => s.count), 1)}
+                    {@const percentage = (item.count / maxCount) * 100}
+                    <div class="stats-row" style="display: flex; flex-direction: column; gap: 4px;">
+                      <div class="stats-row-header" style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem;">
+                        <span class="stats-row-name font-bold text-secondary" style="display: inline-flex; align-items: center; gap: 6px;">
+                          <span>{getFlagEmoji(item.name)}</span> {item.name}
+                        </span>
+                        <span class="stats-row-value mono-stats font-bold">{item.count} events</span>
+                      </div>
+                      <div class="progress-bar-container compact">
+                        <div class="progress-bar-fill" style="width: {percentage}%"></div>
+                      </div>
+                    </div>
+                  {/each}
+                  {#if stats.topAlertCountries.length === 0 && stats.topDecisionsCountries.length === 0}
+                    <span class="text-muted text-xs italic">No country data available.</span>
+                  {/if}
+                </div>
+              </div>
+
+              <!-- Decisions by Origin -->
+              <div class="dash-card glass">
+                <h4 style="font-size: 0.9rem; color: white; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin: 0 0 10px 0; font-weight: 500;">Ban Origin Sources</h4>
+                <div class="stats-list" style="display: flex; flex-direction: column; gap: 12px;">
+                  {#each stats.decisionsOrigins as item}
+                    {@const maxCount = Math.max(...stats.decisionsOrigins.map(s => s.count), 1)}
+                    {@const percentage = (item.count / maxCount) * 100}
+                    <div class="stats-row" style="display: flex; flex-direction: column; gap: 4px;">
+                      <div class="stats-row-header" style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem;">
+                        <span class="stats-row-name font-bold text-secondary">{item.name.toUpperCase()}</span>
+                        <span class="stats-row-value mono-stats font-bold">{item.count}</span>
+                      </div>
+                      <div class="progress-bar-container compact">
+                        <div class="progress-bar-fill" style="width: {percentage}%"></div>
+                      </div>
+                    </div>
+                  {/each}
+                  {#if stats.decisionsOrigins.length === 0}
+                    <span class="text-muted text-xs italic">No active bans in the database.</span>
+                  {/if}
+                </div>
               </div>
             </div>
           </div>
@@ -1489,10 +1784,12 @@ services:
             <table>
               <thead>
                 <tr>
-                  <SortableTh label={$LL.crowdsec.colValue()} column="value" activeColumn={decisionSort.column} direction={decisionSort.direction} onsort={setDecisionSort} width="25%" />
-                  <SortableTh label={$LL.crowdsec.colType()} column="type" activeColumn={decisionSort.column} direction={decisionSort.direction} onsort={setDecisionSort} width="15%" />
-                  <SortableTh label={$LL.crowdsec.colReason()} column="reason" activeColumn={decisionSort.column} direction={decisionSort.direction} onsort={setDecisionSort} width="30%" />
-                  <SortableTh label={$LL.crowdsec.colDuration()} column="duration" activeColumn={decisionSort.column} direction={decisionSort.direction} onsort={setDecisionSort} width="15%" />
+                  <SortableTh label={$LL.crowdsec.colValue()} column="value" activeColumn={decisionSort.column} direction={decisionSort.direction} onsort={setDecisionSort} width="15%" />
+                  <SortableTh label={$LL.crowdsec.colType()} column="type" activeColumn={decisionSort.column} direction={decisionSort.direction} onsort={setDecisionSort} width="10%" />
+                  <SortableTh label="Origin" column="origin" activeColumn={decisionSort.column} direction={decisionSort.direction} onsort={setDecisionSort} width="10%" />
+                  <SortableTh label={$LL.crowdsec.colReason()} column="reason" activeColumn={decisionSort.column} direction={decisionSort.direction} onsort={setDecisionSort} width="25%" />
+                  <SortableTh label="Country / AS" column="cn" activeColumn={decisionSort.column} direction={decisionSort.direction} onsort={setDecisionSort} width="20%" />
+                  <SortableTh label={$LL.crowdsec.colDuration()} column="duration" activeColumn={decisionSort.column} direction={decisionSort.direction} onsort={setDecisionSort} width="10%" />
                   <SortableTh label={$LL.crowdsec.colUntil()} column="until" activeColumn={decisionSort.column} direction={decisionSort.direction} onsort={setDecisionSort} width="10%" />
                   <th style="width: 5%; text-align: right;">{$LL.crowdsec.unban()}</th>
                 </tr>
@@ -1500,9 +1797,23 @@ services:
               <tbody>
                 {#each sortedDecisions as dec}
                   <tr>
-                    <td class="mono-stats font-bold"><code>{dec.value}</code></td>
-                    <td><span class="badge {dec.type === 'ban' ? 'danger' : 'warning'}">{dec.type.toUpperCase()}</span></td>
-                    <td class="text-secondary">{dec.reason}</td>
+                    <td class="mono-stats font-bold">
+                      <span class="scope-tag" style="font-size: 0.7rem; color: var(--text-muted); margin-right: 4px;">[{dec.scope || 'IP'}]</span>
+                      <code>{dec.value}</code>
+                    </td>
+                    <td><span class="badge {(dec.type || '').toLowerCase() === 'ban' ? 'danger' : 'warning'}">{(dec.type || '').toUpperCase()}</span></td>
+                    <td class="text-secondary mono-stats" style="font-size: 0.8rem;">{dec.origin || 'unknown'}</td>
+                    <td class="text-secondary" style="font-size: 0.8rem;" title={dec.reason || dec.scenario}>{dec.reason || dec.scenario || 'manual'}</td>
+                    <td class="text-secondary" style="font-size: 0.8rem;">
+                      {#if dec.cn}
+                        <span class="country-flag" style="margin-right: 4px;" title={dec.cn}>{getFlagEmoji(dec.cn)} {dec.cn}</span>
+                      {/if}
+                      {#if dec.as_name}
+                        <span class="as-info" style="font-size: 0.72rem; color: var(--text-muted);" title={`${dec.as_number ? 'AS' + dec.as_number : ''} - ${dec.as_name}`}>
+                          ({dec.as_name.substring(0, 15)}{dec.as_name.length > 15 ? '...' : ''})
+                        </span>
+                      {/if}
+                    </td>
                     <td class="mono-stats">{dec.duration}</td>
                     <td class="mono-stats text-muted" title={dec.until}>{dec.until ? formatDate(dec.until) : $LL.common.noData()}</td>
                     <td style="text-align: right;">
@@ -1515,7 +1826,7 @@ services:
 
                 {#if sortedDecisions.length === 0}
                   <tr>
-                    <td colspan="6" class="empty-state">{$LL.crowdsec.emptyDecisions()}</td>
+                    <td colspan="8" class="empty-state">{$LL.crowdsec.emptyDecisions()}</td>
                   </tr>
                 {/if}
               </tbody>
@@ -1739,6 +2050,7 @@ services:
                     <th style="text-align: right;">{$LL.crowdsec.colLinesParsed()}</th>
                     <th style="text-align: right;">{$LL.crowdsec.colUnparsed()}</th>
                     <th style="text-align: right; width: 200px;">{$LL.crowdsec.colSuccessRate()}</th>
+                    <th style="text-align: right; width: 80px;">Logs</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1757,12 +2069,17 @@ services:
                           <div class="progress-bar-fill" style="width: {successRate}%"></div>
                         </div>
                       </td>
+                      <td style="text-align: right;">
+                        <button class="btn-table" onclick={() => selectedMetricLogPath = item.source} title="Preview log file">
+                          <FileText size={14} />
+                        </button>
+                      </td>
                     </tr>
                   {/each}
 
                   {#if acquisitionList.length === 0}
                     <tr>
-                      <td colspan="5" class="empty-state">{$LL.crowdsec.emptyMetrics()}</td>
+                      <td colspan="6" class="empty-state">{$LL.crowdsec.emptyMetrics()}</td>
                     </tr>
                   {/if}
                 </tbody>
@@ -2049,6 +2366,53 @@ services:
         <h4>Surowy obiekt JSON</h4>
         <div class="raw-json-box">
           <pre><code>{JSON.stringify(selectedAlert, null, 2)}</code></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Metric Log Viewer Drawer -->
+{#if selectedMetricLogPath}
+  <div class="drawer-overlay" onclick={closeMetricLogViewer} onkeydown={(e) => e.key === 'Escape' && closeMetricLogViewer()} role="button" tabindex="0">
+    <div class="drawer-content glass fade-in-right" style="width: 650px;" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()} role="button" tabindex="-1">
+      <div class="drawer-header">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <h3 style="font-size: 1.15rem; color: white; margin: 0;">CrowdSec Log Preview</h3>
+          <span class="text-xs text-muted mono-stats" style="word-break: break-all;">{selectedMetricLogPath}</span>
+        </div>
+        <button class="close-drawer-btn" onclick={closeMetricLogViewer}>&times;</button>
+      </div>
+      
+      <div class="drawer-body" style="display: flex; flex-direction: column; height: calc(100% - 70px); padding: 20px; overflow: hidden; gap: 12px;">
+        <div class="log-actions-bar" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; width: 100%;">
+          <div class="search-box" style="flex: 1; min-width: 150px; display: flex; align-items: center; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0 10px;">
+            <Search size={14} class="text-muted" style="margin-right: 6px;" />
+            <input type="text" style="width: 100%; height: 32px; font-size: 0.8rem; background: transparent; border: none; outline: none; padding: 0; margin: 0; color: white;" placeholder="Search logs..." bind:value={metricLogSearchQuery} />
+          </div>
+          <button class="secondary btn-sm" onclick={fetchMetricLogContent} disabled={isMetricLogLoading} style="display: inline-flex; align-items: center; justify-content: center; height: 34px;">
+            <RefreshCw size={14} class={isMetricLogLoading ? 'spin' : ''} />
+          </button>
+          
+          {#if isMetricLogStreaming}
+            <button class="secondary btn-sm" onclick={stopMetricLogStreaming} style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 34px;">
+              <Pause size={14} /> Pause
+            </button>
+          {:else}
+            <button class="primary btn-sm" onclick={startMetricLogStreaming} style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 34px;">
+              <Play size={14} /> Stream
+            </button>
+          {/if}
+        </div>
+        
+        <div class="log-viewer-box" style="flex: 1; background: #030406; border: 1px solid var(--border-color); border-radius: var(--radius-sm); overflow: auto; padding: 12px; display: flex; flex-direction: column; width: 100%;">
+          {#if isMetricLogLoading && !metricLogContent}
+            <div style="display: flex; align-items: center; justify-content: center; flex: 1; color: var(--text-secondary);">
+              <RefreshCw size={24} class="spin" />
+            </div>
+          {:else}
+            <pre style="margin: 0; font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.4; color: var(--text-secondary); white-space: pre-wrap; word-break: break-all; width: 100%;"><code>{filteredMetricLogs || 'No data to display.'}</code></pre>
+          {/if}
         </div>
       </div>
     </div>
@@ -2411,6 +2775,9 @@ services:
     justify-content: center;
     align-items: center;
     transition: var(--transition-fast);
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
   }
 
   .stat-item.clickable:hover {

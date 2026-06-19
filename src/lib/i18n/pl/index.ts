@@ -1309,7 +1309,7 @@ const pl = {
 		emptyAudit: 'Brak wpisów logów pasujących do filtrów.',
 		resetFilters: 'Resetuj filtry',
 		totalLogs: 'Łącznie: {count} logów',
-		pageOffset: 'Offset: {start} - {end}',
+		pageOffset: 'Strona {start} z {end}',
 		auditDetailTitle: 'Szczegóły zapytania audytu',
 		detailTime: 'Czas zapytania:',
 		detailTxId: 'ID transakcji:',

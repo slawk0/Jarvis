@@ -5249,7 +5249,7 @@ type RootTranslation = {
 		 */
 		totalLogs: RequiredParams<'count'>
 		/**
-		 * O​f​f​s​e​t​:​ ​{​s​t​a​r​t​}​ ​-​ ​{​e​n​d​}
+		 * P​a​g​e​ ​{​s​t​a​r​t​}​ ​o​f​ ​{​e​n​d​}
 		 * @param {unknown} end
 		 * @param {unknown} start
 		 */
@@ -12149,7 +12149,7 @@ export type TranslationFunctions = {
 		 */
 		totalLogs: (arg: { count: unknown }) => LocalizedString
 		/**
-		 * Offset: {start} - {end}
+		 * Page {start} of {end}
 		 */
 		pageOffset: (arg: { end: unknown, start: unknown }) => LocalizedString
 		/**

@@ -50,9 +50,7 @@
   });
 
   // Logs State
-  let isLogsLoading = $state(false);
-  let logsList = $state<any[]>([]);
-  let logFilters = $state({
+  const createDefaultLogFilters = () => ({
     limit: 50,
     offset: 0,
     action: [] as string[],
@@ -64,6 +62,49 @@
     reason: '',
     resource: [] as string[]
   });
+
+  function toDateInputValue(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  function createDefaultAuditDateRange() {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - 7);
+    return {
+      start: toDateInputValue(start),
+      end: toDateInputValue(end)
+    };
+  }
+
+  function getAuditDateBounds() {
+    const fallback = createDefaultAuditDateRange();
+    let startValue = auditDateRange.start || fallback.start;
+    let endValue = auditDateRange.end || fallback.end;
+
+    if (startValue > endValue) {
+      [startValue, endValue] = [endValue, startValue];
+    }
+
+    const start = new Date(`${startValue}T00:00:00`);
+    const end = new Date(`${endValue}T23:59:59.999`);
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      const fallbackStart = new Date(`${fallback.start}T00:00:00`);
+      const fallbackEnd = new Date(`${fallback.end}T23:59:59.999`);
+      return { start: fallbackStart, end: fallbackEnd };
+    }
+
+    return { start, end };
+  }
+
+  let isLogsLoading = $state(false);
+  let logsList = $state<any[]>([]);
+  let auditDateRange = $state(createDefaultAuditDateRange());
+  let logFilters = $state(createDefaultLogFilters());
   let logsPagination = $state({ total: 0, limit: 50, offset: 0 });
   let selectedLogDetail = $state<any | null>(null);
   let uniqueFilters = $state({
@@ -215,6 +256,36 @@
     logFilters.offset = 0;
     activeFilterField = null;
     loadLogsData();
+  }
+
+  function resetAuditFilters() {
+    logFilters = createDefaultLogFilters();
+    filterInputs = { action: [], method: [], host: [], path: '', reason: '', actor: '', location: [], resource: [] };
+    auditDateRange = createDefaultAuditDateRange();
+    locationSearchQuery = '';
+    hostSearchQuery = '';
+    resourceSearchQuery = '';
+    activeFilterField = null;
+    loadLogsData();
+  }
+
+  function handleAuditDateRangeChange() {
+    logFilters.offset = 0;
+    loadLogsData();
+  }
+
+  function hasActiveAuditFilters(): boolean {
+    const defaults = createDefaultAuditDateRange();
+    return logFilters.action.length > 0 ||
+      logFilters.method.length > 0 ||
+      logFilters.host.length > 0 ||
+      Boolean(logFilters.path) ||
+      Boolean(logFilters.actor) ||
+      logFilters.location.length > 0 ||
+      Boolean(logFilters.reason) ||
+      logFilters.resource.length > 0 ||
+      auditDateRange.start !== defaults.start ||
+      auditDateRange.end !== defaults.end;
   }
 
   function handleWindowClick(e: MouseEvent) {
@@ -487,7 +558,7 @@
     if (activeSubTab === 'dashboard') {
       await loadDashboardData();
     } else if (activeSubTab === 'logs') {
-      await loadLogsData();
+      await Promise.all([loadLogsData(), loadResourcesForFilter()]);
     } else if (activeSubTab === 'resources') {
       await loadSitesList();
       await loadPrivResources();
@@ -664,10 +735,7 @@
     if (!config.org_id) return;
     isLogsLoading = true;
     try {
-      const end = new Date();
-      const start = new Date();
-      // default 7 days for request logs
-      start.setDate(start.getDate() - 7);
+      const { start, end } = getAuditDateBounds();
 
       const qParams: any = {
         timeStart: start.toISOString(),
@@ -717,10 +785,45 @@
   }
 
   function formatTime(timestamp: number): string {
-    return formatDate(timestamp * 1000, {
-      hour: '2-digit', minute: '2-digit', second: '2-digit',
-      day: '2-digit', month: '2-digit', year: 'numeric'
-    });
+    const date = new Date(timestamp * 1000);
+    if (Number.isNaN(date.getTime())) return '-';
+
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const hour = String(date.getHours()).padStart(2, '0');
+    const minute = String(date.getMinutes()).padStart(2, '0');
+    const second = String(date.getSeconds()).padStart(2, '0');
+
+    return `${day}/${month}/${year} ${hour}:${minute}:${second}`;
+  }
+
+  function getLogsCurrentPage(): number {
+    if (logsPagination.total <= 0) return 0;
+    return Math.floor(logFilters.offset / logFilters.limit) + 1;
+  }
+
+  function getLogsTotalPages(): number {
+    if (logsPagination.total <= 0) return 0;
+    return Math.ceil(logsPagination.total / logFilters.limit);
+  }
+
+  function getLogResourceId(log: any): string {
+    return (log.resourceId || log.siteResourceId || '').toString();
+  }
+
+  function getLogResourceName(log: any): string {
+    if (log.resourceId) {
+      const resource = pubResourcesList.find(r => r.resourceId?.toString() === log.resourceId.toString());
+      return resource?.name || log.resourceName || getLogResourceId(log);
+    }
+
+    if (log.siteResourceId) {
+      const resource = privResourcesList.find(r => r.siteResourceId?.toString() === log.siteResourceId.toString());
+      return resource?.name || log.siteResourceName || getLogResourceId(log);
+    }
+
+    return '-';
   }
 
   // 3. Tunnels / Sites Functions
@@ -1606,15 +1709,27 @@
           <div class="filters-bar-simple">
             <span class="view-title">{$LL.pangolin.auditTitle()}</span>
             <div class="bar-actions">
-              {#if logFilters.action.length > 0 || logFilters.method.length > 0 || logFilters.host.length > 0 || logFilters.path || logFilters.actor || logFilters.location.length > 0 || logFilters.reason || logFilters.resource.length > 0}
-                <button class="secondary btn-sm text-orange" onclick={() => {
-                  logFilters = { limit: 50, offset: 0, action: [], method: [], host: [], path: '', actor: '', location: [], reason: '', resource: [] };
-                  filterInputs = { action: [], method: [], host: [], path: '', reason: '', actor: '', location: [], resource: [] };
-                  locationSearchQuery = '';
-                  hostSearchQuery = '';
-                  resourceSearchQuery = '';
-                  loadLogsData();
-                }}>
+              <div class="audit-date-range" aria-label={$LL.pangolin.timeRange()}>
+                <Calendar size={14} />
+                <label for="audit-date-start">{$LL.pangolin.filterDateFrom()}</label>
+                <input
+                  id="audit-date-start"
+                  type="date"
+                  bind:value={auditDateRange.start}
+                  max={auditDateRange.end || undefined}
+                  onchange={handleAuditDateRangeChange}
+                />
+                <label for="audit-date-end">{$LL.pangolin.filterDateTo()}</label>
+                <input
+                  id="audit-date-end"
+                  type="date"
+                  bind:value={auditDateRange.end}
+                  min={auditDateRange.start || undefined}
+                  onchange={handleAuditDateRangeChange}
+                />
+              </div>
+              {#if hasActiveAuditFilters()}
+                <button class="secondary btn-sm text-orange" onclick={resetAuditFilters}>
                   {$LL.pangolin.resetFilters()}
                 </button>
               {/if}
@@ -1890,6 +2005,10 @@
                   </tr>
                 {:else}
                   {#each filteredLogs as log}
+                    {@const locationCode = typeof log.location === 'string' ? log.location.toUpperCase() : log.location}
+                    {@const locationName = log.location ? countryCodeToName(log.location) : ''}
+                    {@const resourceId = getLogResourceId(log)}
+                    {@const resourceName = getLogResourceName(log)}
                     <tr class="log-row" onclick={() => selectedLogDetail = log}>
                       <td class="mono-stats font-xs">{formatTime(log.timestamp)}</td>
                       <td>
@@ -1900,12 +2019,18 @@
                       <td class="mono-stats font-xs">{log.ip}</td>
                       <td>
                         {#if log.location}
-                          <span class="country-badge">{log.location}</span>
+                          <abbr
+                            class="country-badge country-badge-tooltip"
+                            title={locationName}
+                            aria-label={`${locationCode}: ${locationName}`}
+                          >
+                            {locationCode}
+                          </abbr>
                         {:else}
                           -
                         {/if}
                       </td>
-                      <td class="mono-stats font-xs">{log.resourceId || log.siteResourceId || '-'}</td>
+                      <td class="truncate-cell" title={resourceId ? `${resourceName} (${resourceId})` : resourceName}>{resourceName}</td>
                       <td class="truncate-cell" title={log.host}>{log.host || '-'}</td>
                       <td class="truncate-cell" title={log.path}>{log.path || '-'}</td>
                       <td>
@@ -1933,7 +2058,7 @@
               }}>
                 <ChevronLeft size={16} />
               </button>
-              <span class="page-indicator">{$LL.pangolin.pageOffset({ start: logFilters.offset, end: logFilters.offset + logsList.length })}</span>
+              <span class="page-indicator">{$LL.pangolin.pageOffset({ start: getLogsCurrentPage(), end: getLogsTotalPages() })}</span>
               <button class="secondary btn-icon-compact" disabled={logFilters.offset + logFilters.limit >= logsPagination.total} onclick={() => {
                 logFilters.offset += logFilters.limit;
                 loadLogsData();
@@ -3515,6 +3640,76 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .audit-date-range {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: rgba(0, 0, 0, 0.22);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+  }
+
+  .audit-date-range label {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .audit-date-range input[type="date"] {
+    width: 128px;
+    height: 28px;
+    padding: 2px 6px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: rgba(0, 0, 0, 0.4);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+    outline: none;
+  }
+
+  .audit-date-range input[type="date"]:focus {
+    border-color: var(--color-orange, #ff7b00);
+    background: rgba(0, 0, 0, 0.6);
+  }
+
+  .audit-date-range input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: 0.65;
+    cursor: pointer;
+  }
+
+  @media (max-width: 860px) {
+    .filters-bar-simple {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .filters-bar-simple .bar-actions {
+      width: 100%;
+      justify-content: flex-start;
+    }
+  }
+
+  @media (max-width: 520px) {
+    .audit-date-range {
+      width: 100%;
+      display: grid;
+      grid-template-columns: auto auto 1fr;
+    }
+
+    .audit-date-range input[type="date"] {
+      width: 100%;
+    }
   }
 
   .filterable-th {
@@ -3780,11 +3975,24 @@
   }
 
   .country-badge {
+    display: inline-flex;
+    align-items: center;
     font-size: 0.65rem;
     padding: 1px 4px;
     border-radius: 2px;
     background: rgba(255, 255, 255, 0.1);
     color: var(--text-secondary);
+  }
+
+  .country-badge-tooltip {
+    cursor: help;
+    text-decoration: none;
+  }
+
+  .country-badge-tooltip:hover {
+    background: rgba(255, 123, 0, 0.16);
+    color: var(--accent-amber);
+    box-shadow: 0 0 0 1px rgba(255, 123, 0, 0.28);
   }
 
   .pagination-bar {

@@ -4929,8 +4929,8 @@
       "pl": "Łącznie: {count} logów"
     },
     "pageOffset": {
-      "en": "Offset: {start} - {end}",
-      "pl": "Offset: {start} - {end}"
+      "en": "Page {start} of {end}",
+      "pl": "Strona {start} z {end}"
     },
     "auditDetailTitle": {
       "en": "Audit request details",
