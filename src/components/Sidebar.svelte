@@ -193,7 +193,6 @@
         <div class="hud-row">
           <span class="hud-label">{$LL.sidebar.statusLabel()}</span>
           <span class="hud-status" class:nominal={isOnline} class:offline={!isOnline}>
-            <span class="status-indicator" class:online={isOnline} class:offline={!isOnline}></span>
             {isSwitching ? $LL.common.switching() : (isOnline ? $LL.common.online() : $LL.common.offline())}
           </span>
         </div>
@@ -552,24 +551,6 @@
 
   .hud-status.nominal { color: var(--accent-green); }
   .hud-status.offline { color: var(--accent-red); }
-
-  .status-indicator {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    display: inline-block;
-    flex-shrink: 0;
-  }
-
-  .status-indicator.online {
-    background: var(--accent-green);
-    box-shadow: 0 0 6px var(--accent-green);
-  }
-
-  .status-indicator.offline {
-    background: var(--accent-red);
-    box-shadow: 0 0 6px var(--accent-red);
-  }
 
   .collapse-toggle {
     color: var(--text-muted);
