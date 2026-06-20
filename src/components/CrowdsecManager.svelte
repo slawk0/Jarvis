@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { 
     ShieldAlert, Shield, ShieldOff, Play, Square, RotateCw, RefreshCw, 
@@ -1422,6 +1422,14 @@
 
   onMount(() => {
     initCrowdsec();
+  });
+
+  $effect(() => {
+    if (profileId) {
+      untrack(() => {
+        initCrowdsec();
+      });
+    }
   });
 </script>
 

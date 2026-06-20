@@ -81,8 +81,8 @@
 
   let { profileId = '' } = $props();
 
-  const profilesStoreKey = $derived(`jarvis-nginx-profiles-${profileId}`);
-  const activeProfileStoreKey = $derived(`jarvis-nginx-active-profile-${profileId}`);
+  const getProfilesStoreKey = () => `jarvis-nginx-profiles-${profileId}`;
+  const getActiveProfileStoreKey = () => `jarvis-nginx-active-profile-${profileId}`;
 
   let profiles = $state<NginxProfile[]>([]);
   let activeProfileId = $state('');
@@ -121,11 +121,20 @@
   }
 
   function loadProfiles() {
-    const stored = localStorage.getItem(profilesStoreKey);
-    const storedActive = localStorage.getItem(activeProfileStoreKey);
+    if (!profileId) return;
+    const stored = localStorage.getItem(getProfilesStoreKey());
+    const storedActive = localStorage.getItem(getActiveProfileStoreKey());
+    let needsSave = false;
     if (stored) {
       try {
         profiles = JSON.parse(stored);
+        profiles = profiles.map((p) => {
+          if (!p.id) {
+            p.id = Math.random().toString(36).substring(7);
+            needsSave = true;
+          }
+          return p;
+        });
       } catch {
         profiles = [];
       }
@@ -141,6 +150,10 @@
       activeProfileId = '';
     }
 
+    if (needsSave) {
+      saveProfiles();
+    }
+
     applyActiveProfile();
 
     if (profiles.length === 0) {
@@ -149,14 +162,17 @@
   }
 
   function saveProfiles() {
-    localStorage.setItem(profilesStoreKey, JSON.stringify(profiles));
+    if (!profileId) return;
+    localStorage.setItem(getProfilesStoreKey(), JSON.stringify(profiles));
   }
 
   function applyActiveProfile() {
     const active = profiles.find((p) => p.id === activeProfileId);
     if (active) {
       target = active.target;
-      localStorage.setItem(activeProfileStoreKey, activeProfileId);
+      if (profileId) {
+        localStorage.setItem(getActiveProfileStoreKey(), activeProfileId);
+      }
       loadCurrent();
     } else {
       target = { kind: 'host' };
@@ -189,12 +205,14 @@
       return;
     }
     const t: ExecTarget = profileFormKind === 'host' ? { kind: 'host' } : { kind: 'docker', container: profileFormContainer };
+    const finalId = profileFormId || Math.random().toString(36).substring(7);
+
     if (isEditingProfile) {
-      profiles = profiles.map((p) => (p.id === profileFormId ? { id: profileFormId, name: profileFormName.trim(), target: t } : p));
+      profiles = profiles.map((p) => (p.id === profileFormId ? { id: finalId, name: profileFormName.trim(), target: t } : p));
     } else {
-      profiles = [...profiles, { id: profileFormId, name: profileFormName.trim(), target: t }];
-      if (profiles.length === 1) {
-        activeProfileId = profileFormId;
+      profiles = [...profiles, { id: finalId, name: profileFormName.trim(), target: t }];
+      if (profiles.length === 1 || !activeProfileId) {
+        activeProfileId = finalId;
       }
     }
     saveProfiles();
@@ -219,6 +237,11 @@
     applyActiveProfile();
   }
 
+  async function reloadCertsAndHosts() {
+    await loadCerts();
+    await loadHosts();
+  }
+
   function installAllRequirements() {
     const cmd = wrapCmd(
       target,
@@ -235,7 +258,7 @@
         `echo 'No supported package manager found'; ` +
       `fi`
     );
-    runStreamed(cmd, get(LL).webserver.installingRequirements(), loadCerts);
+    runStreamed(cmd, get(LL).webserver.installingRequirements(), reloadCertsAndHosts);
   }
 
   $effect(() => {
@@ -601,7 +624,6 @@
   async function loadCerts() {
     isLoading = true;
     errorMsg = '';
-    certbotInstalled = false;
     const cmd = wrapCmd(
       target,
       `if command -v certbot >/dev/null 2>&1; then echo '@@@HAS_CERTBOT'; echo '@@@PLUGINS'; certbot plugins 2>/dev/null || true; echo '@@@CERTS'; certbot certificates 2>&1 || true; else echo '@@@NO_CERTBOT'; fi`,
@@ -632,7 +654,7 @@
         `elif command -v yum >/dev/null 2>&1; then yum install -y certbot; ` +
         `else echo 'No supported package manager found'; fi`,
     );
-    runStreamed(cmd, get(LL).webserver.installingCertbot(), loadCerts);
+    runStreamed(cmd, get(LL).webserver.installingCertbot(), reloadCertsAndHosts);
   }
 
   function installPlugin(provider: DnsProvider) {
@@ -644,7 +666,7 @@
         `elif command -v pip3 >/dev/null 2>&1; then pip3 install certbot-dns-${provider}; ` +
         `else echo 'No supported package manager found'; fi`,
     );
-    runStreamed(cmd, get(LL).webserver.installingPlugin({ plugin: provider }), loadCerts);
+    runStreamed(cmd, get(LL).webserver.installingPlugin({ plugin: provider }), reloadCertsAndHosts);
   }
 
   // ---- issue modal ----
@@ -841,6 +863,11 @@
   // sub-tab dispatch
   // ---------------------------------------------------------------------------
   function loadCurrent() {
+    if (!activeProfileId && profiles.length > 0) {
+      activeProfileId = profiles[0].id;
+      applyActiveProfile();
+      return;
+    }
     if (!activeProfileId) return;
     if (subTab === 'hosts') loadHosts();
     else if (subTab === 'certs') loadCerts();
@@ -854,7 +881,9 @@
   }
 
   onMount(async () => {
-    loadProfiles();
+    if (profileId) {
+      loadProfiles();
+    }
     await loadContainers();
   });
 </script>
@@ -883,6 +912,8 @@
       </button>
     </div>
   </header>
+
+
 
   {#if profiles.length === 0}
     <!-- SETUP VIEW -->
@@ -985,7 +1016,7 @@
       <button class="secondary btn-compact" disabled={!certbotInstalled} onclick={renewAll}><RotateCw size={14} /> {$LL.webserver.renewAll()}</button>
     </div>
 
-    {#if !certbotInstalled}
+    {#if !certbotInstalled && !isLoading}
       <div class="hint glass warn">
         <ShieldAlert size={16} />
         <span>{$LL.webserver.certNotInstalled()}</span>

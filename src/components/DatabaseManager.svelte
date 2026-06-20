@@ -162,7 +162,8 @@
     URL.revokeObjectURL(url);
   }
 
-  onMount(() => {
+  function loadConfig() {
+    if (!profileId) return;
     const saved = localStorage.getItem(storeKey);
     if (saved) {
       try {
@@ -174,8 +175,25 @@
         useDocker = c.useDocker ?? false;
         container = c.container ?? '';
       } catch {}
+    } else {
+      engine = 'mysql';
+      host = '127.0.0.1';
+      port = '3306';
+      user = 'root';
+      useDocker = false;
+      container = '';
     }
+  }
+
+  onMount(() => {
+    loadConfig();
     loadContainers();
+  });
+
+  $effect(() => {
+    if (profileId) {
+      loadConfig();
+    }
   });
 </script>
 
