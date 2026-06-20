@@ -2178,6 +2178,14 @@ type RootTranslation = {
 		 */
 		deleteAction: string
 		/**
+		 * S​e​t​ ​a​s​ ​d​e​f​a​u​l​t
+		 */
+		setDefault: string
+		/**
+		 * D​e​f​a​u​l​t
+		 */
+		defaultProfile: string
+		/**
 		 * A​r​e​ ​y​o​u​ ​s​u​r​e​ ​y​o​u​ ​w​a​n​t​ ​t​o​ ​d​e​l​e​t​e​ ​t​h​i​s​ ​c​o​n​n​e​c​t​i​o​n​ ​p​r​o​f​i​l​e​?
 		 */
 		confirmDelete: string
@@ -9237,6 +9245,14 @@ export type TranslationFunctions = {
 		 * Delete
 		 */
 		deleteAction: () => LocalizedString
+		/**
+		 * Set as default
+		 */
+		setDefault: () => LocalizedString
+		/**
+		 * Default
+		 */
+		defaultProfile: () => LocalizedString
 		/**
 		 * Are you sure you want to delete this connection profile?
 		 */

@@ -24,6 +24,7 @@
     SplitSquareVertical,
     ChevronDown,
     GripVertical,
+    Star,
   } from 'lucide-svelte';
   import {
     canNavigateBack,
@@ -94,10 +95,21 @@
   let sidebarCollapsed = $state(false);
 
   // Load collapsed state from localStorage
-  onMount(() => {
-    loadProfiles();
+  onMount(async () => {
+    await loadProfiles();
     const saved = localStorage.getItem('jarvis-sidebar-collapsed');
     if (saved === 'true') sidebarCollapsed = true;
+
+    // Auto-connect to default profile
+    try {
+      const defaultId = await invoke<string | null>('get_default_profile');
+      if (defaultId && profiles.find((p) => p.id === defaultId)) {
+        defaultProfileId = defaultId;
+        await handleConnect(defaultId);
+      }
+    } catch (err) {
+      console.error('Auto-connect failed:', err);
+    }
   });
 
   $effect(() => {
@@ -697,12 +709,24 @@
   let profileKeyPath = $state('');
   let profilePassword = $state('');
   let profileKeyPassphrase = $state('');
+  let defaultProfileId = $state('');
 
   async function loadProfiles() {
     try {
       profiles = await invoke('get_profiles');
     } catch (err) {
       console.error(get(LL).profile.loadFailed({ error: formatInvokeError(err) }));
+    }
+  }
+
+  async function handleSetDefault(profileId: string, event: Event) {
+    event.stopPropagation();
+    const newDefault = profileId === defaultProfileId ? '' : profileId;
+    try {
+      await invoke('set_default_profile', { profileId: newDefault });
+      defaultProfileId = newDefault;
+    } catch (err: unknown) {
+      console.error('Failed to set default profile:', err);
     }
   }
 
@@ -1222,7 +1246,12 @@
                       <Server size={18} />
                     </div>
                     <div class="profile-card-info">
-                      <span class="profile-label">{profile.label}</span>
+                      <span class="profile-label">
+                        {profile.label}
+                        {#if profile.id === defaultProfileId}
+                          <span class="default-badge">{$LL.profile.defaultProfile()}</span>
+                        {/if}
+                      </span>
                       <span class="profile-details">{profile.username}@{profile.host}:{profile.port}</span>
                     </div>
                   </div>
@@ -1230,6 +1259,9 @@
                     {#if isConnecting && currentProfileId === profile.id}
                       <Loader2 class="spin accent-amber-text" size={18} />
                     {:else}
+                      <button class="icon-btn-card" onclick={(e) => handleSetDefault(profile.id, e)} title={profile.id === defaultProfileId ? $LL.profile.defaultProfile() : $LL.profile.setDefault()}>
+                        <Star size={14} class={profile.id === defaultProfileId ? 'star-filled' : 'star-outline'} />
+                      </button>
                       <button class="icon-btn-card" onclick={(e) => editProfile(profile, e)} title={$LL.profile.editAction()}>
                         <Settings size={14} />
                       </button>
@@ -1769,17 +1801,12 @@
     justify-content: space-between;
     cursor: pointer;
     text-align: left;
-    transition: background 0.1s ease, border-color 0.1s ease, transform 0.1s ease;
+    transition: background 0.1s ease, border-color 0.1s ease;
   }
 
   .profile-card:hover {
     background: var(--bg-hover);
     border-color: rgba(29, 78, 216, 0.2);
-    transform: translateY(-1px);
-  }
-
-  .profile-card:active {
-    transform: translateY(0);
   }
 
   .profile-card.connecting {
@@ -1859,6 +1886,32 @@
   .profile-card:hover .chevron-icon {
     color: white;
     transform: translateX(2px);
+  }
+
+  .star-filled {
+    color: var(--accent-amber, #f59e0b);
+  }
+
+  .star-outline {
+    color: var(--text-muted);
+    opacity: 0.5;
+  }
+
+  .star-outline:hover {
+    opacity: 1;
+  }
+
+  .default-badge {
+    font-size: 0.65rem;
+    font-weight: 600;
+    background: var(--accent-amber, #f59e0b);
+    color: #000;
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+    vertical-align: middle;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
   }
 
   .no-profiles {

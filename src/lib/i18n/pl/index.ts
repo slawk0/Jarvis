@@ -553,6 +553,8 @@ const pl = {
 		createFirst: 'Utwórz pierwszy profil',
 		editAction: 'Edytuj',
 		deleteAction: 'Usuń',
+		setDefault: 'Ustaw jako domyślny',
+		defaultProfile: 'Domyślny',
 		confirmDelete: 'Czy na pewno chcesz usunąć ten profil połączenia?',
 		requiredFields: 'Wypełnij wymagane pola (Etykieta, Host, Użytkownik)',
 		saveFailed: 'Nie udało się zapisać profilu: {error}',

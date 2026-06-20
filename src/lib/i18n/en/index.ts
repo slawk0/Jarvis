@@ -553,6 +553,8 @@ const en = {
 		createFirst: 'Create first profile',
 		editAction: 'Edit',
 		deleteAction: 'Delete',
+		setDefault: 'Set as default',
+		defaultProfile: 'Default',
 		confirmDelete: 'Are you sure you want to delete this connection profile?',
 		requiredFields: 'Fill in required fields (Label, Host, User)',
 		saveFailed: 'Failed to save profile: {error}',

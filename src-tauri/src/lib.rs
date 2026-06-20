@@ -13,6 +13,8 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use tauri::{Manager, Emitter, State, AppHandle};
+use tauri::tray::{TrayIconBuilder, TrayIconEvent, MouseButton, MouseButtonState};
+use tauri::menu::{Menu, MenuItem};
 use serde::{Serialize, Deserialize};
 use keyring::Entry;
 use ssh::{SshConnection, ServerStats, ExtendedServerStats, FileInfo};
@@ -219,7 +221,51 @@ fn delete_profile(app_handle: AppHandle, id: String) -> Result<(), AppError> {
         .map_err(|e| AppError::with_details("JSON_SERIALIZE_FAILED", e.to_string()))?;
     atomic_write(&path, &content)?;
 
+    // Also clear default profile if it matches
+    let default_path = get_default_profile_path(&app_handle)?;
+    if default_path.exists() {
+        let current = fs::read_to_string(&default_path).unwrap_or_default();
+        if current.trim() == id {
+            let _ = fs::write(&default_path, "");
+        }
+    }
+
     Ok(())
+}
+
+fn get_default_profile_path(app_handle: &AppHandle) -> Result<std::path::PathBuf, AppError> {
+    let mut path = app_handle
+        .path()
+        .app_config_dir()
+        .map_err(|e| AppError::with_details("APP_CONFIG_DIR_FAILED", e.to_string()))?;
+    fs::create_dir_all(&path)
+        .map_err(|e| AppError::with_details("CONFIG_DIR_CREATE_FAILED", e.to_string()))?;
+    path.push("default_profile");
+    Ok(path)
+}
+
+#[tauri::command]
+fn set_default_profile(app_handle: AppHandle, profile_id: String) -> Result<(), AppError> {
+    let path = get_default_profile_path(&app_handle)?;
+    fs::write(&path, &profile_id)
+        .map_err(|e| AppError::with_details("FILE_WRITE_FAILED", e.to_string()))?;
+    Ok(())
+}
+
+#[tauri::command]
+fn get_default_profile(app_handle: AppHandle) -> Result<Option<String>, AppError> {
+    let path = get_default_profile_path(&app_handle)?;
+    if !path.exists() {
+        return Ok(None);
+    }
+    let content = fs::read_to_string(path)
+        .map_err(|e| AppError::with_details("FILE_READ_FAILED", e.to_string()))?;
+    let trimmed = content.trim().to_string();
+    if trimmed.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(trimmed))
+    }
 }
 
 #[tauri::command]
@@ -1839,10 +1885,68 @@ pub fn run() {
             sftp_transfer_cancel: Arc::new(AtomicBool::new(false)),
             sftp_transfer_running: Arc::new(AtomicBool::new(false)),
         })
+        .setup(|app| {
+            // Intercept close → hide to tray instead of quitting
+            let window = app.get_webview_window("main").expect("main window not found");
+            let w = window.clone();
+            window.on_window_event(move |event| {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    w.hide().expect("failed to hide window");
+                    api.prevent_close();
+                }
+            });
+
+            // Tray context menu
+            let show = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
+            let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&show, &quit])?;
+
+            // Build tray icon
+            TrayIconBuilder::new()
+                .icon(app.default_window_icon().unwrap().clone())
+                .menu(&menu)
+                .tooltip("Jarvis Server Manager")
+                .on_menu_event(|app, event| {
+                    match event.id.as_ref() {
+                        "show" => {
+                            if let Some(w) = app.get_webview_window("main") {
+                                w.show().expect("failed to show window");
+                                w.set_focus().expect("failed to focus window");
+                            }
+                        }
+                        "quit" => {
+                            app.exit(0);
+                        }
+                        _ => {}
+                    }
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    } = event {
+                        let app = tray.app_handle();
+                        if let Some(w) = app.get_webview_window("main") {
+                            if w.is_visible().unwrap_or(false) {
+                                w.hide().expect("failed to hide window");
+                            } else {
+                                w.show().expect("failed to show window");
+                                w.set_focus().expect("failed to focus window");
+                            }
+                        }
+                    }
+                })
+                .build(app)?;
+
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             get_profiles,
             save_profile,
             delete_profile,
+            set_default_profile,
+            get_default_profile,
             connect_ssh,
             disconnect_ssh,
             ping_ssh,
