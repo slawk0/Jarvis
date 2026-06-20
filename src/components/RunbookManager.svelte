@@ -299,6 +299,4 @@
   .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
   .output-header { display: flex; justify-content: space-between; align-items: center; }
   .output { flex: 1; overflow: auto; max-height: 400px; font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-secondary); white-space: pre-wrap; background: rgba(0,0,0,0.3); padding: 12px; border-radius: var(--radius-sm); }
-  .spin { animation: spin 1s linear infinite; }
-  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 </style>

@@ -17,6 +17,7 @@
   } from '$lib/i18n/backendErrors';
   import { validateContent } from '$lib/syntaxValidator';
 
+  let { profileId = '' } = $props();
   let errorMsg = $state('');
   let browserPath = $state('/');
   let browserRef: SftpFileBrowser | undefined = $state();
@@ -495,6 +496,7 @@
   <div class="browser-layer" class:hidden={!!editingFile}>
     <SftpFileBrowser
       bind:this={browserRef}
+      {profileId}
       onEdit={handleEdit}
       onChmod={openPermissionsModal}
       onRename={(file) => {
@@ -818,6 +820,4 @@
 
   .recursive-label input { width: 14px; height: 14px; }
 
-  .spin { animation: spin 1s linear infinite; }
-  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 </style>

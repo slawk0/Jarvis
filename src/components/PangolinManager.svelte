@@ -3158,14 +3158,6 @@
     gap: 8px;
   }
 
-  .spin {
-    animation: spin 1s linear infinite;
-  }
-
-  @keyframes spin {
-    100% { transform: rotate(360deg); }
-  }
-
   .tab-content {
     flex: 1;
     padding: 16px;

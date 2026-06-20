@@ -3,7 +3,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import { listen } from '@tauri-apps/api/event';
   import {
-    Container, Box, Network, Layers,
+    Container, Box, Network, Layers, Activity,
     Play, Square, RotateCw, Trash2, RefreshCw,
     Search, Eye, EyeOff, Terminal, Download,
     Plus, X, KeyRound, AlertCircle, Loader2,
@@ -33,7 +33,7 @@
   let { onRequestTerminalExec = (_ctx: { containerId: string; containerName: string; useSudo: boolean; shell: string }) => {} } = $props();
 
   // Sub-tab state
-  let dockerTab = $state<'containers' | 'images' | 'networks' | 'compose' | 'volumes'>('containers');
+  let dockerTab = $state<'containers' | 'images' | 'networks' | 'compose' | 'volumes' | 'stats'>('containers');
 
   // Global loading/error
   let isLoading = $state(false);
@@ -286,6 +286,101 @@
   let composeNetworkProject = $state<any>(null);
   let composeSelectedNetwork = $state('');
   let composeNetworkLoading = $state(false);
+
+  // Docker Stats tab state
+  let statsList = $state<any[]>([]);
+  let autoRefreshStats = $state(true);
+  let refreshIntervalSeconds = $state(3);
+  let statsSearchQuery = $state('');
+  let statsLoading = $state(false);
+  let isFetchingStats = false;
+  let statsInterval: any = null;
+  let statsSort = $state<SortState<string>>({ column: 'name', direction: 'asc' });
+
+  function parseByteValue(valStr: string): number {
+    if (!valStr) return 0;
+    const clean = valStr.trim().toLowerCase();
+    const match = clean.match(/^([0-9.]+)\s*([a-z]*)/);
+    if (!match) return 0;
+    const num = parseFloat(match[1]) || 0;
+    const unit = match[2];
+    if (unit.startsWith('t')) return num * 1024 * 1024 * 1024 * 1024;
+    if (unit.startsWith('g')) return num * 1024 * 1024 * 1024;
+    if (unit.startsWith('m')) return num * 1024 * 1024;
+    if (unit.startsWith('k')) return num * 1024;
+    return num;
+  }
+
+  function getSortedStats() {
+    const filtered = statsList.filter(s =>
+      s.Name.toLowerCase().includes(statsSearchQuery.toLowerCase()) ||
+      s.Container.toLowerCase().includes(statsSearchQuery.toLowerCase())
+    );
+    return applySort(filtered, statsSort, {
+      name: (s) => s.Name || '',
+      cpu: (s) => s.cpuPercent || 0.0,
+      memory: (s) => s.memPercent || 0.0,
+      net: (s) => parseByteValue(s.NetIO.split('/')[0]) || 0,
+      block: (s) => parseByteValue(s.BlockIO.split('/')[0]) || 0,
+      pids: (s) => parseInt(s.PIDs) || 0
+    });
+  }
+
+  async function loadStats() {
+    if (!dockerInstalled || isFetchingStats) return;
+    isFetchingStats = true;
+    if (statsList.length === 0) statsLoading = true;
+    try {
+      const result = await execDocker("docker stats --no-stream --format '{{json .}}'");
+      const lines = result.trim().split('\n');
+      const parsedStats = [];
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const obj = JSON.parse(line);
+          const cpuPercent = parseFloat(obj.CPUPerc.replace('%', '')) || 0.0;
+          const memPercent = parseFloat(obj.MemPerc.replace('%', '')) || 0.0;
+          parsedStats.push({
+            ...obj,
+            cpuPercent,
+            memPercent,
+          });
+        } catch (e) {
+          // ignore
+        }
+      }
+      statsList = parsedStats;
+    } catch (err: any) {
+      console.error(err);
+      errorMsg = String(err);
+    } finally {
+      statsLoading = false;
+      isFetchingStats = false;
+    }
+  }
+
+  $effect(() => {
+    if (dockerTab === 'stats') {
+      loadStats();
+      if (statsInterval) clearInterval(statsInterval);
+      if (autoRefreshStats) {
+        statsInterval = setInterval(() => {
+          loadStats();
+        }, refreshIntervalSeconds * 1000);
+      }
+    } else {
+      if (statsInterval) {
+        clearInterval(statsInterval);
+        statsInterval = null;
+      }
+    }
+    return () => {
+      if (statsInterval) {
+        clearInterval(statsInterval);
+        statsInterval = null;
+      }
+    };
+  });
 
   // ----------------------------------------------------------
   // Sudo-aware Docker exec helper
@@ -1915,6 +2010,9 @@ networks:
       <button class="tab-btn {dockerTab === 'volumes' ? 'active' : ''}" onclick={() => { dockerTab = 'volumes'; loadVolumes(); }}>
         <Database size={16} /> {$LL.docker.tabVolumes()}
       </button>
+      <button class="tab-btn {dockerTab === 'stats' ? 'active' : ''}" onclick={() => { dockerTab = 'stats'; loadStats(); }}>
+        <Activity size={16} /> {$LL.docker.tabStats()}
+      </button>
     </div>
 
     <!-- Tab content -->
@@ -2378,6 +2476,101 @@ networks:
                       {:else}
                         {$LL.common.noResults()}
                       {/if}
+                    </td>
+                  </tr>
+                {/if}
+              </tbody>
+            </table>
+          {/if}
+        </div>
+      {:else if dockerTab === 'stats'}
+        <!-- ======== LIVE STATS TAB ======== -->
+        <div class="ops-bar glass">
+          <div class="search-bar">
+            <span class="search-icon-wrapper"><Search size={16} /></span>
+            <input type="text" placeholder={$LL.docker.searchContainers()} bind:value={statsSearchQuery} />
+          </div>
+          
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <label class="toggle-checkbox" style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9rem;">
+              <input type="checkbox" bind:checked={autoRefreshStats} />
+              <span>{$LL.docker.autoRefresh()}</span>
+            </label>
+
+            {#if autoRefreshStats}
+              <select bind:value={refreshIntervalSeconds} style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--surface-1); color: var(--text-primary); font-size: 0.85rem;">
+                <option value={1}>1s</option>
+                <option value={2}>2s</option>
+                <option value={3}>3s</option>
+                <option value={5}>5s</option>
+                <option value={10}>10s</option>
+              </select>
+            {/if}
+
+            <button class="secondary" onclick={loadStats} disabled={statsLoading}>
+              <RefreshCw size={16} class={statsLoading ? 'spin' : ''} /> {$LL.common.refresh()}
+            </button>
+          </div>
+        </div>
+
+        <div class="table-container glass">
+          {#if statsLoading && statsList.length === 0}
+            <div class="loading-state">
+              <RefreshCw class="spin" size={32} />
+              <p>{$LL.common.loading()}</p>
+            </div>
+          {:else}
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <SortableTh label={$LL.docker.statsContainerName()} column="name" activeColumn={statsSort.column} direction={statsSort.direction} onsort={(c) => statsSort = nextSort(statsSort, c)} width="25%" />
+                  <SortableTh label={$LL.docker.statsCpuUsage()} column="cpu" activeColumn={statsSort.column} direction={statsSort.direction} onsort={(c) => statsSort = nextSort(statsSort, c)} width="20%" />
+                  <SortableTh label={$LL.docker.statsMemUsage()} column="memory" activeColumn={statsSort.column} direction={statsSort.direction} onsort={(c) => statsSort = nextSort(statsSort, c)} width="25%" />
+                  <SortableTh label={$LL.docker.statsNetIo()} column="net" activeColumn={statsSort.column} direction={statsSort.direction} onsort={(c) => statsSort = nextSort(statsSort, c)} width="15%" />
+                  <SortableTh label={$LL.docker.statsBlockIo()} column="block" activeColumn={statsSort.column} direction={statsSort.direction} onsort={(c) => statsSort = nextSort(statsSort, c)} width="10%" />
+                  <SortableTh label={$LL.docker.statsPids()} column="pids" activeColumn={statsSort.column} direction={statsSort.direction} onsort={(c) => statsSort = nextSort(statsSort, c)} width="5%" align="right" />
+                </tr>
+              </thead>
+              <tbody>
+                {#each getSortedStats() as stat}
+                  <tr>
+                    <td>
+                      <div style="display: flex; flex-direction: column; gap: 2px;">
+                        <span class="mono-val" style="font-weight: 600;">{stat.Name}</span>
+                        <span class="mono-val text-muted" style="font-size: 0.75rem;">{stat.Container}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div style="display: flex; flex-direction: column; gap: 4px; width: 100%;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-family: monospace;">
+                          <span>{stat.CPUPerc}</span>
+                        </div>
+                        <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
+                          <div style="width: {Math.min(stat.cpuPercent, 100)}%; height: 100%; background: {stat.cpuPercent > 80 ? 'var(--color-danger, #ef4444)' : stat.cpuPercent > 40 ? 'var(--color-warning, #f59e0b)' : 'var(--color-success, #10b981)'}; border-radius: 3px;"></div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div style="display: flex; flex-direction: column; gap: 4px; width: 100%;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-family: monospace;">
+                          <span>{stat.MemUsage}</span>
+                          <span style="color: var(--text-secondary);">{stat.MemPercent || stat.MemPerc}</span>
+                        </div>
+                        <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
+                          <div style="width: {Math.min(stat.memPercent, 100)}%; height: 100%; background: {stat.memPercent > 80 ? 'var(--color-danger, #ef4444)' : stat.memPercent > 55 ? 'var(--color-warning, #f59e0b)' : 'var(--color-success, #10b981)'}; border-radius: 3px;"></div>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="mono-val" style="font-size: 0.82rem;">{stat.NetIO}</td>
+                    <td class="mono-val" style="font-size: 0.82rem;">{stat.BlockIO}</td>
+                    <td class="mono-val" style="font-size: 0.82rem; text-align: right;">{stat.PIDs}</td>
+                  </tr>
+                {/each}
+
+                {#if statsList.length === 0 && !statsLoading}
+                  <tr>
+                    <td colspan="6" class="empty-state">
+                      {$LL.common.noResults()}
                     </td>
                   </tr>
                 {/if}
@@ -3328,15 +3521,6 @@ networks:
     height: 200px;
     gap: 16px;
     color: var(--text-secondary);
-  }
-
-  .spin {
-    animation: spin 1s linear infinite;
-  }
-
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
   }
 
   /* Inspect card */

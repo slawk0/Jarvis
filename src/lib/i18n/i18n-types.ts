@@ -557,6 +557,10 @@ type RootTranslation = {
 		 * T​e​r​m​i​n​a​l
 		 */
 		terminal: string
+		/**
+		 * D​i​s​k​ ​M​a​n​a​g​e​m​e​n​t
+		 */
+		disks: string
 	}
 	locale: {
 		/**
@@ -2942,6 +2946,26 @@ type RootTranslation = {
 		 */
 		createDirPlaceholder: string
 		/**
+		 * B​o​o​k​m​a​r​k​s
+		 */
+		bookmarksTitle: string
+		/**
+		 * B​o​o​k​m​a​r​k​ ​c​u​r​r​e​n​t​ ​p​a​t​h
+		 */
+		addBookmark: string
+		/**
+		 * R​e​m​o​v​e​ ​b​o​o​k​m​a​r​k
+		 */
+		removeBookmark: string
+		/**
+		 * D​e​f​a​u​l​t​ ​B​o​o​k​m​a​r​k​s
+		 */
+		defaultBookmarks: string
+		/**
+		 * S​a​v​e​d​ ​B​o​o​k​m​a​r​k​s
+		 */
+		savedBookmarks: string
+		/**
 		 * R​e​n​a​m​e​ ​/​ ​m​o​v​e
 		 */
 		renameTitle: string
@@ -3085,6 +3109,38 @@ type RootTranslation = {
 		 * @param {unknown} count
 		 */
 		selectedCount: RequiredParams<'count'>
+		/**
+		 * L​i​v​e​ ​S​t​a​t​s
+		 */
+		tabStats: string
+		/**
+		 * C​o​n​t​a​i​n​e​r​ ​N​a​m​e
+		 */
+		statsContainerName: string
+		/**
+		 * C​P​U​ ​U​s​a​g​e
+		 */
+		statsCpuUsage: string
+		/**
+		 * M​e​m​o​r​y​ ​U​s​a​g​e
+		 */
+		statsMemUsage: string
+		/**
+		 * N​e​t​ ​I​/​O
+		 */
+		statsNetIo: string
+		/**
+		 * B​l​o​c​k​ ​I​/​O
+		 */
+		statsBlockIo: string
+		/**
+		 * P​I​D​s
+		 */
+		statsPids: string
+		/**
+		 * R​e​f​r​e​s​h​ ​I​n​t​e​r​v​a​l
+		 */
+		refreshInterval: string
 		/**
 		 * L​o​a​d​i​n​g​ ​c​o​n​t​a​i​n​e​r​s​…
 		 */
@@ -7130,6 +7186,136 @@ type RootTranslation = {
 		 */
 		PROFILE_EXTRAS_WRITE_FAILED: RequiredParams<'details'>
 	}
+	disks: {
+		/**
+		 * D​i​s​k​ ​M​a​n​a​g​e​m​e​n​t
+		 */
+		title: string
+		/**
+		 * D​i​s​k​ ​U​s​a​g​e
+		 */
+		diskUsage: string
+		/**
+		 * B​l​o​c​k​ ​D​e​v​i​c​e​s
+		 */
+		blockDevices: string
+		/**
+		 * F​i​l​e​s​y​s​t​e​m
+		 */
+		filesystem: string
+		/**
+		 * T​y​p​e
+		 */
+		type: string
+		/**
+		 * S​i​z​e
+		 */
+		size: string
+		/**
+		 * U​s​e​d
+		 */
+		used: string
+		/**
+		 * A​v​a​i​l
+		 */
+		avail: string
+		/**
+		 * U​s​e​ ​%
+		 */
+		usePercent: string
+		/**
+		 * M​o​u​n​t​ ​P​o​i​n​t
+		 */
+		mountPoint: string
+		/**
+		 * D​e​v​i​c​e
+		 */
+		device: string
+		/**
+		 * L​a​b​e​l
+		 */
+		label: string
+		/**
+		 * U​U​I​D
+		 */
+		uuid: string
+		/**
+		 * M​o​d​e​l
+		 */
+		model: string
+		/**
+		 * A​c​t​i​o​n​s
+		 */
+		actions: string
+		/**
+		 * M​o​u​n​t
+		 */
+		mount: string
+		/**
+		 * U​n​m​o​u​n​t
+		 */
+		umount: string
+		/**
+		 * C​h​e​c​k​ ​F​S​ ​(​f​s​c​k​)
+		 */
+		fsck: string
+		/**
+		 * C​r​e​a​t​e​ ​P​a​r​t​i​t​i​o​n
+		 */
+		createPartition: string
+		/**
+		 * P​a​r​t​i​t​i​o​n​ ​T​a​b​l​e
+		 */
+		partitionTable: string
+		/**
+		 * M​o​u​n​t​ ​P​a​t​h
+		 */
+		mountPath: string
+		/**
+		 * D​e​v​i​c​e​ ​m​o​u​n​t​e​d​ ​s​u​c​c​e​s​s​f​u​l​l​y
+		 */
+		mountSuccess: string
+		/**
+		 * D​e​v​i​c​e​ ​u​n​m​o​u​n​t​e​d​ ​s​u​c​c​e​s​s​f​u​l​l​y
+		 */
+		umountSuccess: string
+		/**
+		 * F​i​l​e​s​y​s​t​e​m​ ​c​h​e​c​k​e​d​ ​s​u​c​c​e​s​s​f​u​l​l​y
+		 */
+		fsckSuccess: string
+		/**
+		 * R​u​n​n​i​n​g​ ​f​i​l​e​s​y​s​t​e​m​ ​c​h​e​c​k​.​.​.
+		 */
+		fsckRunning: string
+		/**
+		 * P​a​r​t​i​t​i​o​n​ ​c​r​e​a​t​e​d​ ​s​u​c​c​e​s​s​f​u​l​l​y
+		 */
+		partitionSuccess: string
+		/**
+		 * D​e​s​t​r​u​c​t​i​v​e​ ​A​c​t​i​o​n​ ​W​a​r​n​i​n​g
+		 */
+		warningDestructive: string
+		/**
+		 * C​r​e​a​t​i​n​g​ ​p​a​r​t​i​t​i​o​n​ ​t​a​b​l​e​ ​a​n​d​ ​f​o​r​m​a​t​t​i​n​g​ ​w​i​l​l​ ​e​r​a​s​e​ ​a​l​l​ ​d​a​t​a​ ​o​n​ ​t​h​e​ ​s​e​l​e​c​t​e​d​ ​d​r​i​v​e​!
+		 */
+		warningDestructiveDesc: string
+		/**
+		 * I​ ​u​n​d​e​r​s​t​a​n​d​,​ ​c​r​e​a​t​e​ ​p​a​r​t​i​t​i​o​n
+		 */
+		confirmPartition: string
+		/**
+		 * U​s​e​ ​E​n​t​i​r​e​ ​D​i​s​k​ ​(​1​0​0​%​)
+		 */
+		useEntireDisk: string
+		/**
+		 * F​i​l​e​s​y​s​t​e​m​ ​T​y​p​e
+		 */
+		fsType: string
+		/**
+		 * E​x​e​c​u​t​i​n​g​.​.​.
+		 */
+		executing: string
+	}
 }
 
 export type TranslationFunctions = {
@@ -7672,6 +7858,10 @@ export type TranslationFunctions = {
 		 * Terminal
 		 */
 		terminal: () => LocalizedString
+		/**
+		 * Disk Management
+		 */
+		disks: () => LocalizedString
 	}
 	locale: {
 		/**
@@ -9972,6 +10162,26 @@ export type TranslationFunctions = {
 		 */
 		createDirPlaceholder: () => LocalizedString
 		/**
+		 * Bookmarks
+		 */
+		bookmarksTitle: () => LocalizedString
+		/**
+		 * Bookmark current path
+		 */
+		addBookmark: () => LocalizedString
+		/**
+		 * Remove bookmark
+		 */
+		removeBookmark: () => LocalizedString
+		/**
+		 * Default Bookmarks
+		 */
+		defaultBookmarks: () => LocalizedString
+		/**
+		 * Saved Bookmarks
+		 */
+		savedBookmarks: () => LocalizedString
+		/**
 		 * Rename / move
 		 */
 		renameTitle: () => LocalizedString
@@ -10105,6 +10315,38 @@ export type TranslationFunctions = {
 		 * Selected: {count}
 		 */
 		selectedCount: (arg: { count: unknown }) => LocalizedString
+		/**
+		 * Live Stats
+		 */
+		tabStats: () => LocalizedString
+		/**
+		 * Container Name
+		 */
+		statsContainerName: () => LocalizedString
+		/**
+		 * CPU Usage
+		 */
+		statsCpuUsage: () => LocalizedString
+		/**
+		 * Memory Usage
+		 */
+		statsMemUsage: () => LocalizedString
+		/**
+		 * Net I/O
+		 */
+		statsNetIo: () => LocalizedString
+		/**
+		 * Block I/O
+		 */
+		statsBlockIo: () => LocalizedString
+		/**
+		 * PIDs
+		 */
+		statsPids: () => LocalizedString
+		/**
+		 * Refresh Interval
+		 */
+		refreshInterval: () => LocalizedString
 		/**
 		 * Loading containers…
 		 */
@@ -13969,6 +14211,136 @@ export type TranslationFunctions = {
 		 * Failed to write profile extras: {details}
 		 */
 		PROFILE_EXTRAS_WRITE_FAILED: (arg: { details: unknown }) => LocalizedString
+	}
+	disks: {
+		/**
+		 * Disk Management
+		 */
+		title: () => LocalizedString
+		/**
+		 * Disk Usage
+		 */
+		diskUsage: () => LocalizedString
+		/**
+		 * Block Devices
+		 */
+		blockDevices: () => LocalizedString
+		/**
+		 * Filesystem
+		 */
+		filesystem: () => LocalizedString
+		/**
+		 * Type
+		 */
+		type: () => LocalizedString
+		/**
+		 * Size
+		 */
+		size: () => LocalizedString
+		/**
+		 * Used
+		 */
+		used: () => LocalizedString
+		/**
+		 * Avail
+		 */
+		avail: () => LocalizedString
+		/**
+		 * Use %
+		 */
+		usePercent: () => LocalizedString
+		/**
+		 * Mount Point
+		 */
+		mountPoint: () => LocalizedString
+		/**
+		 * Device
+		 */
+		device: () => LocalizedString
+		/**
+		 * Label
+		 */
+		label: () => LocalizedString
+		/**
+		 * UUID
+		 */
+		uuid: () => LocalizedString
+		/**
+		 * Model
+		 */
+		model: () => LocalizedString
+		/**
+		 * Actions
+		 */
+		actions: () => LocalizedString
+		/**
+		 * Mount
+		 */
+		mount: () => LocalizedString
+		/**
+		 * Unmount
+		 */
+		umount: () => LocalizedString
+		/**
+		 * Check FS (fsck)
+		 */
+		fsck: () => LocalizedString
+		/**
+		 * Create Partition
+		 */
+		createPartition: () => LocalizedString
+		/**
+		 * Partition Table
+		 */
+		partitionTable: () => LocalizedString
+		/**
+		 * Mount Path
+		 */
+		mountPath: () => LocalizedString
+		/**
+		 * Device mounted successfully
+		 */
+		mountSuccess: () => LocalizedString
+		/**
+		 * Device unmounted successfully
+		 */
+		umountSuccess: () => LocalizedString
+		/**
+		 * Filesystem checked successfully
+		 */
+		fsckSuccess: () => LocalizedString
+		/**
+		 * Running filesystem check...
+		 */
+		fsckRunning: () => LocalizedString
+		/**
+		 * Partition created successfully
+		 */
+		partitionSuccess: () => LocalizedString
+		/**
+		 * Destructive Action Warning
+		 */
+		warningDestructive: () => LocalizedString
+		/**
+		 * Creating partition table and formatting will erase all data on the selected drive!
+		 */
+		warningDestructiveDesc: () => LocalizedString
+		/**
+		 * I understand, create partition
+		 */
+		confirmPartition: () => LocalizedString
+		/**
+		 * Use Entire Disk (100%)
+		 */
+		useEntireDisk: () => LocalizedString
+		/**
+		 * Filesystem Type
+		 */
+		fsType: () => LocalizedString
+		/**
+		 * Executing...
+		 */
+		executing: () => LocalizedString
 	}
 }
 

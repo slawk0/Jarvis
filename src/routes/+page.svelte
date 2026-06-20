@@ -25,6 +25,8 @@
     ChevronDown,
     GripVertical,
     Star,
+    Keyboard,
+    HelpCircle,
   } from 'lucide-svelte';
   import {
     canNavigateBack,
@@ -53,6 +55,7 @@
   import BackupManager from '../components/BackupManager.svelte';
   import NetworkManager from '../components/NetworkManager.svelte';
   import RunbookManager from '../components/RunbookManager.svelte';
+  import DiskManager from '../components/DiskManager.svelte';
   import { resetAlertCooldowns } from '$lib/alerts/monitor';
   import type { ServerProfile } from '$lib/admin/types';
 
@@ -629,6 +632,77 @@
     activePaneId = paneId;
   }
 
+  // ────────────── Keyboard Shortcuts ──────────────
+  let showShortcutsModal = $state(false);
+
+  function cycleTab(direction: number) {
+    const pane = panes.find(p => p.id === activePaneId);
+    if (!pane) return;
+    const currentIdx = TAB_IDS.indexOf(pane.activeTab as any);
+    if (currentIdx !== -1) {
+      let nextIdx = (currentIdx + direction) % TAB_IDS.length;
+      if (nextIdx < 0) nextIdx += TAB_IDS.length;
+      selectTab(TAB_IDS[nextIdx]);
+    }
+  }
+
+  function handleGlobalKeyDown(e: KeyboardEvent) {
+    if (e.key === 'Escape' && showShortcutsModal) {
+      showShortcutsModal = false;
+      return;
+    }
+
+    const target = e.target as HTMLElement;
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.contentEditable === 'true')) {
+      // Let standard inputs function normally
+      return;
+    }
+
+    // Ctrl + N -> New pane split
+    if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'n') {
+      e.preventDefault();
+      splitPane(activePaneId, 'h');
+    }
+    // Ctrl + W -> Close active pane
+    else if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'w') {
+      e.preventDefault();
+      closePane(activePaneId);
+    }
+    // Ctrl + (1-4) -> Switch focus to pane 1..4
+    else if (e.ctrlKey && !e.shiftKey && ['1', '2', '3', '4'].includes(e.key)) {
+      e.preventDefault();
+      const idx = parseInt(e.key) - 1;
+      if (panes[idx]) {
+        focusPane(panes[idx].id);
+      }
+    }
+    // Ctrl + Shift + T -> Open terminal in active pane
+    else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 't') {
+      e.preventDefault();
+      selectTab('terminal');
+    }
+    // Ctrl + Alt + B -> Toggle sidebar collapse
+    else if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'b') {
+      e.preventDefault();
+      sidebarCollapsed = !sidebarCollapsed;
+    }
+    // Ctrl + Tab -> Cycle tabs forward
+    else if (e.ctrlKey && !e.shiftKey && e.key === 'Tab') {
+      e.preventDefault();
+      cycleTab(1);
+    }
+    // Ctrl + Shift + Tab -> Cycle tabs backward
+    else if (e.ctrlKey && e.shiftKey && e.key === 'Tab') {
+      e.preventDefault();
+      cycleTab(-1);
+    }
+    // Ctrl + Shift + H -> Show cheat sheet modal
+    else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'h') {
+      e.preventDefault();
+      showShortcutsModal = !showShortcutsModal;
+    }
+  }
+
   // ────────────── Back Navigation ──────────────
 
   function canGoBackGlobal(): boolean {
@@ -864,7 +938,7 @@
   }
 </script>
 
-<svelte:window onmouseup={handleMouseBack} onauxclick={handleAuxClick} onpointermove={handleGlobalPointerMove} onpointerup={handleGlobalPointerUp} onclick={() => { paneSelectorOpen = null; }} />
+<svelte:window onkeydown={handleGlobalKeyDown} onmouseup={handleMouseBack} onauxclick={handleAuxClick} onpointermove={handleGlobalPointerMove} onpointerup={handleGlobalPointerUp} onclick={() => { paneSelectorOpen = null; }} />
 
 <main class="app-container">
   {#if !isConnected && showCreateProfile}
@@ -950,6 +1024,16 @@
             title={$LL.shell.layoutGrid()}
           >
             <Grid2x2 size={14} />
+          </button>
+
+          <button
+            class="layout-btn"
+            class:active={showShortcutsModal}
+            onclick={() => showShortcutsModal = !showShortcutsModal}
+            title="Keyboard Shortcuts (Ctrl+Shift+H)"
+            aria-label="Keyboard Shortcuts"
+          >
+            <Keyboard size={14} />
           </button>
 
           <div class="actions-divider"></div>
@@ -1100,7 +1184,9 @@
               {:else if pane.activeTab === 'runbooks'}
                 <RunbookManager profileId={currentProfileId} />
               {:else if pane.activeTab === 'files'}
-                <FileManager />
+                <FileManager profileId={currentProfileId} />
+              {:else if pane.activeTab === 'disks'}
+                <DiskManager profileId={currentProfileId} />
               {:else if pane.activeTab === 'services'}
                 <ServicesManager />
               {:else if pane.activeTab === 'docker'}
@@ -1286,6 +1372,73 @@
             </div>
           </div>
         {/if}
+      </div>
+    </div>
+  {/if}
+
+  <!-- Keyboard Shortcuts Modal -->
+  {#if showShortcutsModal}
+    <div class="modal-overlay" onclick={() => showShortcutsModal = false} role="presentation">
+      <div class="modal-content glass shortcuts-modal" onclick={(e) => e.stopPropagation()} role="dialog">
+        <div class="modal-header">
+          <div class="modal-header-left">
+            <Keyboard size={20} class="accent-amber-text" />
+            <h3>Keyboard Shortcuts</h3>
+          </div>
+          <button class="icon-btn-compact" onclick={() => showShortcutsModal = false}>
+            <X size={16} />
+          </button>
+        </div>
+
+        <div class="shortcuts-grid">
+          <div class="shortcuts-group">
+            <h4>Workspace & Panes</h4>
+            <div class="shortcut-row">
+              <span class="shortcut-desc">Split active pane horizontally</span>
+              <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>N</kbd></div>
+            </div>
+            <div class="shortcut-row">
+              <span class="shortcut-desc">Close active pane</span>
+              <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>W</kbd></div>
+            </div>
+            <div class="shortcut-row">
+              <span class="shortcut-desc">Focus pane 1..4</span>
+              <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>1..4</kbd></div>
+            </div>
+          </div>
+
+          <div class="shortcuts-group">
+            <h4>Tab Navigation</h4>
+            <div class="shortcut-row">
+              <span class="shortcut-desc">Next tab in pane</span>
+              <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>Tab</kbd></div>
+            </div>
+            <div class="shortcut-row">
+              <span class="shortcut-desc">Previous tab in pane</span>
+              <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Tab</kbd></div>
+            </div>
+            <div class="shortcut-row">
+              <span class="shortcut-desc">Open Terminal tab</span>
+              <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>T</kbd></div>
+            </div>
+          </div>
+
+          <div class="shortcuts-group">
+            <h4>App Control</h4>
+            <div class="shortcut-row">
+              <span class="shortcut-desc">Toggle sidebar collapse</span>
+              <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>B</kbd></div>
+            </div>
+            <div class="shortcut-row">
+              <span class="shortcut-desc">Show this help dialog</span>
+              <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>H</kbd></div>
+            </div>
+            <div class="shortcut-row">
+              <span class="shortcut-desc">Close modal / Cancel</span>
+              <div class="shortcut-keys"><kbd>Esc</kbd></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   {/if}
@@ -1983,15 +2136,6 @@
     font-size: 0.8rem;
   }
 
-  .spin {
-    animation: spin 1s linear infinite;
-  }
-
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-
   .custom-drag-ghost {
     position: fixed;
     background: var(--surface-2);
@@ -2020,5 +2164,125 @@
   .resizer-h {
     border-top: 1px solid transparent;
     border-bottom: 1px solid transparent;
+  }
+
+  /* Shortcuts Modal Styles */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+  }
+
+  .shortcuts-modal {
+    width: 480px;
+    max-width: 90%;
+    padding: 24px;
+    border-radius: var(--radius-md);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border-color);
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 12px;
+  }
+
+  .modal-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .modal-header-left h3 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 600;
+  }
+
+  .icon-btn-compact {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    transition: color 0.15s, background-color 0.15s;
+  }
+
+  .icon-btn-compact:hover {
+    color: var(--text-primary);
+    background-color: var(--bg-hover);
+  }
+
+  .shortcuts-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .shortcuts-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .shortcuts-group h4 {
+    margin: 0 0 4px 0;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    font-weight: 700;
+  }
+
+  .shortcut-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  }
+
+  .shortcut-desc {
+    color: var(--text-secondary);
+  }
+
+  .shortcut-keys {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  kbd {
+    background-color: var(--surface-3, #1e293b);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.2);
+    color: var(--text-primary);
+    display: inline-block;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 4px 6px;
+    white-space: nowrap;
   }
 </style>

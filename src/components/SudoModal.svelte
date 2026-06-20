@@ -7,6 +7,7 @@
   let {
     open = $bindable(false),
     onSuccess = () => {},
+    onCancel = () => {},
     title = undefined as string | undefined,
     description = undefined as string | undefined,
   } = $props();
@@ -34,6 +35,7 @@
     open = false;
     sudoPassword = '';
     sudoError = '';
+    onCancel();
   }
 </script>
 

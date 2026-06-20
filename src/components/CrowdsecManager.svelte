@@ -3357,15 +3357,6 @@ services:
   .accent-green-text { color: var(--accent-green); }
   .accent-red-text { color: var(--accent-red); }
 
-  .spin {
-    animation: spin 1s linear infinite;
-  }
-
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-
   /* Whitelist File Sources and Badges */
   .file-source {
     display: inline-flex;

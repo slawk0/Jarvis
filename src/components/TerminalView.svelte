@@ -144,6 +144,27 @@
       term.open(terminalContainer!);
       fitAddon.fit();
 
+      term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
+        if (e.ctrlKey) {
+          const key = e.key.toLowerCase();
+          if (
+            key === 'n' ||
+            key === 'w' ||
+            key === '1' ||
+            key === '2' ||
+            key === '3' ||
+            key === '4' ||
+            key === 'tab' ||
+            (e.shiftKey && key === 't') ||
+            (e.shiftKey && key === 'h') ||
+            (e.altKey && key === 'b')
+          ) {
+            return false;
+          }
+        }
+        return true;
+      });
+
       term.onData((data: string) => {
         invoke('send_terminal_input', { sessionId, input: data });
       });
@@ -948,15 +969,6 @@
 
   :global(.xterm-viewport) {
     background-color: #07080a !important;
-  }
-
-  .spin {
-    animation: spin 1s linear infinite;
-  }
-
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
   }
 
   .saved-commands-panel {

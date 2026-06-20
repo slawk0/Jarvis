@@ -21,6 +21,7 @@
     Server,
     PanelLeftClose,
     PanelLeftOpen,
+    HardDrive,
   } from 'lucide-svelte';
   import type { ServerProfile } from '$lib/admin/types';
   import { LL } from '$lib/i18n/i18n-svelte';
@@ -66,6 +67,7 @@
       pangolin: Globe,
       logs: FileText,
       terminal: Terminal,
+      disks: HardDrive,
     }[id],
   }));
 
@@ -601,6 +603,4 @@
     cursor: not-allowed;
   }
 
-  .spin { animation: spin 1s linear infinite; }
-  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 </style>

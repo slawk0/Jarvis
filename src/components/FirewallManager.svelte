@@ -1034,15 +1034,6 @@
     background: var(--accent-red-glow) !important;
   }
 
-  .spin {
-    animation: spin 1s linear infinite;
-  }
-
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-
   .auth-gate {
     display: flex;
     align-items: center;

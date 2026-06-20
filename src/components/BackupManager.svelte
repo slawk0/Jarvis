@@ -305,6 +305,4 @@
   .modal label { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; color: var(--text-secondary); }
   .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
   .hover-red:hover { color: var(--accent-red) !important; }
-  .spin { animation: spin 1s linear infinite; }
-  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 </style>

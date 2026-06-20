@@ -485,15 +485,6 @@
     gap: 8px;
   }
 
-  .spin {
-    animation: spin 1s linear infinite;
-  }
-
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-
   @media (max-width: 900px) {
     .status-grid { grid-template-columns: 1fr; }
   }

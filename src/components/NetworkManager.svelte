@@ -187,6 +187,4 @@
   th { color: var(--text-muted); font-weight: 500; position: sticky; top: 0; background: var(--bg-secondary); }
   .process-cell { color: var(--text-secondary); max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .hint { padding: 10px 12px; display: flex; gap: 8px; align-items: center; font-size: 0.78rem; color: var(--text-muted); border-radius: var(--radius-md); flex-shrink: 0; }
-  .spin { animation: spin 1s linear infinite; }
-  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 </style>

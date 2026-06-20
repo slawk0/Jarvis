@@ -17,6 +17,8 @@
     Search,
     X,
     Loader2,
+    Star,
+    ChevronDown,
   } from 'lucide-svelte';
   import SftpBulkActionsBar from './SftpBulkActionsBar.svelte';
   import SudoModal from '../SudoModal.svelte';
@@ -58,9 +60,10 @@
     onNewDir: () => void;
     onError: (msg: string) => void;
     onPathChange?: (path: string) => void;
+    profileId?: string;
   }
 
-  let { onEdit, onChmod, onRename, onNewFile, onNewDir, onError, onPathChange }: Props = $props();
+  let { onEdit, onChmod, onRename, onNewFile, onNewDir, onError, onPathChange, profileId = '' }: Props = $props();
 
   export function getCurrentPath() {
     return lastLoadedPath;
@@ -107,6 +110,60 @@
   let folderSizes = $state<Map<string, number>>(new Map());
   let folderSizesLoading = $state<Set<string>>(new Set());
   let folderSizeGeneration = 0;
+
+  // Bookmarks State & Logic
+  let showBookmarksDropdown = $state(false);
+  let bookmarks = $state<{ name: string; path: string }[]>([]);
+
+  $effect(() => {
+    const key = `jarvis_bookmarks_${profileId || 'global'}`;
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      try {
+        bookmarks = JSON.parse(stored);
+      } catch (e) {
+        bookmarks = [];
+      }
+    } else {
+      bookmarks = [
+        { name: 'nginx', path: '/etc/nginx' },
+        { name: 'log', path: '/var/log' },
+        { name: 'home', path: '/home' }
+      ];
+      localStorage.setItem(key, JSON.stringify(bookmarks));
+    }
+  });
+
+  function saveBookmarks() {
+    const key = `jarvis_bookmarks_${profileId || 'global'}`;
+    localStorage.setItem(key, JSON.stringify($state.snapshot(bookmarks)));
+  }
+
+  const isCurrentBookmarked = $derived(
+    bookmarks.some((b) => b.path === currentPath)
+  );
+
+  function toggleBookmarkCurrent() {
+    if (isCurrentBookmarked) {
+      bookmarks = bookmarks.filter((b) => b.path !== currentPath);
+    } else {
+      const name = currentPath.split('/').pop() || currentPath;
+      bookmarks = [...bookmarks, { name, path: currentPath }];
+    }
+    saveBookmarks();
+  }
+
+  function removeBookmark(path: string, e: MouseEvent) {
+    e.stopPropagation();
+    bookmarks = bookmarks.filter((b) => b.path !== path);
+    saveBookmarks();
+  }
+
+  function navigateToBookmark(path: string) {
+    currentPath = path;
+    showBookmarksDropdown = false;
+    void loadDirectory();
+  }
 
   const isRecursiveActive = $derived(recursiveSearch && searchQuery.trim().length > 0);
 
@@ -703,6 +760,7 @@
 
   function closeContextMenu() {
     showContextMenu = false;
+    showBookmarksDropdown = false;
   }
 
   onMount(async () => {
@@ -806,6 +864,54 @@
     <button class="secondary btn-icon-compact" onclick={loadDirectory} disabled={isLoading}>
       <RefreshCw size={15} class={isLoading ? 'spin' : ''} />
     </button>
+
+    <!-- Bookmarks Dropdown -->
+    <div class="bookmarks-container">
+      <button 
+        class="secondary btn-icon-compact bookmark-btn" 
+        class:bookmarked={isCurrentBookmarked}
+        onclick={(e) => { e.stopPropagation(); showBookmarksDropdown = !showBookmarksDropdown; }}
+        title={$LL.files.bookmarksTitle()}
+      >
+        <Star size={15} class={isCurrentBookmarked ? 'star-active' : ''} />
+      </button>
+
+      {#if showBookmarksDropdown}
+        <div class="bookmarks-dropdown glass" onclick={(e) => e.stopPropagation()}>
+          <div class="bookmarks-header">
+            <span>{$LL.files.bookmarksTitle()}</span>
+            <button class="btn-text-action" onclick={toggleBookmarkCurrent}>
+              {isCurrentBookmarked ? $LL.files.removeBookmark() : $LL.files.addBookmark()}
+            </button>
+          </div>
+          <div class="bookmarks-list">
+            {#each bookmarks as b}
+              <div 
+                class="bookmark-item" 
+                onclick={() => navigateToBookmark(b.path)}
+                role="button"
+                tabindex="0"
+                onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') navigateToBookmark(b.path); }}
+              >
+                <div class="bookmark-info">
+                  <span class="bookmark-name">{b.name}</span>
+                  <span class="bookmark-path mono-val">{b.path}</span>
+                </div>
+                <button class="icon-btn-compact delete-bookmark-btn" onclick={(e: MouseEvent) => removeBookmark(b.path, e)} title={$LL.files.removeBookmark()}>
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            {/each}
+            {#if bookmarks.length === 0}
+              <div class="no-bookmarks">
+                <span>No bookmarks saved.</span>
+              </div>
+            {/if}
+          </div>
+        </div>
+      {/if}
+    </div>
+
     <div class="actions-group">
       <button class="secondary btn-compact" onclick={pickAndUpload}>
         <Upload size={14} /> {$LL.sftp.uploadFiles()}
@@ -1600,19 +1706,6 @@
     min-height: 200px;
   }
 
-  .spin {
-    animation: spin 1s linear infinite;
-  }
-
-  @keyframes spin {
-    from {
-      transform: rotate(0deg);
-    }
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
   .empty-state {
     text-align: center;
     color: var(--text-muted);
@@ -1717,5 +1810,129 @@
     display: flex;
     justify-content: flex-end;
     gap: 10px;
+  }
+
+  /* Bookmarks Dropdown Styles */
+  .bookmarks-container {
+    position: relative;
+    display: inline-block;
+  }
+
+  .bookmark-btn.bookmarked {
+    color: var(--accent-amber, #f59e0b);
+    border-color: rgba(245, 158, 11, 0.3);
+  }
+
+  .bookmark-btn.bookmarked:hover {
+    background: rgba(245, 158, 11, 0.1);
+  }
+
+  :global(.star-active) {
+    fill: var(--accent-amber, #f59e0b) !important;
+    color: var(--accent-amber, #f59e0b) !important;
+  }
+
+  .bookmarks-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    width: 280px;
+    max-height: 320px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .bookmarks-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .btn-text-action {
+    background: transparent;
+    border: none;
+    color: var(--accent-color, #3b82f6);
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: background-color 0.15s;
+  }
+
+  .btn-text-action:hover {
+    background: rgba(59, 130, 246, 0.1);
+  }
+
+  .bookmarks-list {
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    padding: 6px;
+  }
+
+  .bookmark-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background-color 0.15s;
+  }
+
+  .bookmark-item:hover {
+    background: var(--bg-hover);
+  }
+
+  .bookmark-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow: hidden;
+    flex: 1;
+  }
+
+  .bookmark-name {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .bookmark-path {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .delete-bookmark-btn {
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .bookmark-item:hover .delete-bookmark-btn {
+    opacity: 1;
+  }
+
+  .no-bookmarks {
+    padding: 16px;
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--text-muted);
   }
 </style>

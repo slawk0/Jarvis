@@ -17,6 +17,7 @@ export const TAB_IDS = [
 	'pangolin',
 	'logs',
 	'terminal',
+	'disks',
 ] as const;
 
 export type TabId = (typeof TAB_IDS)[number];

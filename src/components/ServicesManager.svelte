@@ -588,15 +588,6 @@ WantedBy=multi-user.target
     color: var(--text-secondary);
   }
 
-  .spin {
-    animation: spin 1s linear infinite;
-  }
-
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-
   .empty-state {
     text-align: center;
     color: var(--text-muted);
