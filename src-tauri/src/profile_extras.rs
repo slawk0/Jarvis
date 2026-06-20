@@ -43,6 +43,28 @@ pub struct BackupTemplate {
     pub db_user: Option<String>,
     #[serde(skip)]
     pub db_password: Option<String>,
+    // Off-site destination: "download" (default) | "s3" | "sftp"
+    #[serde(default)]
+    pub destination: Option<String>,
+    #[serde(default)]
+    pub dest_endpoint: Option<String>,
+    #[serde(default)]
+    pub dest_region: Option<String>,
+    #[serde(default)]
+    pub dest_bucket: Option<String>,
+    #[serde(default)]
+    pub dest_path: Option<String>,
+    #[serde(default)]
+    pub dest_host: Option<String>,
+    #[serde(default)]
+    pub dest_port: Option<String>,
+    #[serde(default)]
+    pub dest_user: Option<String>,
+    // Secrets — never persisted to disk, only to the OS keyring.
+    #[serde(skip)]
+    pub dest_access_key: Option<String>,
+    #[serde(skip)]
+    pub dest_secret_key: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -111,9 +133,16 @@ pub fn get_profile_extras(
 
     // Load db_password from keyring for each backup template
     let keyring_service = "JarvisBackupDB";
+    let dest_service = "JarvisBackupDest";
     for tpl in &mut extras.backup_templates {
         if let Ok(entry) = keyring::Entry::new(keyring_service, &tpl.id) {
             tpl.db_password = entry.get_password().ok();
+        }
+        if let Ok(entry) = keyring::Entry::new(dest_service, &format!("{}-access", tpl.id)) {
+            tpl.dest_access_key = entry.get_password().ok();
+        }
+        if let Ok(entry) = keyring::Entry::new(dest_service, &format!("{}-secret", tpl.id)) {
+            tpl.dest_secret_key = entry.get_password().ok();
         }
     }
 
@@ -128,12 +157,23 @@ pub fn save_profile_extras(
 ) -> Result<(), AppError> {
     let mut all = load_all(&app_handle)?;
 
-    // Save db_password to keyring for each backup template
+    // Save db_password and destination secrets to keyring for each template
     let keyring_service = "JarvisBackupDB";
+    let dest_service = "JarvisBackupDest";
     for tpl in &extras.backup_templates {
         if let Some(ref pass) = tpl.db_password {
             if let Ok(entry) = keyring::Entry::new(keyring_service, &tpl.id) {
                 entry.set_password(pass).ok();
+            }
+        }
+        if let Some(ref ak) = tpl.dest_access_key {
+            if let Ok(entry) = keyring::Entry::new(dest_service, &format!("{}-access", tpl.id)) {
+                entry.set_password(ak).ok();
+            }
+        }
+        if let Some(ref sk) = tpl.dest_secret_key {
+            if let Ok(entry) = keyring::Entry::new(dest_service, &format!("{}-secret", tpl.id)) {
+                entry.set_password(sk).ok();
             }
         }
     }

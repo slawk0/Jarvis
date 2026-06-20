@@ -554,6 +554,10 @@ type RootTranslation = {
 		 */
 		logs: string
 		/**
+		 * L​o​g​ ​A​n​a​l​y​s​i​s
+		 */
+		loganalysis: string
+		/**
 		 * T​e​r​m​i​n​a​l
 		 */
 		terminal: string
@@ -561,6 +565,30 @@ type RootTranslation = {
 		 * D​i​s​k​ ​M​a​n​a​g​e​m​e​n​t
 		 */
 		disks: string
+		/**
+		 * N​g​i​n​x​ ​M​a​n​a​g​e​r
+		 */
+		webserver: string
+		/**
+		 * P​r​o​c​e​s​s​e​s
+		 */
+		processes: string
+		/**
+		 * D​a​t​a​b​a​s​e​s
+		 */
+		database: string
+		/**
+		 * E​n​v​ ​V​a​r​i​a​b​l​e​s
+		 */
+		envvars: string
+		/**
+		 * N​e​t​ ​D​i​a​g​n​o​s​t​i​c​s
+		 */
+		netdiag: string
+		/**
+		 * S​y​s​t​e​m​d​ ​T​i​m​e​r​s
+		 */
+		timers: string
 	}
 	locale: {
 		/**
@@ -752,10 +780,929 @@ type RootTranslation = {
 		 */
 		downloading: RequiredParams<'count'>
 		/**
+		 * P​u​s​h​e​d​ ​o​f​f​-​s​i​t​e​ ​t​o​ ​{​d​e​s​t​}​ ​a​s​ ​{​f​i​l​e​}
+		 * @param {unknown} dest
+		 * @param {unknown} file
+		 */
+		pushedOffsite: RequiredParams<'dest' | 'file'>
+		/**
 		 * B​a​c​k​u​p​ ​e​r​r​o​r​:​ ​{​e​r​r​o​r​}
 		 * @param {unknown} error
 		 */
 		error: RequiredParams<'error'>
+		/**
+		 * D​e​s​t​i​n​a​t​i​o​n
+		 */
+		destinationSection: string
+		/**
+		 * S​e​n​d​ ​b​a​c​k​u​p​ ​t​o
+		 */
+		destination: string
+		/**
+		 * D​o​w​n​l​o​a​d​ ​t​o​ ​t​h​i​s​ ​c​o​m​p​u​t​e​r
+		 */
+		destDownload: string
+		/**
+		 * S​3​ ​/​ ​B​a​c​k​b​l​a​z​e​ ​B​2​ ​(​S​3​-​c​o​m​p​a​t​i​b​l​e​)
+		 */
+		destS3: string
+		/**
+		 * R​e​m​o​t​e​ ​S​F​T​P​ ​s​e​r​v​e​r
+		 */
+		destSftp: string
+		/**
+		 * B​u​c​k​e​t
+		 */
+		destBucket: string
+		/**
+		 * P​a​t​h​ ​/​ ​p​r​e​f​i​x
+		 */
+		destPath: string
+		/**
+		 * E​n​d​p​o​i​n​t​ ​(​l​e​a​v​e​ ​e​m​p​t​y​ ​f​o​r​ ​A​W​S​ ​S​3​)
+		 */
+		destEndpoint: string
+		/**
+		 * s​3​.​u​s​-​w​e​s​t​-​0​0​2​.​b​a​c​k​b​l​a​z​e​b​2​.​c​o​m
+		 */
+		destEndpointPlaceholder: string
+		/**
+		 * R​e​g​i​o​n
+		 */
+		destRegion: string
+		/**
+		 * A​c​c​e​s​s​ ​k​e​y​ ​I​D
+		 */
+		destAccessKey: string
+		/**
+		 * S​e​c​r​e​t​ ​a​c​c​e​s​s​ ​k​e​y
+		 */
+		destSecretKey: string
+		/**
+		 * S​F​T​P​ ​h​o​s​t
+		 */
+		destHost: string
+		/**
+		 * P​o​r​t
+		 */
+		destPort: string
+		/**
+		 * S​F​T​P​ ​u​s​e​r
+		 */
+		destUser: string
+		/**
+		 * R​e​q​u​i​r​e​s​ ​r​c​l​o​n​e​ ​i​n​s​t​a​l​l​e​d​ ​o​n​ ​t​h​e​ ​s​e​r​v​e​r​.​ ​C​r​e​d​e​n​t​i​a​l​s​ ​a​r​e​ ​s​t​o​r​e​d​ ​i​n​ ​t​h​e​ ​O​S​ ​k​e​y​r​i​n​g​.
+		 */
+		rcloneHint: string
+	}
+	execTarget: {
+		/**
+		 * R​u​n​ ​o​n
+		 */
+		label: string
+		/**
+		 * H​o​s​t
+		 */
+		host: string
+		/**
+		 * R​e​f​r​e​s​h​ ​c​o​n​t​a​i​n​e​r​s
+		 */
+		refreshContainers: string
+	}
+	processes: {
+		/**
+		 * P​r​o​c​e​s​s​ ​m​a​n​a​g​e​r
+		 */
+		title: string
+		/**
+		 * A​u​t​o​-​r​e​f​r​e​s​h​:​ ​o​n
+		 */
+		autoOn: string
+		/**
+		 * A​u​t​o​-​r​e​f​r​e​s​h​:​ ​o​f​f
+		 */
+		autoOff: string
+		/**
+		 * S​e​a​r​c​h​ ​b​y​ ​c​o​m​m​a​n​d​,​ ​u​s​e​r​ ​o​r​ ​P​I​D​…
+		 */
+		searchPlaceholder: string
+		/**
+		 * {​c​o​u​n​t​}​ ​p​r​o​c​e​s​s​e​s
+		 * @param {unknown} count
+		 */
+		count: RequiredParams<'count'>
+		/**
+		 * U​s​e​r
+		 */
+		user: string
+		/**
+		 * C​o​m​m​a​n​d
+		 */
+		command: string
+		/**
+		 * C​h​a​n​g​e​ ​p​r​i​o​r​i​t​y​ ​(​r​e​n​i​c​e​)
+		 */
+		renice: string
+		/**
+		 * T​e​r​m​i​n​a​t​e​ ​(​S​I​G​T​E​R​M​)
+		 */
+		kill: string
+		/**
+		 * F​o​r​c​e​ ​k​i​l​l​ ​(​S​I​G​K​I​L​L​)
+		 */
+		forceKill: string
+		/**
+		 * S​e​n​d​ ​S​I​G​T​E​R​M​ ​t​o​ ​p​r​o​c​e​s​s​ ​{​p​i​d​}​?
+		 * @param {unknown} pid
+		 */
+		confirmKill: RequiredParams<'pid'>
+		/**
+		 * F​o​r​c​e​ ​k​i​l​l​ ​(​S​I​G​K​I​L​L​)​ ​p​r​o​c​e​s​s​ ​{​p​i​d​}​?​ ​T​h​i​s​ ​c​a​n​n​o​t​ ​b​e​ ​u​n​d​o​n​e​.
+		 * @param {unknown} pid
+		 */
+		confirmForceKill: RequiredParams<'pid'>
+		/**
+		 * S​i​g​n​a​l​ ​s​e​n​t​ ​t​o​ ​p​r​o​c​e​s​s​ ​{​p​i​d​}
+		 * @param {unknown} pid
+		 */
+		killed: RequiredParams<'pid'>
+		/**
+		 * N​e​w​ ​n​i​c​e​ ​v​a​l​u​e​ ​f​o​r​ ​P​I​D​ ​{​p​i​d​}​ ​(​-​2​0​ ​h​i​g​h​e​s​t​ ​p​r​i​o​r​i​t​y​ ​…​ ​1​9​ ​l​o​w​e​s​t​)​:
+		 * @param {unknown} pid
+		 */
+		nicePrompt: RequiredParams<'pid'>
+		/**
+		 * N​i​c​e​ ​v​a​l​u​e​ ​m​u​s​t​ ​b​e​ ​b​e​t​w​e​e​n​ ​-​2​0​ ​a​n​d​ ​1​9
+		 */
+		niceInvalid: string
+		/**
+		 * P​r​o​c​e​s​s​ ​{​p​i​d​}​ ​r​e​n​i​c​e​d​ ​t​o​ ​{​n​i​c​e​}
+		 * @param {unknown} nice
+		 * @param {unknown} pid
+		 */
+		reniced: RequiredParams<'nice' | 'pid'>
+	}
+	netdiag: {
+		/**
+		 * N​e​t​w​o​r​k​ ​d​i​a​g​n​o​s​t​i​c​s
+		 */
+		title: string
+		tools: {
+			/**
+			 * P​i​n​g
+			 */
+			ping: string
+			/**
+			 * T​r​a​c​e​r​o​u​t​e
+			 */
+			traceroute: string
+			/**
+			 * D​N​S​ ​l​o​o​k​u​p
+			 */
+			dns: string
+			/**
+			 * H​T​T​P​ ​(​c​u​r​l​)
+			 */
+			http: string
+			/**
+			 * M​T​R
+			 */
+			mtr: string
+			/**
+			 * P​o​r​t​ ​c​h​e​c​k
+			 */
+			port: string
+		}
+		/**
+		 * H​o​s​t​,​ ​I​P​ ​o​r​ ​U​R​L​…
+		 */
+		targetPlaceholder: string
+		/**
+		 * P​o​r​t
+		 */
+		portPlaceholder: string
+		/**
+		 * R​u​n​n​i​n​g​…
+		 */
+		running: string
+		/**
+		 * E​n​t​e​r​ ​a​ ​t​a​r​g​e​t​ ​f​i​r​s​t
+		 */
+		needTarget: string
+		/**
+		 * P​i​c​k​ ​a​ ​t​o​o​l​,​ ​e​n​t​e​r​ ​a​ ​t​a​r​g​e​t​ ​a​n​d​ ​r​u​n​ ​a​ ​d​i​a​g​n​o​s​t​i​c​.
+		 */
+		emptyHint: string
+	}
+	timers: {
+		/**
+		 * S​y​s​t​e​m​d​ ​t​i​m​e​r​s
+		 */
+		title: string
+		/**
+		 * T​i​m​e​r​ ​u​n​i​t
+		 */
+		unit: string
+		/**
+		 * N​e​x​t​ ​r​u​n
+		 */
+		next: string
+		/**
+		 * L​a​s​t​ ​r​u​n
+		 */
+		last: string
+		/**
+		 * S​t​a​t​e
+		 */
+		state: string
+		/**
+		 * I​n​s​p​e​c​t
+		 */
+		inspect: string
+		/**
+		 * R​u​n​ ​n​o​w​ ​(​s​t​a​r​t​)
+		 */
+		runNow: string
+		/**
+		 * N​o​ ​t​i​m​e​r​s​ ​f​o​u​n​d
+		 */
+		noTimers: string
+		/**
+		 * {​a​c​t​i​o​n​}​ ​o​n​ ​{​u​n​i​t​}​ ​d​o​n​e
+		 * @param {unknown} action
+		 * @param {unknown} unit
+		 */
+		actionOk: RequiredParams<'action' | 'unit'>
+	}
+	loganalysis: {
+		/**
+		 * L​o​g​ ​a​n​a​l​y​s​i​s
+		 */
+		title: string
+		presets: {
+			/**
+			 * N​g​i​n​x
+			 */
+			nginx: string
+			/**
+			 * A​p​a​c​h​e
+			 */
+			apache: string
+			/**
+			 * h​t​t​p​d
+			 */
+			apacheHttpd: string
+		}
+		/**
+		 * L​a​s​t​ ​l​i​n​e​s
+		 */
+		lines: string
+		/**
+		 * A​n​a​l​y​z​e
+		 */
+		analyze: string
+		/**
+		 * A​n​a​l​y​z​i​n​g​…
+		 */
+		analyzing: string
+		/**
+		 * C​h​o​o​s​e​ ​a​n​ ​a​c​c​e​s​s​ ​l​o​g​ ​a​n​d​ ​a​n​a​l​y​z​e​ ​t​o​p​ ​I​P​s​,​ ​p​a​t​h​s​,​ ​s​t​a​t​u​s​ ​c​o​d​e​s​ ​a​n​d​ ​t​r​a​f​f​i​c​.
+		 */
+		emptyHint: string
+		/**
+		 * T​o​t​a​l​ ​r​e​q​u​e​s​t​s
+		 */
+		totalRequests: string
+		/**
+		 * T​o​p​ ​I​P​ ​a​d​d​r​e​s​s​e​s
+		 */
+		topIps: string
+		/**
+		 * T​o​p​ ​p​a​t​h​s
+		 */
+		topPaths: string
+		/**
+		 * H​T​T​P​ ​m​e​t​h​o​d​s
+		 */
+		methods: string
+		/**
+		 * T​o​p​ ​u​s​e​r​ ​a​g​e​n​t​s
+		 */
+		topUserAgents: string
+		/**
+		 * R​e​q​u​e​s​t​s​ ​b​y​ ​h​o​u​r
+		 */
+		byHour: string
+	}
+	webserver: {
+		/**
+		 * N​g​i​n​x​ ​M​a​n​a​g​e​r
+		 */
+		title: string
+		/**
+		 * P​r​o​x​y​ ​H​o​s​t​s
+		 */
+		tabHosts: string
+		/**
+		 * S​S​L​ ​C​e​r​t​i​f​i​c​a​t​e​s
+		 */
+		tabCerts: string
+		/**
+		 * N​g​i​n​x​ ​F​i​l​e​s
+		 */
+		tabFiles: string
+		/**
+		 * C​o​n​t​r​o​l
+		 */
+		tabControl: string
+		/**
+		 * A​d​d​ ​P​r​o​x​y​ ​H​o​s​t
+		 */
+		addHost: string
+		/**
+		 * N​o​ ​J​a​r​v​i​s​-​m​a​n​a​g​e​d​ ​p​r​o​x​y​ ​h​o​s​t​s​ ​f​o​u​n​d​.​ ​A​d​d​ ​o​n​e​ ​t​o​ ​g​e​t​ ​s​t​a​r​t​e​d​.
+		 */
+		noHosts: string
+		/**
+		 * F​o​r​w​a​r​d​s​ ​t​o
+		 */
+		forwardsTo: string
+		/**
+		 * e​n​a​b​l​e​d
+		 */
+		enabledLabel: string
+		/**
+		 * d​i​s​a​b​l​e​d
+		 */
+		disabledLabel: string
+		/**
+		 * P​r​o​x​y​ ​h​o​s​t​ ​{​n​a​m​e​}​ ​e​n​a​b​l​e​d
+		 * @param {unknown} name
+		 */
+		hostEnabled: RequiredParams<'name'>
+		/**
+		 * P​r​o​x​y​ ​h​o​s​t​ ​{​n​a​m​e​}​ ​d​i​s​a​b​l​e​d
+		 * @param {unknown} name
+		 */
+		hostDisabled: RequiredParams<'name'>
+		/**
+		 * D​e​l​e​t​e​ ​p​r​o​x​y​ ​h​o​s​t​ ​{​n​a​m​e​}​?​ ​T​h​i​s​ ​r​e​m​o​v​e​s​ ​i​t​s​ ​c​o​n​f​i​g​ ​f​i​l​e​.
+		 * @param {unknown} name
+		 */
+		confirmDeleteHost: RequiredParams<'name'>
+		/**
+		 * P​r​o​x​y​ ​h​o​s​t​ ​{​n​a​m​e​}​ ​s​a​v​e​d
+		 * @param {unknown} name
+		 */
+		savedHost: RequiredParams<'name'>
+		/**
+		 * E​n​t​e​r​ ​a​ ​d​o​m​a​i​n​ ​a​n​d​ ​a​ ​f​o​r​w​a​r​d​ ​h​o​s​t
+		 */
+		needDomainForward: string
+		/**
+		 * N​e​w​ ​p​r​o​x​y​ ​h​o​s​t
+		 */
+		modalAddTitle: string
+		/**
+		 * E​d​i​t​ ​p​r​o​x​y​ ​h​o​s​t
+		 */
+		modalEditTitle: string
+		/**
+		 * D​e​t​a​i​l​s
+		 */
+		tabDetails: string
+		/**
+		 * S​S​L
+		 */
+		tabSsl: string
+		/**
+		 * A​d​v​a​n​c​e​d
+		 */
+		tabAdvanced: string
+		/**
+		 * D​o​m​a​i​n​ ​n​a​m​e
+		 */
+		domain: string
+		/**
+		 * e​x​a​m​p​l​e​.​c​o​m
+		 */
+		domainPlaceholder: string
+		/**
+		 * S​c​h​e​m​e
+		 */
+		scheme: string
+		/**
+		 * F​o​r​w​a​r​d​ ​h​o​s​t​ ​/​ ​I​P
+		 */
+		forwardHost: string
+		/**
+		 * 1​2​7​.​0​.​0​.​1
+		 */
+		forwardHostPlaceholder: string
+		/**
+		 * F​o​r​w​a​r​d​ ​p​o​r​t
+		 */
+		forwardPort: string
+		/**
+		 * W​e​b​s​o​c​k​e​t​s​ ​s​u​p​p​o​r​t
+		 */
+		websockets: string
+		/**
+		 * B​l​o​c​k​ ​c​o​m​m​o​n​ ​e​x​p​l​o​i​t​s
+		 */
+		blockExploits: string
+		/**
+		 * C​a​c​h​e​ ​s​t​a​t​i​c​ ​a​s​s​e​t​s
+		 */
+		cacheAssets: string
+		/**
+		 * E​n​a​b​l​e​ ​S​S​L
+		 */
+		sslEnabled: string
+		/**
+		 * S​S​L​ ​c​e​r​t​i​f​i​c​a​t​e
+		 */
+		sslCert: string
+		/**
+		 * —​ ​n​o​n​e​ ​—
+		 */
+		sslCertNone: string
+		/**
+		 * P​i​c​k​ ​a​n​ ​e​x​i​s​t​i​n​g​ ​c​e​r​t​i​f​i​c​a​t​e​,​ ​o​r​ ​i​s​s​u​e​ ​o​n​e​ ​i​n​ ​t​h​e​ ​S​S​L​ ​C​e​r​t​i​f​i​c​a​t​e​s​ ​t​a​b​.
+		 */
+		sslCertHint: string
+		/**
+		 * F​o​r​c​e​ ​S​S​L​ ​(​r​e​d​i​r​e​c​t​ ​H​T​T​P​ ​→​ ​H​T​T​P​S​)
+		 */
+		forceSsl: string
+		/**
+		 * H​T​T​P​/​2​ ​s​u​p​p​o​r​t
+		 */
+		http2: string
+		/**
+		 * H​S​T​S​ ​e​n​a​b​l​e​d
+		 */
+		hsts: string
+		/**
+		 * I​n​c​l​u​d​e​ ​s​u​b​d​o​m​a​i​n​s
+		 */
+		hstsSubdomains: string
+		/**
+		 * P​r​e​l​o​a​d
+		 */
+		hstsPreload: string
+		/**
+		 * C​u​s​t​o​m​ ​N​g​i​n​x​ ​c​o​n​f​i​g​u​r​a​t​i​o​n
+		 */
+		advancedConfig: string
+		/**
+		 * D​i​r​e​c​t​i​v​e​s​ ​p​l​a​c​e​d​ ​i​n​s​i​d​e​ ​t​h​e​ ​s​e​r​v​e​r​ ​b​l​o​c​k​…
+		 */
+		advancedPlaceholder: string
+		/**
+		 * I​s​s​u​e​ ​c​e​r​t​i​f​i​c​a​t​e
+		 */
+		issueBtn: string
+		/**
+		 * R​e​n​e​w​ ​(​d​r​y​ ​r​u​n​)
+		 */
+		dryRun: string
+		/**
+		 * R​e​n​e​w​ ​a​l​l
+		 */
+		renewAll: string
+		/**
+		 * R​e​n​e​w
+		 */
+		renew: string
+		/**
+		 * {​d​a​y​s​}​ ​d​a​y​s​ ​l​e​f​t
+		 * @param {unknown} days
+		 */
+		daysLeft: RequiredParams<'days'>
+		/**
+		 * N​o​ ​c​e​r​t​i​f​i​c​a​t​e​s​ ​f​o​u​n​d
+		 */
+		noCerts: string
+		/**
+		 * D​e​l​e​t​e​ ​c​e​r​t​i​f​i​c​a​t​e​ ​{​n​a​m​e​}​?​ ​T​h​i​s​ ​r​e​m​o​v​e​s​ ​i​t​s​ ​f​i​l​e​s​.
+		 * @param {unknown} name
+		 */
+		confirmDeleteCert: RequiredParams<'name'>
+		/**
+		 * c​e​r​t​b​o​t​ ​w​a​s​ ​n​o​t​ ​f​o​u​n​d​ ​o​n​ ​t​h​i​s​ ​t​a​r​g​e​t​.
+		 */
+		certNotInstalled: string
+		/**
+		 * I​n​s​t​a​l​l​ ​C​e​r​t​b​o​t
+		 */
+		installCertbot: string
+		/**
+		 * I​n​s​t​a​l​l​i​n​g​ ​c​e​r​t​b​o​t
+		 */
+		installingCertbot: string
+		/**
+		 * I​n​s​t​a​l​l​i​n​g​ ​D​N​S​ ​p​l​u​g​i​n​ ​{​p​l​u​g​i​n​}
+		 * @param {unknown} plugin
+		 */
+		installingPlugin: RequiredParams<'plugin'>
+		/**
+		 * D​N​S​ ​p​l​u​g​i​n​ ​{​p​l​u​g​i​n​}​ ​i​s​ ​n​o​t​ ​i​n​s​t​a​l​l​e​d​ ​o​n​ ​t​h​i​s​ ​t​a​r​g​e​t​.
+		 * @param {unknown} plugin
+		 */
+		pluginMissing: RequiredParams<'plugin'>
+		/**
+		 * I​n​s​t​a​l​l​ ​D​N​S​ ​p​l​u​g​i​n
+		 */
+		installPlugin: string
+		/**
+		 * E​n​t​e​r​ ​a​t​ ​l​e​a​s​t​ ​o​n​e​ ​d​o​m​a​i​n
+		 */
+		needDomains: string
+		/**
+		 * I​s​s​u​e​ ​a​ ​n​e​w​ ​c​e​r​t​i​f​i​c​a​t​e
+		 */
+		issueTitle: string
+		/**
+		 * D​o​m​a​i​n​s​ ​(​c​o​m​m​a​-​s​e​p​a​r​a​t​e​d​)
+		 */
+		domainsField: string
+		/**
+		 * e​x​a​m​p​l​e​.​c​o​m​,​ ​w​w​w​.​e​x​a​m​p​l​e​.​c​o​m
+		 */
+		domainsPlaceholder: string
+		/**
+		 * E​m​a​i​l​ ​(​f​o​r​ ​e​x​p​i​r​y​ ​n​o​t​i​c​e​s​)
+		 */
+		email: string
+		/**
+		 * a​d​m​i​n​@​e​x​a​m​p​l​e​.​c​o​m
+		 */
+		emailPlaceholder: string
+		/**
+		 * V​a​l​i​d​a​t​i​o​n​ ​m​e​t​h​o​d
+		 */
+		method: string
+		/**
+		 * N​g​i​n​x​ ​p​l​u​g​i​n
+		 */
+		methodNginx: string
+		/**
+		 * W​e​b​r​o​o​t
+		 */
+		methodWebroot: string
+		/**
+		 * S​t​a​n​d​a​l​o​n​e
+		 */
+		methodStandalone: string
+		/**
+		 * D​N​S​ ​c​h​a​l​l​e​n​g​e
+		 */
+		methodDns: string
+		/**
+		 * W​e​b​r​o​o​t​ ​p​a​t​h
+		 */
+		webrootPath: string
+		/**
+		 * I​s​s​u​e
+		 */
+		issue: string
+		/**
+		 * D​N​S​ ​p​r​o​v​i​d​e​r
+		 */
+		dnsProvider: string
+		/**
+		 * M​a​n​u​a​l
+		 */
+		providerManual: string
+		/**
+		 * A​P​I​ ​t​o​k​e​n
+		 */
+		dnsToken: string
+		/**
+		 * P​r​o​v​i​d​e​r​ ​A​P​I​ ​t​o​k​e​n
+		 */
+		dnsTokenPlaceholder: string
+		/**
+		 * A​W​S​ ​a​c​c​e​s​s​ ​k​e​y​ ​I​D
+		 */
+		dnsAccessKey: string
+		/**
+		 * A​W​S​ ​s​e​c​r​e​t​ ​a​c​c​e​s​s​ ​k​e​y
+		 */
+		dnsSecretKey: string
+		/**
+		 * M​a​n​u​a​l​ ​D​N​S​ ​r​e​q​u​i​r​e​s​ ​i​n​t​e​r​a​c​t​i​v​e​ ​T​X​T​ ​r​e​c​o​r​d​ ​e​n​t​r​y​ ​a​n​d​ ​m​a​y​ ​n​o​t​ ​c​o​m​p​l​e​t​e​ ​u​n​a​t​t​e​n​d​e​d​.
+		 */
+		manualHint: string
+		/**
+		 * N​o​ ​N​g​i​n​x​ ​c​o​n​f​i​g​u​r​a​t​i​o​n​ ​f​i​l​e​s​ ​f​o​u​n​d
+		 */
+		noFiles: string
+		/**
+		 * T​e​s​t​ ​c​o​n​f​i​g
+		 */
+		testConfig: string
+		/**
+		 * R​e​l​o​a​d
+		 */
+		reload: string
+		/**
+		 * R​e​s​t​a​r​t
+		 */
+		restart: string
+		/**
+		 * S​t​a​t​u​s
+		 */
+		checkStatus: string
+		/**
+		 * R​e​s​t​a​r​t​ ​N​g​i​n​x​?​ ​A​c​t​i​v​e​ ​c​o​n​n​e​c​t​i​o​n​s​ ​m​a​y​ ​b​e​ ​b​r​i​e​f​l​y​ ​d​r​o​p​p​e​d​.
+		 */
+		confirmRestart: string
+		/**
+		 * R​u​n​ ​a​ ​c​o​n​t​r​o​l​ ​a​c​t​i​o​n​ ​t​o​ ​s​e​e​ ​N​g​i​n​x​ ​o​u​t​p​u​t​ ​h​e​r​e​.
+		 */
+		statusHint: string
+		/**
+		 * C​o​n​f​i​g​u​r​a​t​i​o​n​ ​i​s​ ​v​a​l​i​d
+		 */
+		configOk: string
+		/**
+		 * N​g​i​n​x​ ​r​e​l​o​a​d​e​d
+		 */
+		reloaded: string
+		/**
+		 * N​g​i​n​x​ ​r​e​s​t​a​r​t​e​d
+		 */
+		restarted: string
+		/**
+		 * C​o​n​f​i​g​u​r​a​t​i​o​n​ ​s​a​v​e​d
+		 */
+		saved: string
+		/**
+		 * C​o​u​l​d​ ​n​o​t​ ​r​e​a​d​ ​f​i​l​e​:​ ​{​e​r​r​o​r​}
+		 * @param {unknown} error
+		 */
+		readFailed: RequiredParams<'error'>
+		/**
+		 * N​g​i​n​x​ ​M​a​n​a​g​e​r​ ​S​e​t​u​p
+		 */
+		setupTitle: string
+		/**
+		 * T​o​ ​s​t​a​r​t​ ​m​a​n​a​g​i​n​g​ ​N​g​i​n​x​,​ ​c​o​n​f​i​g​u​r​e​ ​a​ ​c​o​n​n​e​c​t​i​o​n​ ​p​r​o​f​i​l​e​.​ ​C​h​o​o​s​e​ ​w​h​e​t​h​e​r​ ​N​g​i​n​x​ ​r​u​n​s​ ​d​i​r​e​c​t​l​y​ ​o​n​ ​t​h​e​ ​h​o​s​t​ ​o​r​ ​i​n​s​i​d​e​ ​a​ ​D​o​c​k​e​r​ ​c​o​n​t​a​i​n​e​r​.
+		 */
+		setupDesc: string
+		/**
+		 * P​r​o​f​i​l​e​ ​N​a​m​e
+		 */
+		profileName: string
+		/**
+		 * e​.​g​.​ ​M​y​ ​W​e​b​s​i​t​e​ ​N​g​i​n​x
+		 */
+		profileNamePlaceholder: string
+		/**
+		 * N​g​i​n​x​ ​L​o​c​a​t​i​o​n
+		 */
+		nginxTarget: string
+		/**
+		 * H​o​s​t​ ​(​B​a​r​e​ ​M​e​t​a​l​)
+		 */
+		nginxTargetHost: string
+		/**
+		 * D​o​c​k​e​r​ ​C​o​n​t​a​i​n​e​r
+		 */
+		nginxTargetDocker: string
+		/**
+		 * S​e​l​e​c​t​ ​C​o​n​t​a​i​n​e​r
+		 */
+		selectContainer: string
+		/**
+		 * S​a​v​e​ ​P​r​o​f​i​l​e
+		 */
+		saveProfile: string
+		/**
+		 * N​g​i​n​x​ ​P​r​o​f​i​l​e​s
+		 */
+		profilesTitle: string
+		/**
+		 * A​c​t​i​v​e​ ​P​r​o​f​i​l​e
+		 */
+		activeProfile: string
+		/**
+		 * M​a​n​a​g​e​ ​P​r​o​f​i​l​e​s
+		 */
+		manageProfiles: string
+		/**
+		 * A​d​d​ ​P​r​o​f​i​l​e
+		 */
+		addProfile: string
+		/**
+		 * E​d​i​t​ ​P​r​o​f​i​l​e
+		 */
+		editProfile: string
+		/**
+		 * A​r​e​ ​y​o​u​ ​s​u​r​e​ ​y​o​u​ ​w​a​n​t​ ​t​o​ ​d​e​l​e​t​e​ ​t​h​e​ ​p​r​o​f​i​l​e​ ​"​{​n​a​m​e​}​"​?
+		 * @param {unknown} name
+		 */
+		deleteProfileConfirm: RequiredParams<'name'>
+		/**
+		 * N​g​i​n​x​ ​M​a​n​a​g​e​r​ ​R​e​q​u​i​r​e​m​e​n​t​s
+		 */
+		requirementsTitle: string
+		/**
+		 * C​e​r​t​b​o​t​ ​a​n​d​ ​D​N​S​ ​c​h​a​l​l​e​n​g​e​ ​p​l​u​g​i​n​s​ ​a​r​e​ ​r​e​q​u​i​r​e​d​ ​f​o​r​ ​a​u​t​o​m​a​t​e​d​ ​S​S​L​ ​c​e​r​t​i​f​i​c​a​t​e​ ​i​s​s​u​a​n​c​e​.
+		 */
+		requirementsDesc: string
+		/**
+		 * I​n​s​t​a​l​l​i​n​g​ ​C​e​r​t​b​o​t​ ​&​ ​D​N​S​ ​p​l​u​g​i​n​s​.​.​.
+		 */
+		installingRequirements: string
+		/**
+		 * A​l​l​ ​r​e​q​u​i​r​e​m​e​n​t​s​ ​a​r​e​ ​i​n​s​t​a​l​l​e​d​!
+		 */
+		requirementsInstalled: string
+		/**
+		 * C​e​r​t​b​o​t​ ​o​r​ ​D​N​S​ ​c​h​a​l​l​e​n​g​e​ ​p​l​u​g​i​n​s​ ​a​r​e​ ​m​i​s​s​i​n​g​.
+		 */
+		requirementsMissing: string
+		/**
+		 * I​n​s​t​a​l​l​ ​C​e​r​t​b​o​t​ ​&​ ​P​l​u​g​i​n​s
+		 */
+		installBtn: string
+	}
+	envvars: {
+		/**
+		 * E​n​v​i​r​o​n​m​e​n​t​ ​v​a​r​i​a​b​l​e​s
+		 */
+		title: string
+		/**
+		 * L​o​c​a​l
+		 */
+		tabLocal: string
+		/**
+		 * D​o​c​k​e​r​ ​c​o​n​t​a​i​n​e​r
+		 */
+		tabDocker: string
+		/**
+		 * L​o​a​d
+		 */
+		load: string
+		/**
+		 * A​d​d​ ​v​a​r​i​a​b​l​e
+		 */
+		addVar: string
+		/**
+		 * K​E​Y
+		 */
+		key: string
+		/**
+		 * v​a​l​u​e
+		 */
+		value: string
+		/**
+		 * R​e​v​e​a​l
+		 */
+		reveal: string
+		/**
+		 * H​i​d​e
+		 */
+		hide: string
+		/**
+		 * L​o​a​d​ ​t​o​ ​v​i​e​w​ ​t​h​e​ ​s​e​r​v​e​r​'​s​ ​c​u​r​r​e​n​t​ ​e​n​v​i​r​o​n​m​e​n​t​ ​v​a​r​i​a​b​l​e​s​.
+		 */
+		localHint: string
+		/**
+		 * N​o​ ​r​u​n​n​i​n​g​ ​c​o​n​t​a​i​n​e​r​s
+		 */
+		noContainers: string
+		/**
+		 * r​e​a​d​-​o​n​l​y
+		 */
+		readonly: string
+		/**
+		 * P​i​c​k​ ​a​ ​c​o​n​t​a​i​n​e​r​ ​a​n​d​ ​l​o​a​d​ ​t​o​ ​v​i​e​w​ ​i​t​s​ ​e​n​v​i​r​o​n​m​e​n​t​ ​v​a​r​i​a​b​l​e​s​.
+		 */
+		dockerHint: string
+		/**
+		 * C​o​p​i​e​d​ ​t​o​ ​c​l​i​p​b​o​a​r​d
+		 */
+		copied: string
+		/**
+		 * P​e​r​s​i​s​t​ ​t​o
+		 */
+		persistTarget: string
+		/**
+		 * V​a​r​i​a​b​l​e​ ​a​d​d​e​d​ ​t​o​ ​{​f​i​l​e​}
+		 * @param {unknown} file
+		 */
+		addedToProfile: RequiredParams<'file'>
+		/**
+		 * F​a​i​l​e​d​ ​t​o​ ​a​d​d​ ​v​a​r​i​a​b​l​e​:​ ​{​e​r​r​o​r​}
+		 * @param {unknown} error
+		 */
+		addFailed: RequiredParams<'error'>
+		/**
+		 * L​o​a​d​ ​f​a​i​l​e​d​:​ ​{​e​r​r​o​r​}
+		 * @param {unknown} error
+		 */
+		loadFailed: RequiredParams<'error'>
+	}
+	database: {
+		/**
+		 * D​a​t​a​b​a​s​e​ ​b​r​o​w​s​e​r
+		 */
+		title: string
+		/**
+		 * H​o​s​t
+		 */
+		host: string
+		/**
+		 * P​o​r​t
+		 */
+		port: string
+		/**
+		 * U​s​e​r
+		 */
+		user: string
+		/**
+		 * P​a​s​s​w​o​r​d
+		 */
+		password: string
+		/**
+		 * R​u​n​ ​c​l​i​e​n​t​ ​v​i​a​ ​a​ ​D​o​c​k​e​r​ ​c​o​n​t​a​i​n​e​r
+		 */
+		useDocker: string
+		/**
+		 * N​o​ ​c​o​n​t​a​i​n​e​r​s
+		 */
+		noContainers: string
+		/**
+		 * C​o​n​n​e​c​t
+		 */
+		connect: string
+		/**
+		 * C​o​n​n​e​c​t​i​n​g​…
+		 */
+		connecting: string
+		/**
+		 * D​a​t​a​b​a​s​e​s
+		 */
+		databases: string
+		/**
+		 * T​a​b​l​e​s
+		 */
+		tables: string
+		/**
+		 * B​r​o​w​s​e
+		 */
+		browse: string
+		/**
+		 * S​Q​L​ ​e​d​i​t​o​r
+		 */
+		sqlEditor: string
+		/**
+		 * R​u​n
+		 */
+		runQuery: string
+		/**
+		 * R​u​n​n​i​n​g​…
+		 */
+		running: string
+		/**
+		 * E​x​p​o​r​t​ ​C​S​V
+		 */
+		exportCsv: string
+		/**
+		 * {​c​o​u​n​t​}​ ​r​o​w​(​s​)
+		 * @param {unknown} count
+		 */
+		rows: RequiredParams<'count'>
+		/**
+		 * N​o​ ​r​e​s​u​l​t​s
+		 */
+		noResults: string
+		/**
+		 * P​i​c​k​ ​a​ ​t​a​b​l​e​ ​t​o​ ​b​r​o​w​s​e​,​ ​o​r​ ​r​u​n​ ​a​ ​q​u​e​r​y​ ​i​n​ ​t​h​e​ ​S​Q​L​ ​e​d​i​t​o​r​.
+		 */
+		pickHint: string
+		/**
+		 * E​n​t​e​r​ ​c​o​n​n​e​c​t​i​o​n​ ​d​e​t​a​i​l​s​ ​a​n​d​ ​c​o​n​n​e​c​t​ ​t​o​ ​a​ ​d​a​t​a​b​a​s​e​ ​s​e​r​v​e​r​.
+		 */
+		connectHint: string
+		/**
+		 * C​o​n​n​e​c​t​i​o​n​ ​f​a​i​l​e​d​:​ ​{​e​r​r​o​r​}
+		 * @param {unknown} error
+		 */
+		connectFailed: RequiredParams<'error'>
+		/**
+		 * Q​u​e​r​y​ ​e​r​r​o​r​:​ ​{​e​r​r​o​r​}
+		 * @param {unknown} error
+		 */
+		queryError: RequiredParams<'error'>
+		/**
+		 * S​e​l​e​c​t​ ​a​ ​d​a​t​a​b​a​s​e​ ​f​i​r​s​t
+		 */
+		selectDbFirst: string
 	}
 	runbook: {
 		/**
@@ -7855,6 +8802,10 @@ export type TranslationFunctions = {
 		 */
 		logs: () => LocalizedString
 		/**
+		 * Log Analysis
+		 */
+		loganalysis: () => LocalizedString
+		/**
 		 * Terminal
 		 */
 		terminal: () => LocalizedString
@@ -7862,6 +8813,30 @@ export type TranslationFunctions = {
 		 * Disk Management
 		 */
 		disks: () => LocalizedString
+		/**
+		 * Nginx Manager
+		 */
+		webserver: () => LocalizedString
+		/**
+		 * Processes
+		 */
+		processes: () => LocalizedString
+		/**
+		 * Databases
+		 */
+		database: () => LocalizedString
+		/**
+		 * Env Variables
+		 */
+		envvars: () => LocalizedString
+		/**
+		 * Net Diagnostics
+		 */
+		netdiag: () => LocalizedString
+		/**
+		 * Systemd Timers
+		 */
+		timers: () => LocalizedString
 	}
 	locale: {
 		/**
@@ -8048,9 +9023,901 @@ export type TranslationFunctions = {
 		 */
 		downloading: (arg: { count: unknown }) => LocalizedString
 		/**
+		 * Pushed off-site to {dest} as {file}
+		 */
+		pushedOffsite: (arg: { dest: unknown, file: unknown }) => LocalizedString
+		/**
 		 * Backup error: {error}
 		 */
 		error: (arg: { error: unknown }) => LocalizedString
+		/**
+		 * Destination
+		 */
+		destinationSection: () => LocalizedString
+		/**
+		 * Send backup to
+		 */
+		destination: () => LocalizedString
+		/**
+		 * Download to this computer
+		 */
+		destDownload: () => LocalizedString
+		/**
+		 * S3 / Backblaze B2 (S3-compatible)
+		 */
+		destS3: () => LocalizedString
+		/**
+		 * Remote SFTP server
+		 */
+		destSftp: () => LocalizedString
+		/**
+		 * Bucket
+		 */
+		destBucket: () => LocalizedString
+		/**
+		 * Path / prefix
+		 */
+		destPath: () => LocalizedString
+		/**
+		 * Endpoint (leave empty for AWS S3)
+		 */
+		destEndpoint: () => LocalizedString
+		/**
+		 * s3.us-west-002.backblazeb2.com
+		 */
+		destEndpointPlaceholder: () => LocalizedString
+		/**
+		 * Region
+		 */
+		destRegion: () => LocalizedString
+		/**
+		 * Access key ID
+		 */
+		destAccessKey: () => LocalizedString
+		/**
+		 * Secret access key
+		 */
+		destSecretKey: () => LocalizedString
+		/**
+		 * SFTP host
+		 */
+		destHost: () => LocalizedString
+		/**
+		 * Port
+		 */
+		destPort: () => LocalizedString
+		/**
+		 * SFTP user
+		 */
+		destUser: () => LocalizedString
+		/**
+		 * Requires rclone installed on the server. Credentials are stored in the OS keyring.
+		 */
+		rcloneHint: () => LocalizedString
+	}
+	execTarget: {
+		/**
+		 * Run on
+		 */
+		label: () => LocalizedString
+		/**
+		 * Host
+		 */
+		host: () => LocalizedString
+		/**
+		 * Refresh containers
+		 */
+		refreshContainers: () => LocalizedString
+	}
+	processes: {
+		/**
+		 * Process manager
+		 */
+		title: () => LocalizedString
+		/**
+		 * Auto-refresh: on
+		 */
+		autoOn: () => LocalizedString
+		/**
+		 * Auto-refresh: off
+		 */
+		autoOff: () => LocalizedString
+		/**
+		 * Search by command, user or PID…
+		 */
+		searchPlaceholder: () => LocalizedString
+		/**
+		 * {count} processes
+		 */
+		count: (arg: { count: unknown }) => LocalizedString
+		/**
+		 * User
+		 */
+		user: () => LocalizedString
+		/**
+		 * Command
+		 */
+		command: () => LocalizedString
+		/**
+		 * Change priority (renice)
+		 */
+		renice: () => LocalizedString
+		/**
+		 * Terminate (SIGTERM)
+		 */
+		kill: () => LocalizedString
+		/**
+		 * Force kill (SIGKILL)
+		 */
+		forceKill: () => LocalizedString
+		/**
+		 * Send SIGTERM to process {pid}?
+		 */
+		confirmKill: (arg: { pid: unknown }) => LocalizedString
+		/**
+		 * Force kill (SIGKILL) process {pid}? This cannot be undone.
+		 */
+		confirmForceKill: (arg: { pid: unknown }) => LocalizedString
+		/**
+		 * Signal sent to process {pid}
+		 */
+		killed: (arg: { pid: unknown }) => LocalizedString
+		/**
+		 * New nice value for PID {pid} (-20 highest priority … 19 lowest):
+		 */
+		nicePrompt: (arg: { pid: unknown }) => LocalizedString
+		/**
+		 * Nice value must be between -20 and 19
+		 */
+		niceInvalid: () => LocalizedString
+		/**
+		 * Process {pid} reniced to {nice}
+		 */
+		reniced: (arg: { nice: unknown, pid: unknown }) => LocalizedString
+	}
+	netdiag: {
+		/**
+		 * Network diagnostics
+		 */
+		title: () => LocalizedString
+		tools: {
+			/**
+			 * Ping
+			 */
+			ping: () => LocalizedString
+			/**
+			 * Traceroute
+			 */
+			traceroute: () => LocalizedString
+			/**
+			 * DNS lookup
+			 */
+			dns: () => LocalizedString
+			/**
+			 * HTTP (curl)
+			 */
+			http: () => LocalizedString
+			/**
+			 * MTR
+			 */
+			mtr: () => LocalizedString
+			/**
+			 * Port check
+			 */
+			port: () => LocalizedString
+		}
+		/**
+		 * Host, IP or URL…
+		 */
+		targetPlaceholder: () => LocalizedString
+		/**
+		 * Port
+		 */
+		portPlaceholder: () => LocalizedString
+		/**
+		 * Running…
+		 */
+		running: () => LocalizedString
+		/**
+		 * Enter a target first
+		 */
+		needTarget: () => LocalizedString
+		/**
+		 * Pick a tool, enter a target and run a diagnostic.
+		 */
+		emptyHint: () => LocalizedString
+	}
+	timers: {
+		/**
+		 * Systemd timers
+		 */
+		title: () => LocalizedString
+		/**
+		 * Timer unit
+		 */
+		unit: () => LocalizedString
+		/**
+		 * Next run
+		 */
+		next: () => LocalizedString
+		/**
+		 * Last run
+		 */
+		last: () => LocalizedString
+		/**
+		 * State
+		 */
+		state: () => LocalizedString
+		/**
+		 * Inspect
+		 */
+		inspect: () => LocalizedString
+		/**
+		 * Run now (start)
+		 */
+		runNow: () => LocalizedString
+		/**
+		 * No timers found
+		 */
+		noTimers: () => LocalizedString
+		/**
+		 * {action} on {unit} done
+		 */
+		actionOk: (arg: { action: unknown, unit: unknown }) => LocalizedString
+	}
+	loganalysis: {
+		/**
+		 * Log analysis
+		 */
+		title: () => LocalizedString
+		presets: {
+			/**
+			 * Nginx
+			 */
+			nginx: () => LocalizedString
+			/**
+			 * Apache
+			 */
+			apache: () => LocalizedString
+			/**
+			 * httpd
+			 */
+			apacheHttpd: () => LocalizedString
+		}
+		/**
+		 * Last lines
+		 */
+		lines: () => LocalizedString
+		/**
+		 * Analyze
+		 */
+		analyze: () => LocalizedString
+		/**
+		 * Analyzing…
+		 */
+		analyzing: () => LocalizedString
+		/**
+		 * Choose an access log and analyze top IPs, paths, status codes and traffic.
+		 */
+		emptyHint: () => LocalizedString
+		/**
+		 * Total requests
+		 */
+		totalRequests: () => LocalizedString
+		/**
+		 * Top IP addresses
+		 */
+		topIps: () => LocalizedString
+		/**
+		 * Top paths
+		 */
+		topPaths: () => LocalizedString
+		/**
+		 * HTTP methods
+		 */
+		methods: () => LocalizedString
+		/**
+		 * Top user agents
+		 */
+		topUserAgents: () => LocalizedString
+		/**
+		 * Requests by hour
+		 */
+		byHour: () => LocalizedString
+	}
+	webserver: {
+		/**
+		 * Nginx Manager
+		 */
+		title: () => LocalizedString
+		/**
+		 * Proxy Hosts
+		 */
+		tabHosts: () => LocalizedString
+		/**
+		 * SSL Certificates
+		 */
+		tabCerts: () => LocalizedString
+		/**
+		 * Nginx Files
+		 */
+		tabFiles: () => LocalizedString
+		/**
+		 * Control
+		 */
+		tabControl: () => LocalizedString
+		/**
+		 * Add Proxy Host
+		 */
+		addHost: () => LocalizedString
+		/**
+		 * No Jarvis-managed proxy hosts found. Add one to get started.
+		 */
+		noHosts: () => LocalizedString
+		/**
+		 * Forwards to
+		 */
+		forwardsTo: () => LocalizedString
+		/**
+		 * enabled
+		 */
+		enabledLabel: () => LocalizedString
+		/**
+		 * disabled
+		 */
+		disabledLabel: () => LocalizedString
+		/**
+		 * Proxy host {name} enabled
+		 */
+		hostEnabled: (arg: { name: unknown }) => LocalizedString
+		/**
+		 * Proxy host {name} disabled
+		 */
+		hostDisabled: (arg: { name: unknown }) => LocalizedString
+		/**
+		 * Delete proxy host {name}? This removes its config file.
+		 */
+		confirmDeleteHost: (arg: { name: unknown }) => LocalizedString
+		/**
+		 * Proxy host {name} saved
+		 */
+		savedHost: (arg: { name: unknown }) => LocalizedString
+		/**
+		 * Enter a domain and a forward host
+		 */
+		needDomainForward: () => LocalizedString
+		/**
+		 * New proxy host
+		 */
+		modalAddTitle: () => LocalizedString
+		/**
+		 * Edit proxy host
+		 */
+		modalEditTitle: () => LocalizedString
+		/**
+		 * Details
+		 */
+		tabDetails: () => LocalizedString
+		/**
+		 * SSL
+		 */
+		tabSsl: () => LocalizedString
+		/**
+		 * Advanced
+		 */
+		tabAdvanced: () => LocalizedString
+		/**
+		 * Domain name
+		 */
+		domain: () => LocalizedString
+		/**
+		 * example.com
+		 */
+		domainPlaceholder: () => LocalizedString
+		/**
+		 * Scheme
+		 */
+		scheme: () => LocalizedString
+		/**
+		 * Forward host / IP
+		 */
+		forwardHost: () => LocalizedString
+		/**
+		 * 127.0.0.1
+		 */
+		forwardHostPlaceholder: () => LocalizedString
+		/**
+		 * Forward port
+		 */
+		forwardPort: () => LocalizedString
+		/**
+		 * Websockets support
+		 */
+		websockets: () => LocalizedString
+		/**
+		 * Block common exploits
+		 */
+		blockExploits: () => LocalizedString
+		/**
+		 * Cache static assets
+		 */
+		cacheAssets: () => LocalizedString
+		/**
+		 * Enable SSL
+		 */
+		sslEnabled: () => LocalizedString
+		/**
+		 * SSL certificate
+		 */
+		sslCert: () => LocalizedString
+		/**
+		 * — none —
+		 */
+		sslCertNone: () => LocalizedString
+		/**
+		 * Pick an existing certificate, or issue one in the SSL Certificates tab.
+		 */
+		sslCertHint: () => LocalizedString
+		/**
+		 * Force SSL (redirect HTTP → HTTPS)
+		 */
+		forceSsl: () => LocalizedString
+		/**
+		 * HTTP/2 support
+		 */
+		http2: () => LocalizedString
+		/**
+		 * HSTS enabled
+		 */
+		hsts: () => LocalizedString
+		/**
+		 * Include subdomains
+		 */
+		hstsSubdomains: () => LocalizedString
+		/**
+		 * Preload
+		 */
+		hstsPreload: () => LocalizedString
+		/**
+		 * Custom Nginx configuration
+		 */
+		advancedConfig: () => LocalizedString
+		/**
+		 * Directives placed inside the server block…
+		 */
+		advancedPlaceholder: () => LocalizedString
+		/**
+		 * Issue certificate
+		 */
+		issueBtn: () => LocalizedString
+		/**
+		 * Renew (dry run)
+		 */
+		dryRun: () => LocalizedString
+		/**
+		 * Renew all
+		 */
+		renewAll: () => LocalizedString
+		/**
+		 * Renew
+		 */
+		renew: () => LocalizedString
+		/**
+		 * {days} days left
+		 */
+		daysLeft: (arg: { days: unknown }) => LocalizedString
+		/**
+		 * No certificates found
+		 */
+		noCerts: () => LocalizedString
+		/**
+		 * Delete certificate {name}? This removes its files.
+		 */
+		confirmDeleteCert: (arg: { name: unknown }) => LocalizedString
+		/**
+		 * certbot was not found on this target.
+		 */
+		certNotInstalled: () => LocalizedString
+		/**
+		 * Install Certbot
+		 */
+		installCertbot: () => LocalizedString
+		/**
+		 * Installing certbot
+		 */
+		installingCertbot: () => LocalizedString
+		/**
+		 * Installing DNS plugin {plugin}
+		 */
+		installingPlugin: (arg: { plugin: unknown }) => LocalizedString
+		/**
+		 * DNS plugin {plugin} is not installed on this target.
+		 */
+		pluginMissing: (arg: { plugin: unknown }) => LocalizedString
+		/**
+		 * Install DNS plugin
+		 */
+		installPlugin: () => LocalizedString
+		/**
+		 * Enter at least one domain
+		 */
+		needDomains: () => LocalizedString
+		/**
+		 * Issue a new certificate
+		 */
+		issueTitle: () => LocalizedString
+		/**
+		 * Domains (comma-separated)
+		 */
+		domainsField: () => LocalizedString
+		/**
+		 * example.com, www.example.com
+		 */
+		domainsPlaceholder: () => LocalizedString
+		/**
+		 * Email (for expiry notices)
+		 */
+		email: () => LocalizedString
+		/**
+		 * admin@example.com
+		 */
+		emailPlaceholder: () => LocalizedString
+		/**
+		 * Validation method
+		 */
+		method: () => LocalizedString
+		/**
+		 * Nginx plugin
+		 */
+		methodNginx: () => LocalizedString
+		/**
+		 * Webroot
+		 */
+		methodWebroot: () => LocalizedString
+		/**
+		 * Standalone
+		 */
+		methodStandalone: () => LocalizedString
+		/**
+		 * DNS challenge
+		 */
+		methodDns: () => LocalizedString
+		/**
+		 * Webroot path
+		 */
+		webrootPath: () => LocalizedString
+		/**
+		 * Issue
+		 */
+		issue: () => LocalizedString
+		/**
+		 * DNS provider
+		 */
+		dnsProvider: () => LocalizedString
+		/**
+		 * Manual
+		 */
+		providerManual: () => LocalizedString
+		/**
+		 * API token
+		 */
+		dnsToken: () => LocalizedString
+		/**
+		 * Provider API token
+		 */
+		dnsTokenPlaceholder: () => LocalizedString
+		/**
+		 * AWS access key ID
+		 */
+		dnsAccessKey: () => LocalizedString
+		/**
+		 * AWS secret access key
+		 */
+		dnsSecretKey: () => LocalizedString
+		/**
+		 * Manual DNS requires interactive TXT record entry and may not complete unattended.
+		 */
+		manualHint: () => LocalizedString
+		/**
+		 * No Nginx configuration files found
+		 */
+		noFiles: () => LocalizedString
+		/**
+		 * Test config
+		 */
+		testConfig: () => LocalizedString
+		/**
+		 * Reload
+		 */
+		reload: () => LocalizedString
+		/**
+		 * Restart
+		 */
+		restart: () => LocalizedString
+		/**
+		 * Status
+		 */
+		checkStatus: () => LocalizedString
+		/**
+		 * Restart Nginx? Active connections may be briefly dropped.
+		 */
+		confirmRestart: () => LocalizedString
+		/**
+		 * Run a control action to see Nginx output here.
+		 */
+		statusHint: () => LocalizedString
+		/**
+		 * Configuration is valid
+		 */
+		configOk: () => LocalizedString
+		/**
+		 * Nginx reloaded
+		 */
+		reloaded: () => LocalizedString
+		/**
+		 * Nginx restarted
+		 */
+		restarted: () => LocalizedString
+		/**
+		 * Configuration saved
+		 */
+		saved: () => LocalizedString
+		/**
+		 * Could not read file: {error}
+		 */
+		readFailed: (arg: { error: unknown }) => LocalizedString
+		/**
+		 * Nginx Manager Setup
+		 */
+		setupTitle: () => LocalizedString
+		/**
+		 * To start managing Nginx, configure a connection profile. Choose whether Nginx runs directly on the host or inside a Docker container.
+		 */
+		setupDesc: () => LocalizedString
+		/**
+		 * Profile Name
+		 */
+		profileName: () => LocalizedString
+		/**
+		 * e.g. My Website Nginx
+		 */
+		profileNamePlaceholder: () => LocalizedString
+		/**
+		 * Nginx Location
+		 */
+		nginxTarget: () => LocalizedString
+		/**
+		 * Host (Bare Metal)
+		 */
+		nginxTargetHost: () => LocalizedString
+		/**
+		 * Docker Container
+		 */
+		nginxTargetDocker: () => LocalizedString
+		/**
+		 * Select Container
+		 */
+		selectContainer: () => LocalizedString
+		/**
+		 * Save Profile
+		 */
+		saveProfile: () => LocalizedString
+		/**
+		 * Nginx Profiles
+		 */
+		profilesTitle: () => LocalizedString
+		/**
+		 * Active Profile
+		 */
+		activeProfile: () => LocalizedString
+		/**
+		 * Manage Profiles
+		 */
+		manageProfiles: () => LocalizedString
+		/**
+		 * Add Profile
+		 */
+		addProfile: () => LocalizedString
+		/**
+		 * Edit Profile
+		 */
+		editProfile: () => LocalizedString
+		/**
+		 * Are you sure you want to delete the profile "{name}"?
+		 */
+		deleteProfileConfirm: (arg: { name: unknown }) => LocalizedString
+		/**
+		 * Nginx Manager Requirements
+		 */
+		requirementsTitle: () => LocalizedString
+		/**
+		 * Certbot and DNS challenge plugins are required for automated SSL certificate issuance.
+		 */
+		requirementsDesc: () => LocalizedString
+		/**
+		 * Installing Certbot & DNS plugins...
+		 */
+		installingRequirements: () => LocalizedString
+		/**
+		 * All requirements are installed!
+		 */
+		requirementsInstalled: () => LocalizedString
+		/**
+		 * Certbot or DNS challenge plugins are missing.
+		 */
+		requirementsMissing: () => LocalizedString
+		/**
+		 * Install Certbot & Plugins
+		 */
+		installBtn: () => LocalizedString
+	}
+	envvars: {
+		/**
+		 * Environment variables
+		 */
+		title: () => LocalizedString
+		/**
+		 * Local
+		 */
+		tabLocal: () => LocalizedString
+		/**
+		 * Docker container
+		 */
+		tabDocker: () => LocalizedString
+		/**
+		 * Load
+		 */
+		load: () => LocalizedString
+		/**
+		 * Add variable
+		 */
+		addVar: () => LocalizedString
+		/**
+		 * KEY
+		 */
+		key: () => LocalizedString
+		/**
+		 * value
+		 */
+		value: () => LocalizedString
+		/**
+		 * Reveal
+		 */
+		reveal: () => LocalizedString
+		/**
+		 * Hide
+		 */
+		hide: () => LocalizedString
+		/**
+		 * Load to view the server's current environment variables.
+		 */
+		localHint: () => LocalizedString
+		/**
+		 * No running containers
+		 */
+		noContainers: () => LocalizedString
+		/**
+		 * read-only
+		 */
+		readonly: () => LocalizedString
+		/**
+		 * Pick a container and load to view its environment variables.
+		 */
+		dockerHint: () => LocalizedString
+		/**
+		 * Copied to clipboard
+		 */
+		copied: () => LocalizedString
+		/**
+		 * Persist to
+		 */
+		persistTarget: () => LocalizedString
+		/**
+		 * Variable added to {file}
+		 */
+		addedToProfile: (arg: { file: unknown }) => LocalizedString
+		/**
+		 * Failed to add variable: {error}
+		 */
+		addFailed: (arg: { error: unknown }) => LocalizedString
+		/**
+		 * Load failed: {error}
+		 */
+		loadFailed: (arg: { error: unknown }) => LocalizedString
+	}
+	database: {
+		/**
+		 * Database browser
+		 */
+		title: () => LocalizedString
+		/**
+		 * Host
+		 */
+		host: () => LocalizedString
+		/**
+		 * Port
+		 */
+		port: () => LocalizedString
+		/**
+		 * User
+		 */
+		user: () => LocalizedString
+		/**
+		 * Password
+		 */
+		password: () => LocalizedString
+		/**
+		 * Run client via a Docker container
+		 */
+		useDocker: () => LocalizedString
+		/**
+		 * No containers
+		 */
+		noContainers: () => LocalizedString
+		/**
+		 * Connect
+		 */
+		connect: () => LocalizedString
+		/**
+		 * Connecting…
+		 */
+		connecting: () => LocalizedString
+		/**
+		 * Databases
+		 */
+		databases: () => LocalizedString
+		/**
+		 * Tables
+		 */
+		tables: () => LocalizedString
+		/**
+		 * Browse
+		 */
+		browse: () => LocalizedString
+		/**
+		 * SQL editor
+		 */
+		sqlEditor: () => LocalizedString
+		/**
+		 * Run
+		 */
+		runQuery: () => LocalizedString
+		/**
+		 * Running…
+		 */
+		running: () => LocalizedString
+		/**
+		 * Export CSV
+		 */
+		exportCsv: () => LocalizedString
+		/**
+		 * {count} row(s)
+		 */
+		rows: (arg: { count: unknown }) => LocalizedString
+		/**
+		 * No results
+		 */
+		noResults: () => LocalizedString
+		/**
+		 * Pick a table to browse, or run a query in the SQL editor.
+		 */
+		pickHint: () => LocalizedString
+		/**
+		 * Enter connection details and connect to a database server.
+		 */
+		connectHint: () => LocalizedString
+		/**
+		 * Connection failed: {error}
+		 */
+		connectFailed: (arg: { error: unknown }) => LocalizedString
+		/**
+		 * Query error: {error}
+		 */
+		queryError: (arg: { error: unknown }) => LocalizedString
+		/**
+		 * Select a database first
+		 */
+		selectDbFirst: () => LocalizedString
 	}
 	runbook: {
 		/**

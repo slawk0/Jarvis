@@ -16,8 +16,15 @@ export const TAB_IDS = [
 	'crowdsec',
 	'pangolin',
 	'logs',
+	'loganalysis',
 	'terminal',
 	'disks',
+	'webserver',
+	'processes',
+	'database',
+	'envvars',
+	'netdiag',
+	'timers',
 ] as const;
 
 export type TabId = (typeof TAB_IDS)[number];

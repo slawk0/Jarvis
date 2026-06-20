@@ -22,6 +22,13 @@
     PanelLeftClose,
     PanelLeftOpen,
     HardDrive,
+    Globe2,
+    Cpu,
+    Table,
+    KeyRound,
+    Radar,
+    Timer,
+    BarChart3,
   } from 'lucide-svelte';
   import type { ServerProfile } from '$lib/admin/types';
   import { LL } from '$lib/i18n/i18n-svelte';
@@ -66,8 +73,15 @@
       crowdsec: ShieldAlert,
       pangolin: Globe,
       logs: FileText,
+      loganalysis: BarChart3,
       terminal: Terminal,
       disks: HardDrive,
+      webserver: Globe2,
+      processes: Cpu,
+      database: Table,
+      envvars: KeyRound,
+      netdiag: Radar,
+      timers: Timer,
     }[id],
   }));
 

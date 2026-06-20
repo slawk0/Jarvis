@@ -12,6 +12,8 @@ export interface Runbook {
   use_sudo: boolean;
 }
 
+export type BackupDestination = 'download' | 's3' | 'sftp';
+
 export interface BackupTemplate {
   id: string;
   name: string;
@@ -21,6 +23,16 @@ export interface BackupTemplate {
   db_name?: string | null;
   db_user?: string | null;
   db_password?: string | null;
+  destination?: BackupDestination | null;
+  dest_endpoint?: string | null;
+  dest_region?: string | null;
+  dest_bucket?: string | null;
+  dest_path?: string | null;
+  dest_host?: string | null;
+  dest_port?: string | null;
+  dest_user?: string | null;
+  dest_access_key?: string | null;
+  dest_secret_key?: string | null;
 }
 
 export interface ProfileExtras {

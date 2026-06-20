@@ -5,6 +5,7 @@ mod du_size;
 mod sftp_find;
 mod pangolin;
 mod profile_extras;
+mod database;
 
 use app_error::AppError;
 use parking_lot::Mutex;
@@ -1988,6 +1989,7 @@ pub fn run() {
             pangolin::pangolin_api_request,
             profile_extras::get_profile_extras,
             profile_extras::save_profile_extras,
+            database::db_query,
             secure_create_user,
             secure_delete_user,
             secure_change_password,

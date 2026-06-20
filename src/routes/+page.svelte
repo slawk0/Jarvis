@@ -56,6 +56,13 @@
   import NetworkManager from '../components/NetworkManager.svelte';
   import RunbookManager from '../components/RunbookManager.svelte';
   import DiskManager from '../components/DiskManager.svelte';
+  import NginxProxyManager from '../components/NginxProxyManager.svelte';
+  import ProcessManager from '../components/ProcessManager.svelte';
+  import DatabaseManager from '../components/DatabaseManager.svelte';
+  import EnvManager from '../components/EnvManager.svelte';
+  import NetDiagManager from '../components/NetDiagManager.svelte';
+  import TimerManager from '../components/TimerManager.svelte';
+  import LogAnalysisManager from '../components/LogAnalysisManager.svelte';
   import { resetAlertCooldowns } from '$lib/alerts/monitor';
   import type { ServerProfile } from '$lib/admin/types';
 
@@ -1209,6 +1216,20 @@
                 <PangolinManager />
               {:else if pane.activeTab === 'logs'}
                 <LogViewer />
+              {:else if pane.activeTab === 'loganalysis'}
+                <LogAnalysisManager />
+              {:else if pane.activeTab === 'webserver'}
+                <NginxProxyManager profileId={currentProfileId} />
+              {:else if pane.activeTab === 'processes'}
+                <ProcessManager />
+              {:else if pane.activeTab === 'database'}
+                <DatabaseManager profileId={currentProfileId} />
+              {:else if pane.activeTab === 'envvars'}
+                <EnvManager profileId={currentProfileId} />
+              {:else if pane.activeTab === 'netdiag'}
+                <NetDiagManager />
+              {:else if pane.activeTab === 'timers'}
+                <TimerManager />
               {:else if pane.activeTab === 'terminal'}
                 {#key pane.terminalSessionId}
                   <TerminalView

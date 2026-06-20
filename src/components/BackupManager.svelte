@@ -31,6 +31,17 @@
   let formDbName = $state('');
   let formDbUser = $state('root');
   let formDbPassword = $state('');
+  // Off-site destination
+  let formDestination = $state<'download' | 's3' | 'sftp'>('download');
+  let formDestEndpoint = $state('');
+  let formDestRegion = $state('');
+  let formDestBucket = $state('');
+  let formDestPath = $state('');
+  let formDestHost = $state('');
+  let formDestPort = $state('22');
+  let formDestUser = $state('');
+  let formDestAccessKey = $state('');
+  let formDestSecretKey = $state('');
 
   let showSudoModal = $state(false);
   let pendingAction: (() => Promise<void>) | null = null;
@@ -77,6 +88,16 @@
     formDbName = '';
     formDbUser = 'root';
     formDbPassword = '';
+    formDestination = 'download';
+    formDestEndpoint = '';
+    formDestRegion = '';
+    formDestBucket = '';
+    formDestPath = '';
+    formDestHost = '';
+    formDestPort = '22';
+    formDestUser = '';
+    formDestAccessKey = '';
+    formDestSecretKey = '';
     showAddModal = true;
   }
 
@@ -89,6 +110,16 @@
     formDbName = t.db_name || '';
     formDbUser = t.db_user || 'root';
     formDbPassword = t.db_password || '';
+    formDestination = (t.destination as any) || 'download';
+    formDestEndpoint = t.dest_endpoint || '';
+    formDestRegion = t.dest_region || '';
+    formDestBucket = t.dest_bucket || '';
+    formDestPath = t.dest_path || '';
+    formDestHost = t.dest_host || '';
+    formDestPort = t.dest_port || '22';
+    formDestUser = t.dest_user || '';
+    formDestAccessKey = t.dest_access_key || '';
+    formDestSecretKey = t.dest_secret_key || '';
     showAddModal = true;
   }
 
@@ -106,6 +137,16 @@
       db_name: formDbName.trim() || null,
       db_user: formDbUser.trim() || null,
       db_password: formDbPassword.trim() || null,
+      destination: formDestination,
+      dest_endpoint: formDestEndpoint.trim() || null,
+      dest_region: formDestRegion.trim() || null,
+      dest_bucket: formDestBucket.trim() || null,
+      dest_path: formDestPath.trim() || null,
+      dest_host: formDestHost.trim() || null,
+      dest_port: formDestPort.trim() || null,
+      dest_user: formDestUser.trim() || null,
+      dest_access_key: formDestAccessKey.trim() || null,
+      dest_secret_key: formDestSecretKey.trim() || null,
     };
     if (editId) {
       extras.backup_templates = extras.backup_templates.map((t) => (t.id === editId ? tpl : t));
@@ -148,25 +189,67 @@
     return `pg_dump -U ${shellQuote(user)} ${shellQuote(db)} > ${shellQuote(remotePath)} 2>&1`;
   }
 
+  function buildRclonePush(t: BackupTemplate, remotePath: string, destFile: string): string {
+    const dest = t.destination || 'download';
+    if (dest === 's3') {
+      const provider = t.dest_endpoint ? 'Other' : 'AWS';
+      const envs = [
+        `RCLONE_S3_PROVIDER=${shellQuote(provider)}`,
+        `RCLONE_S3_ACCESS_KEY_ID=${shellQuote(t.dest_access_key || '')}`,
+        `RCLONE_S3_SECRET_ACCESS_KEY=${shellQuote(t.dest_secret_key || '')}`,
+      ];
+      if (t.dest_endpoint) envs.push(`RCLONE_S3_ENDPOINT=${shellQuote(t.dest_endpoint)}`);
+      if (t.dest_region) envs.push(`RCLONE_S3_REGION=${shellQuote(t.dest_region)}`);
+      const sub = (t.dest_path || '').replace(/^\/+|\/+$/g, '');
+      const target = `:s3:${t.dest_bucket}${sub ? '/' + sub : ''}/${destFile}`;
+      return `${envs.join(' ')} rclone copyto ${shellQuote(remotePath)} ${shellQuote(target)} 2>&1`;
+    }
+    // sftp
+    const envs = [
+      `RCLONE_SFTP_HOST=${shellQuote(t.dest_host || '')}`,
+      `RCLONE_SFTP_USER=${shellQuote(t.dest_user || '')}`,
+      `RCLONE_SFTP_PORT=${shellQuote(t.dest_port || '22')}`,
+      `RCLONE_SFTP_PASS="$(rclone obscure ${shellQuote(t.dest_secret_key || '')})"`,
+    ];
+    const sub = (t.dest_path || '').replace(/^\/+$/, '');
+    const target = `:sftp:${sub ? sub.replace(/\/+$/, '') + '/' : ''}${destFile}`;
+    return `${envs.join(' ')} rclone copyto ${shellQuote(remotePath)} ${shellQuote(target)} 2>&1`;
+  }
+
   async function runBackup(t: BackupTemplate) {
     isRunning = true;
     const ext = t.backup_type === 'files' ? 'tar.gz' : 'sql';
+    const isFiles = t.backup_type === 'files';
     const remotePath = `/tmp/jarvis-backup-${Date.now()}.${ext}`;
+    const safeName = (t.name || 'backup').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const destFile = `${safeName}-${Date.now()}.${ext}`;
+    const dest = t.destination || 'download';
 
     await withSudo(async () => {
       try {
         const ll = get(LL);
         const cmd = buildBackupCmd(t, remotePath);
-        const out = await exec(cmd, t.backup_type === 'files');
+        const out = await exec(cmd, isFiles);
         let msg = String(ll.backup.createdOnServer({ path: remotePath, output: out }));
 
-        const count = await invoke<number>('sftp_start_download_batch', {
-          remotePaths: [remotePath],
-          localDir: null,
-        });
-        msg += `\n\n${String(ll.backup.downloading({ count }))}`;
+        // Ensure the SSH user can read the dump (it may be root-owned for files).
+        if (isFiles) await exec(`chmod 644 ${remotePath}`, true).catch(() => {});
+
+        if (dest === 'download') {
+          const count = await invoke<number>('sftp_start_download_batch', {
+            remotePaths: [remotePath],
+            localDir: null,
+          });
+          msg += `\n\n${String(ll.backup.downloading({ count }))}`;
+        } else {
+          const pushOut = await exec(buildRclonePush(t, remotePath, destFile), false);
+          if (/error|failed|fatal/i.test(pushOut)) {
+            throw new Error(pushOut.trim().slice(0, 300));
+          }
+          msg += `\n\n${String(ll.backup.pushedOffsite({ dest: dest.toUpperCase(), file: destFile }))}`;
+        }
         notifications.success(msg);
-        await exec(`rm -f ${remotePath}`, false).catch(() => {});
+        await exec(`rm -f ${remotePath}`, isFiles).catch(() => {});
       } catch (err: unknown) {
         if (isSudoPasswordRequired(err)) {
           throw err;
@@ -217,6 +300,9 @@
             {/if}
             <span class="tpl-name">{tpl.name}</span>
             <span class="badge">{tpl.backup_type}</span>
+            {#if tpl.destination && tpl.destination !== 'download'}
+              <span class="badge success">{tpl.destination.toUpperCase()}</span>
+            {/if}
           </div>
           <div class="tpl-meta mono-val">
             {#if tpl.backup_type === 'files'}
@@ -268,6 +354,32 @@
         <label>{$LL.backup.dbUser()}<input bind:value={formDbUser} /></label>
         <label>{$LL.backup.dbPassword()}<input type="password" bind:value={formDbPassword} /></label>
       {/if}
+
+      <div class="dest-divider">{$LL.backup.destinationSection()}</div>
+      <label>{$LL.backup.destination()}
+        <select bind:value={formDestination}>
+          <option value="download">{$LL.backup.destDownload()}</option>
+          <option value="s3">{$LL.backup.destS3()}</option>
+          <option value="sftp">{$LL.backup.destSftp()}</option>
+        </select>
+      </label>
+      {#if formDestination === 's3'}
+        <label>{$LL.backup.destBucket()}<input bind:value={formDestBucket} placeholder="my-bucket" /></label>
+        <label>{$LL.backup.destPath()}<input bind:value={formDestPath} placeholder="backups/db" /></label>
+        <label>{$LL.backup.destEndpoint()}<input bind:value={formDestEndpoint} placeholder={$LL.backup.destEndpointPlaceholder()} /></label>
+        <label>{$LL.backup.destRegion()}<input bind:value={formDestRegion} placeholder="us-east-1" /></label>
+        <label>{$LL.backup.destAccessKey()}<input bind:value={formDestAccessKey} /></label>
+        <label>{$LL.backup.destSecretKey()}<input type="password" bind:value={formDestSecretKey} /></label>
+        <p class="dest-hint">{$LL.backup.rcloneHint()}</p>
+      {:else if formDestination === 'sftp'}
+        <label>{$LL.backup.destHost()}<input bind:value={formDestHost} placeholder="backup.example.com" /></label>
+        <label>{$LL.backup.destPort()}<input bind:value={formDestPort} placeholder="22" /></label>
+        <label>{$LL.backup.destUser()}<input bind:value={formDestUser} /></label>
+        <label>{$LL.backup.dbPassword()}<input type="password" bind:value={formDestSecretKey} /></label>
+        <label>{$LL.backup.destPath()}<input bind:value={formDestPath} placeholder="/backups" /></label>
+        <p class="dest-hint">{$LL.backup.rcloneHint()}</p>
+      {/if}
+
       <div class="modal-actions">
         <button class="secondary" onclick={() => (showAddModal = false)}>{$LL.common.cancel()}</button>
         <button class="primary" onclick={saveTemplate}>{$LL.common.save()}</button>
@@ -305,4 +417,7 @@
   .modal label { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; color: var(--text-secondary); }
   .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
   .hover-red:hover { color: var(--accent-red) !important; }
+  .dest-divider { margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--border-color); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+  .dest-hint { font-size: 0.72rem; color: var(--text-muted); margin: 2px 0; }
+  .modal { max-height: 86vh; overflow-y: auto; }
 </style>
