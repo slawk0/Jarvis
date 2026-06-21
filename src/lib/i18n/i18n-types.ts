@@ -1710,6 +1710,10 @@ type RootTranslation = {
 		 */
 		password: string
 		/**
+		 * E​n​g​i​n​e
+		 */
+		engine: string
+		/**
 		 * R​u​n​ ​c​l​i​e​n​t​ ​v​i​a​ ​a​ ​D​o​c​k​e​r​ ​c​o​n​t​a​i​n​e​r
 		 */
 		useDocker: string
@@ -1725,6 +1729,10 @@ type RootTranslation = {
 		 * C​o​n​n​e​c​t​i​n​g​…
 		 */
 		connecting: string
+		/**
+		 * D​i​s​c​o​n​n​e​c​t
+		 */
+		disconnect: string
 		/**
 		 * D​a​t​a​b​a​s​e​s
 		 */
@@ -1767,7 +1775,7 @@ type RootTranslation = {
 		 */
 		pickHint: string
 		/**
-		 * E​n​t​e​r​ ​c​o​n​n​e​c​t​i​o​n​ ​d​e​t​a​i​l​s​ ​a​n​d​ ​c​o​n​n​e​c​t​ ​t​o​ ​a​ ​d​a​t​a​b​a​s​e​ ​s​e​r​v​e​r​.
+		 * S​e​l​e​c​t​ ​a​ ​p​r​o​f​i​l​e​ ​a​n​d​ ​c​o​n​n​e​c​t​ ​t​o​ ​a​ ​d​a​t​a​b​a​s​e​ ​s​e​r​v​e​r​.
 		 */
 		connectHint: string
 		/**
@@ -1784,6 +1792,97 @@ type RootTranslation = {
 		 * S​e​l​e​c​t​ ​a​ ​d​a​t​a​b​a​s​e​ ​f​i​r​s​t
 		 */
 		selectDbFirst: string
+		/**
+		 * S​o​u​r​c​e
+		 */
+		source: string
+		/**
+		 * O​n​ ​t​h​e​ ​h​o​s​t
+		 */
+		sourceHost: string
+		/**
+		 * I​n​ ​a​ ​D​o​c​k​e​r​ ​c​o​n​t​a​i​n​e​r
+		 */
+		sourceDocker: string
+		/**
+		 * C​o​n​t​a​i​n​e​r
+		 */
+		selectContainer: string
+		/**
+		 * A​u​t​o​-​d​e​t​e​c​t
+		 */
+		autoDetect: string
+		/**
+		 * D​e​t​e​c​t​i​n​g​…
+		 */
+		detecting: string
+		/**
+		 * D​e​t​e​c​t​e​d​ ​{​e​n​g​i​n​e​}​ ​s​e​t​t​i​n​g​s​ ​f​r​o​m​ ​t​h​e​ ​c​o​n​t​a​i​n​e​r​.
+		 * @param {unknown} engine
+		 */
+		detectSuccess: RequiredParams<'engine'>
+		/**
+		 * C​o​u​l​d​ ​n​o​t​ ​a​u​t​o​-​d​e​t​e​c​t​ ​s​e​t​t​i​n​g​s​:​ ​{​e​r​r​o​r​}
+		 * @param {unknown} error
+		 */
+		detectFailed: RequiredParams<'error'>
+		/**
+		 * N​o​ ​d​a​t​a​b​a​s​e​ ​s​e​t​t​i​n​g​s​ ​f​o​u​n​d​ ​i​n​ ​t​h​e​ ​c​o​n​t​a​i​n​e​r​ ​e​n​v​i​r​o​n​m​e​n​t​.
+		 */
+		detectNothing: string
+		/**
+		 * P​i​c​k​ ​a​ ​d​a​t​a​b​a​s​e​ ​c​o​n​t​a​i​n​e​r​ ​a​n​d​ ​a​u​t​o​-​d​e​t​e​c​t​ ​r​e​a​d​s​ ​i​t​s​ ​e​n​g​i​n​e​ ​a​n​d​ ​c​r​e​d​e​n​t​i​a​l​s​ ​f​r​o​m​ ​t​h​e​ ​c​o​n​t​a​i​n​e​r​ ​e​n​v​i​r​o​n​m​e​n​t​.
+		 */
+		detectHint: string
+		/**
+		 * P​r​o​f​i​l​e
+		 */
+		activeProfile: string
+		/**
+		 * M​a​n​a​g​e​ ​p​r​o​f​i​l​e​s
+		 */
+		manageProfiles: string
+		/**
+		 * P​r​o​f​i​l​e​s
+		 */
+		profilesTitle: string
+		/**
+		 * A​d​d​ ​p​r​o​f​i​l​e
+		 */
+		addProfile: string
+		/**
+		 * E​d​i​t​ ​p​r​o​f​i​l​e
+		 */
+		editProfile: string
+		/**
+		 * S​a​v​e​ ​p​r​o​f​i​l​e
+		 */
+		saveProfile: string
+		/**
+		 * P​r​o​f​i​l​e​ ​n​a​m​e
+		 */
+		profileName: string
+		/**
+		 * e​.​g​.​ ​A​p​p​ ​d​a​t​a​b​a​s​e​,​ ​P​o​s​t​g​r​e​s​ ​p​r​o​d
+		 */
+		profileNamePlaceholder: string
+		/**
+		 * P​l​e​a​s​e​ ​e​n​t​e​r​ ​a​ ​p​r​o​f​i​l​e​ ​n​a​m​e
+		 */
+		nameRequired: string
+		/**
+		 * D​e​l​e​t​e​ ​p​r​o​f​i​l​e​ ​"​{​n​a​m​e​}​"​?
+		 * @param {unknown} name
+		 */
+		deleteProfileConfirm: RequiredParams<'name'>
+		/**
+		 * D​a​t​a​b​a​s​e​ ​B​r​o​w​s​e​r​ ​S​e​t​u​p
+		 */
+		setupTitle: string
+		/**
+		 * C​r​e​a​t​e​ ​a​ ​c​o​n​n​e​c​t​i​o​n​ ​p​r​o​f​i​l​e​ ​t​o​ ​b​r​o​w​s​e​ ​d​a​t​a​b​a​s​e​s​ ​o​n​ ​t​h​e​ ​h​o​s​t​ ​o​r​ ​i​n​s​i​d​e​ ​a​ ​D​o​c​k​e​r​ ​c​o​n​t​a​i​n​e​r​.
+		 */
+		setupDesc: string
 	}
 	runbook: {
 		/**
@@ -10008,6 +10107,10 @@ export type TranslationFunctions = {
 		 */
 		password: () => LocalizedString
 		/**
+		 * Engine
+		 */
+		engine: () => LocalizedString
+		/**
 		 * Run client via a Docker container
 		 */
 		useDocker: () => LocalizedString
@@ -10023,6 +10126,10 @@ export type TranslationFunctions = {
 		 * Connecting…
 		 */
 		connecting: () => LocalizedString
+		/**
+		 * Disconnect
+		 */
+		disconnect: () => LocalizedString
 		/**
 		 * Databases
 		 */
@@ -10064,7 +10171,7 @@ export type TranslationFunctions = {
 		 */
 		pickHint: () => LocalizedString
 		/**
-		 * Enter connection details and connect to a database server.
+		 * Select a profile and connect to a database server.
 		 */
 		connectHint: () => LocalizedString
 		/**
@@ -10079,6 +10186,94 @@ export type TranslationFunctions = {
 		 * Select a database first
 		 */
 		selectDbFirst: () => LocalizedString
+		/**
+		 * Source
+		 */
+		source: () => LocalizedString
+		/**
+		 * On the host
+		 */
+		sourceHost: () => LocalizedString
+		/**
+		 * In a Docker container
+		 */
+		sourceDocker: () => LocalizedString
+		/**
+		 * Container
+		 */
+		selectContainer: () => LocalizedString
+		/**
+		 * Auto-detect
+		 */
+		autoDetect: () => LocalizedString
+		/**
+		 * Detecting…
+		 */
+		detecting: () => LocalizedString
+		/**
+		 * Detected {engine} settings from the container.
+		 */
+		detectSuccess: (arg: { engine: unknown }) => LocalizedString
+		/**
+		 * Could not auto-detect settings: {error}
+		 */
+		detectFailed: (arg: { error: unknown }) => LocalizedString
+		/**
+		 * No database settings found in the container environment.
+		 */
+		detectNothing: () => LocalizedString
+		/**
+		 * Pick a database container and auto-detect reads its engine and credentials from the container environment.
+		 */
+		detectHint: () => LocalizedString
+		/**
+		 * Profile
+		 */
+		activeProfile: () => LocalizedString
+		/**
+		 * Manage profiles
+		 */
+		manageProfiles: () => LocalizedString
+		/**
+		 * Profiles
+		 */
+		profilesTitle: () => LocalizedString
+		/**
+		 * Add profile
+		 */
+		addProfile: () => LocalizedString
+		/**
+		 * Edit profile
+		 */
+		editProfile: () => LocalizedString
+		/**
+		 * Save profile
+		 */
+		saveProfile: () => LocalizedString
+		/**
+		 * Profile name
+		 */
+		profileName: () => LocalizedString
+		/**
+		 * e.g. App database, Postgres prod
+		 */
+		profileNamePlaceholder: () => LocalizedString
+		/**
+		 * Please enter a profile name
+		 */
+		nameRequired: () => LocalizedString
+		/**
+		 * Delete profile "{name}"?
+		 */
+		deleteProfileConfirm: (arg: { name: unknown }) => LocalizedString
+		/**
+		 * Database Browser Setup
+		 */
+		setupTitle: () => LocalizedString
+		/**
+		 * Create a connection profile to browse databases on the host or inside a Docker container.
+		 */
+		setupDesc: () => LocalizedString
 	}
 	runbook: {
 		/**
