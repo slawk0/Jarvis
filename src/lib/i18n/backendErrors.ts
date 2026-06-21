@@ -58,6 +58,10 @@ export function formatInvokeError(err: unknown, ll?: TranslationFunctions): stri
 	if (parsed?.code) {
 		const translated = translateCode(translations, parsed.code, parsed.details);
 		if (translated) return translated;
+		// No translation for this code: surface the backend details (e.g. the raw
+		// database error) rather than stringifying the object to "[object Object]".
+		if (parsed.details) return `${parsed.code}: ${parsed.details}`;
+		return parsed.code;
 	}
 	return String(err);
 }

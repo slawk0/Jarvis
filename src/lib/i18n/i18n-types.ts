@@ -1883,6 +1883,128 @@ type RootTranslation = {
 		 * C​r​e​a​t​e​ ​a​ ​c​o​n​n​e​c​t​i​o​n​ ​p​r​o​f​i​l​e​ ​t​o​ ​b​r​o​w​s​e​ ​d​a​t​a​b​a​s​e​s​ ​o​n​ ​t​h​e​ ​h​o​s​t​ ​o​r​ ​i​n​s​i​d​e​ ​a​ ​D​o​c​k​e​r​ ​c​o​n​t​a​i​n​e​r​.
 		 */
 		setupDesc: string
+		/**
+		 * D​a​t​a
+		 */
+		data: string
+		/**
+		 * S​t​r​u​c​t​u​r​e
+		 */
+		structure: string
+		/**
+		 * N​o​ ​t​a​b​l​e​s
+		 */
+		noTables: string
+		/**
+		 * N​o​ ​r​o​w​s
+		 */
+		emptyTable: string
+		/**
+		 * A​d​d​ ​r​o​w
+		 */
+		addRow: string
+		/**
+		 * D​e​l​e​t​e
+		 */
+		deleteSelected: string
+		/**
+		 * S​e​t​ ​N​U​L​L
+		 */
+		setNull: string
+		/**
+		 * v​a​l​u​e
+		 */
+		filterValue: string
+		/**
+		 * F​i​l​t​e​r
+		 */
+		addFilter: string
+		/**
+		 * A​p​p​l​y
+		 */
+		applyFilters: string
+		/**
+		 * C​l​e​a​r
+		 */
+		clearFilters: string
+		/**
+		 * N​o​ ​p​r​i​m​a​r​y​ ​k​e​y​ ​—​ ​r​o​w​ ​e​d​i​t​s​ ​m​a​t​c​h​ ​o​n​ ​a​l​l​ ​c​o​l​u​m​n​s
+		 */
+		noPrimaryKeyHint: string
+		/**
+		 * D​e​l​e​t​e​ ​{​c​o​u​n​t​}​ ​r​o​w​(​s​)​?
+		 * @param {unknown} count
+		 */
+		confirmDeleteRows: RequiredParams<'count'>
+		/**
+		 * R​o​w​ ​u​p​d​a​t​e​d
+		 */
+		rowUpdated: string
+		/**
+		 * R​o​w​ ​i​n​s​e​r​t​e​d
+		 */
+		rowInserted: string
+		/**
+		 * {​c​o​u​n​t​}​ ​r​o​w​(​s​)​ ​d​e​l​e​t​e​d
+		 * @param {unknown} count
+		 */
+		rowsDeleted: RequiredParams<'count'>
+		/**
+		 * E​n​t​e​r​ ​a​t​ ​l​e​a​s​t​ ​o​n​e​ ​v​a​l​u​e
+		 */
+		noValues: string
+		/**
+		 * C​o​l​u​m​n​s
+		 */
+		structureColumns: string
+		/**
+		 * I​n​d​e​x​e​s
+		 */
+		structureIndexes: string
+		/**
+		 * F​o​r​e​i​g​n​ ​k​e​y​s
+		 */
+		structureForeignKeys: string
+		/**
+		 * N​a​m​e
+		 */
+		colName: string
+		/**
+		 * T​y​p​e
+		 */
+		colType: string
+		/**
+		 * N​u​l​l
+		 */
+		colNull: string
+		/**
+		 * D​e​f​a​u​l​t
+		 */
+		colDefault: string
+		/**
+		 * K​e​y
+		 */
+		colKey: string
+		/**
+		 * E​x​t​r​a
+		 */
+		colExtra: string
+		/**
+		 * C​o​l​u​m​n​s
+		 */
+		idxColumns: string
+		/**
+		 * U​n​i​q​u​e
+		 */
+		idxUnique: string
+		/**
+		 * P​r​i​m​a​r​y
+		 */
+		idxPrimary: string
+		/**
+		 * R​e​f​e​r​e​n​c​e​s
+		 */
+		fkRef: string
 	}
 	runbook: {
 		/**
@@ -10278,6 +10400,126 @@ export type TranslationFunctions = {
 		 * Create a connection profile to browse databases on the host or inside a Docker container.
 		 */
 		setupDesc: () => LocalizedString
+		/**
+		 * Data
+		 */
+		data: () => LocalizedString
+		/**
+		 * Structure
+		 */
+		structure: () => LocalizedString
+		/**
+		 * No tables
+		 */
+		noTables: () => LocalizedString
+		/**
+		 * No rows
+		 */
+		emptyTable: () => LocalizedString
+		/**
+		 * Add row
+		 */
+		addRow: () => LocalizedString
+		/**
+		 * Delete
+		 */
+		deleteSelected: () => LocalizedString
+		/**
+		 * Set NULL
+		 */
+		setNull: () => LocalizedString
+		/**
+		 * value
+		 */
+		filterValue: () => LocalizedString
+		/**
+		 * Filter
+		 */
+		addFilter: () => LocalizedString
+		/**
+		 * Apply
+		 */
+		applyFilters: () => LocalizedString
+		/**
+		 * Clear
+		 */
+		clearFilters: () => LocalizedString
+		/**
+		 * No primary key — row edits match on all columns
+		 */
+		noPrimaryKeyHint: () => LocalizedString
+		/**
+		 * Delete {count} row(s)?
+		 */
+		confirmDeleteRows: (arg: { count: unknown }) => LocalizedString
+		/**
+		 * Row updated
+		 */
+		rowUpdated: () => LocalizedString
+		/**
+		 * Row inserted
+		 */
+		rowInserted: () => LocalizedString
+		/**
+		 * {count} row(s) deleted
+		 */
+		rowsDeleted: (arg: { count: unknown }) => LocalizedString
+		/**
+		 * Enter at least one value
+		 */
+		noValues: () => LocalizedString
+		/**
+		 * Columns
+		 */
+		structureColumns: () => LocalizedString
+		/**
+		 * Indexes
+		 */
+		structureIndexes: () => LocalizedString
+		/**
+		 * Foreign keys
+		 */
+		structureForeignKeys: () => LocalizedString
+		/**
+		 * Name
+		 */
+		colName: () => LocalizedString
+		/**
+		 * Type
+		 */
+		colType: () => LocalizedString
+		/**
+		 * Null
+		 */
+		colNull: () => LocalizedString
+		/**
+		 * Default
+		 */
+		colDefault: () => LocalizedString
+		/**
+		 * Key
+		 */
+		colKey: () => LocalizedString
+		/**
+		 * Extra
+		 */
+		colExtra: () => LocalizedString
+		/**
+		 * Columns
+		 */
+		idxColumns: () => LocalizedString
+		/**
+		 * Unique
+		 */
+		idxUnique: () => LocalizedString
+		/**
+		 * Primary
+		 */
+		idxPrimary: () => LocalizedString
+		/**
+		 * References
+		 */
+		fkRef: () => LocalizedString
 	}
 	runbook: {
 		/**

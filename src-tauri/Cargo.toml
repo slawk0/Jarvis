@@ -32,3 +32,11 @@ parking_lot = "0.12"
 async-trait = "0.1"
 rfd = "0.15"
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+sqlx = { version = "0.8", default-features = false, features = [
+  "runtime-tokio", "tls-rustls", "mysql", "postgres",
+  "chrono", "rust_decimal", "uuid", "json"
+] }
+futures = "0.3"
+chrono = "0.4"
+rust_decimal = "1"
+uuid = "1"

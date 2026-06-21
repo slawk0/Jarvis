@@ -292,6 +292,21 @@ impl SshConnection {
         Ok(exit_status)
     }
 
+    /// Open a `direct-tcpip` channel that forwards a TCP connection from the
+    /// remote host to `target_host:target_port` (the SSH equivalent of `ssh -L`).
+    /// Used to tunnel native database driver connections (sqlx) through SSH.
+    pub async fn open_forward_channel(
+        &self,
+        target_host: &str,
+        target_port: u32,
+    ) -> Result<russh::Channel<russh::client::Msg>, AppError> {
+        let session = self.session.lock().await;
+        session
+            .channel_open_direct_tcpip(target_host, target_port, "127.0.0.1", 0)
+            .await
+            .map_err(|e| AppError::with_details("SSH_TUNNEL_OPEN_FAILED", e.to_string()))
+    }
+
     pub async fn get_stats(&self) -> Result<ServerStats, AppError> {
         let script = r#"
         echo "===HOST==="

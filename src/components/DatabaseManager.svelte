@@ -1,12 +1,13 @@
 <script lang="ts">
-  import { onMount, untrack } from 'svelte';
+  import { onMount, onDestroy, untrack } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { Database, Table, Play, Plug, PlugZap, Download, Server, ChevronRight, Terminal, Settings2, Save, Plus, Trash2, X, FileCode, RefreshCw, Container, HardDrive, Wand2 } from 'lucide-svelte';
+  import { Database, Table, Play, Plug, PlugZap, Download, Server, ChevronRight, Terminal, Settings2, Save, Plus, Trash2, X, FileCode, RefreshCw, Container, HardDrive, Wand2, Columns3, Pencil, Check, ChevronLeft, Filter as FilterIcon, Eye } from 'lucide-svelte';
   import { LL } from '$lib/i18n/i18n-svelte';
   import { get } from 'svelte/store';
   import { shQuote, listContainers } from '$lib/exec/target';
   import { notifications } from '$lib/notifications.svelte';
   import { formatInvokeError } from '$lib/i18n/backendErrors';
+  import { defaultPort, engineLabel, FILTER_OPS, type Engine } from '$lib/db/dialect';
 
   let { profileId = '', visible = true } = $props();
 
@@ -15,18 +16,59 @@
     if (profileId) loadProfiles();
   }
 
+  // ---------------------------------------------------------------------------
+  // Backend result shapes (camelCase, matching serde rename_all)
+  // ---------------------------------------------------------------------------
   interface QueryResult {
     columns: string[];
-    rows: string[][];
+    rows: (string | null)[][];
     message: string | null;
+    rowsAffected?: number | null;
+  }
+  interface SelectResult {
+    columns: string[];
+    rows: (string | null)[][];
+    total: number;
+  }
+  interface TableInfo {
+    name: string;
+    kind: string;
+  }
+  interface ColumnInfo {
+    name: string;
+    dataType: string;
+    nullable: boolean;
+    default: string | null;
+    key: string;
+    extra: string;
+    comment: string;
+  }
+  interface IndexInfo {
+    name: string;
+    columns: string[];
+    unique: boolean;
+    primary: boolean;
+  }
+  interface ForeignKeyInfo {
+    name: string;
+    column: string;
+    refTable: string;
+    refColumn: string;
+  }
+  interface TableStructure {
+    columns: ColumnInfo[];
+    indexes: IndexInfo[];
+    foreignKeys: ForeignKeyInfo[];
+    primaryKey: string[];
   }
 
-  type Engine = 'mysql' | 'postgres';
+  interface Filter {
+    column: string;
+    op: string;
+    value: string | null;
+  }
 
   // A saved connection profile. Stored per server profile in localStorage.
-  // Passwords are stored here as well so a saved profile can reconnect without
-  // re-entering them; for Docker containers the credentials are anyway
-  // recoverable from `docker inspect`.
   interface DbProfile {
     id: string;
     name: string;
@@ -37,10 +79,6 @@
     port: string;
     user: string;
     password: string;
-  }
-
-  function defaultPort(e: Engine) {
-    return e === 'mysql' ? '3306' : '5432';
   }
 
   // ---------------------------------------------------------------------------
@@ -81,19 +119,45 @@
   // ---------------------------------------------------------------------------
   // Connection / browsing state
   // ---------------------------------------------------------------------------
+  let connectionId = $state('');
   let connected = $state(false);
   let connecting = $state(false);
+  // The database a Postgres connection is currently bound to (PG cannot switch
+  // databases on a live connection; MySQL switches per query).
+  let pgDatabase = $state('');
 
   let databases = $state<string[]>([]);
   let selectedDb = $state('');
-  let tables = $state<string[]>([]);
+  let tables = $state<TableInfo[]>([]);
   let selectedTable = $state('');
+  let selectedKind = $state('table');
 
-  let mode = $state<'browse' | 'sql'>('browse');
-  let sqlText = $state('');
-  let result = $state<QueryResult | null>(null);
-  let running = $state(false);
+  let view = $state<'data' | 'structure' | 'sql'>('data');
+  let structure = $state<TableStructure | null>(null);
   let errorMsg = $state('');
+
+  // Data grid state
+  let dataColumns = $state<string[]>([]);
+  let dataRows = $state<(string | null)[][]>([]);
+  let total = $state(0);
+  let page = $state(0);
+  let pageSize = $state(50);
+  let orderBy = $state('');
+  let orderDir = $state<'asc' | 'desc'>('asc');
+  let filters = $state<Filter[]>([]);
+  let running = $state(false);
+
+  // Inline editing
+  let editRowIndex = $state<number | null>(null);
+  let editValues = $state<(string | null)[]>([]);
+  let inserting = $state(false);
+  let insertValues = $state<(string | null)[]>([]);
+  let selectedRows = $state<Set<number>>(new Set());
+
+  // SQL editor
+  let sqlText = $state('');
+  let sqlResult = $state<QueryResult | null>(null);
+  let sqlRunning = $state(false);
 
   $effect(() => {
     if (errorMsg) {
@@ -102,9 +166,10 @@
     }
   });
 
-  function quoteIdent(name: string): string {
-    return engine === 'mysql' ? `\`${name.replace(/`/g, '``')}\`` : `"${name.replace(/"/g, '""')}"`;
-  }
+  const pages = $derived(Math.max(1, Math.ceil(total / pageSize)));
+  const whereCols = $derived(
+    structure && structure.primaryKey.length ? structure.primaryKey : dataColumns,
+  );
 
   async function loadContainers() {
     loadingContainers = true;
@@ -178,13 +243,23 @@
       useDocker = false;
       container = '';
     }
-    // Reset browsing state when switching profiles.
+    resetBrowsing();
+  }
+
+  function resetBrowsing() {
+    if (connectionId) invoke('db_disconnect', { connectionId }).catch(() => {});
+    connectionId = '';
     connected = false;
     databases = [];
     selectedDb = '';
     tables = [];
     selectedTable = '';
-    result = null;
+    structure = null;
+    dataColumns = [];
+    dataRows = [];
+    total = 0;
+    sqlResult = null;
+    cancelEdit();
   }
 
   function openAddProfile() {
@@ -206,7 +281,7 @@
     profileFormName = p.name;
     profileFormEngine = p.engine;
     profileFormKind = p.kind;
-    profileFormContainer = p.kind === 'docker' ? p.container : (containers[0] || '');
+    profileFormContainer = p.kind === 'docker' ? p.container : containers[0] || '';
     profileFormHost = p.host;
     profileFormPort = p.port;
     profileFormUser = p.user;
@@ -215,11 +290,9 @@
 
   function onFormEngineChange(e: Engine) {
     profileFormEngine = e;
-    // Move the port to the engine default unless the user typed a custom one.
     if (profileFormPort === '3306' || profileFormPort === '5432' || !profileFormPort) {
       profileFormPort = defaultPort(e);
     }
-    // Postgres' canonical superuser is "postgres", MySQL's is "root".
     if (profileFormUser === 'root' || profileFormUser === 'postgres' || !profileFormUser) {
       profileFormUser = e === 'postgres' ? 'postgres' : 'root';
     }
@@ -273,7 +346,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Auto-detection: read engine + credentials from a container's environment.
+  // Auto-detection from a container's environment.
   // ---------------------------------------------------------------------------
   async function autoDetect() {
     if (!profileFormContainer) return;
@@ -317,7 +390,6 @@
       } else {
         profileFormEngine = 'mysql';
         profileFormPort = '3306';
-        // Prefer the root account so all databases are visible.
         const rootPw = env.MYSQL_ROOT_PASSWORD || env.MARIADB_ROOT_PASSWORD;
         if (rootPw !== undefined) {
           profileFormUser = 'root';
@@ -327,7 +399,6 @@
           profileFormPassword = env.MYSQL_PASSWORD || env.MARIADB_PASSWORD || '';
         }
       }
-      // The client runs inside the container via `docker exec`, so localhost.
       profileFormHost = '127.0.0.1';
       if (!profileFormName.trim()) profileFormName = profileFormContainer;
 
@@ -342,10 +413,10 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Querying
+  // Connection lifecycle (sqlx over an SSH tunnel)
   // ---------------------------------------------------------------------------
-  async function query(sql: string, database: string | null): Promise<QueryResult> {
-    return invoke<QueryResult>('db_query', {
+  async function doConnect(database: string | null): Promise<string> {
+    const res = await invoke<{ connectionId: string }>('db_connect', {
       engine,
       host,
       port,
@@ -353,62 +424,112 @@
       password,
       database,
       container: useDocker && container ? container : null,
-      sql,
     });
+    return res.connectionId;
   }
 
   async function connect() {
     connecting = true;
     errorMsg = '';
     try {
-      const listSql =
-        engine === 'mysql'
-          ? 'SHOW DATABASES'
-          : 'SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY 1';
-      const res = await query(listSql, engine === 'postgres' ? 'postgres' : null);
-      databases = res.rows.map((r) => r[0]).filter(Boolean);
+      const initialDb = engine === 'postgres' ? null : null;
+      connectionId = await doConnect(initialDb);
       connected = true;
+      pgDatabase = engine === 'postgres' ? 'postgres' : '';
+      databases = await invoke<string[]>('db_list_databases', { connectionId });
+      if (databases.length) await selectDatabase(databases[0]);
     } catch (err) {
       errorMsg = get(LL).database.connectFailed({ error: formatInvokeError(err) });
       connected = false;
+      connectionId = '';
     } finally {
       connecting = false;
     }
   }
 
-  function disconnect() {
+  async function disconnect() {
+    if (connectionId) await invoke('db_disconnect', { connectionId }).catch(() => {});
+    connectionId = '';
     connected = false;
     databases = [];
     selectedDb = '';
     tables = [];
     selectedTable = '';
-    result = null;
+    structure = null;
+    dataColumns = [];
+    dataRows = [];
+    total = 0;
+    sqlResult = null;
+    cancelEdit();
   }
 
   async function selectDatabase(db: string) {
     selectedDb = db;
     selectedTable = '';
-    result = null;
+    structure = null;
+    dataColumns = [];
+    dataRows = [];
+    total = 0;
+    cancelEdit();
     try {
-      const tablesSql =
-        engine === 'mysql'
-          ? 'SHOW TABLES'
-          : "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY 1";
-      const res = await query(tablesSql, db);
-      tables = res.rows.map((r) => r[0]).filter(Boolean);
+      // Postgres is bound to a single database; switching requires a reconnect.
+      if (engine === 'postgres' && db !== pgDatabase) {
+        if (connectionId) await invoke('db_disconnect', { connectionId }).catch(() => {});
+        connectionId = await doConnect(db);
+        pgDatabase = db;
+      }
+      tables = await invoke<TableInfo[]>('db_list_tables', { connectionId, database: db });
     } catch (err) {
       errorMsg = formatInvokeError(err);
       tables = [];
     }
   }
 
-  async function browseTable(table: string) {
-    selectedTable = table;
-    mode = 'browse';
-    running = true;
-    errorMsg = '';
+  async function openTable(t: TableInfo) {
+    selectedTable = t.name;
+    selectedKind = t.kind;
+    view = 'data';
+    page = 0;
+    orderBy = '';
+    orderDir = 'asc';
+    filters = [];
+    cancelEdit();
+    await loadStructure();
+    await loadData();
+  }
+
+  async function loadStructure() {
     try {
-      result = await query(`SELECT * FROM ${quoteIdent(table)} LIMIT 200`, selectedDb);
+      structure = await invoke<TableStructure>('db_table_structure', {
+        connectionId,
+        database: selectedDb,
+        table: selectedTable,
+      });
+    } catch (err) {
+      structure = null;
+      errorMsg = formatInvokeError(err);
+    }
+  }
+
+  async function loadData() {
+    if (!selectedTable) return;
+    running = true;
+    cancelEdit();
+    try {
+      const res = await invoke<SelectResult>('db_select', {
+        connectionId,
+        database: engine === 'mysql' ? selectedDb : null,
+        table: selectedTable,
+        filters: filters.filter((f) => f.column),
+        orderBy: orderBy || null,
+        orderDir,
+        limit: pageSize,
+        offset: page * pageSize,
+      });
+      dataColumns = res.columns;
+      dataRows = res.rows;
+      total = res.total;
+      selectedRows = new Set();
     } catch (err) {
       errorMsg = get(LL).database.queryError({ error: formatInvokeError(err) });
     } finally {
@@ -416,44 +537,199 @@
     }
   }
 
-  async function runSql() {
-    if (!sqlText.trim()) return;
-    if (!selectedDb) {
-      errorMsg = get(LL).database.selectDbFirst();
+  function toggleSort(col: string) {
+    if (orderBy === col) {
+      orderDir = orderDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      orderBy = col;
+      orderDir = 'asc';
+    }
+    page = 0;
+    loadData();
+  }
+
+  function gotoPage(p: number) {
+    page = Math.max(0, Math.min(pages - 1, p));
+    loadData();
+  }
+
+  function changePageSize(n: number) {
+    pageSize = n;
+    page = 0;
+    loadData();
+  }
+
+  // --- Filters ---------------------------------------------------------------
+  function addFilter() {
+    filters = [...filters, { column: dataColumns[0] || '', op: '=', value: '' }];
+  }
+  function removeFilter(i: number) {
+    filters = filters.filter((_, idx) => idx !== i);
+  }
+  function applyFilters() {
+    page = 0;
+    loadData();
+  }
+  function clearFilters() {
+    filters = [];
+    page = 0;
+    loadData();
+  }
+
+  // --- Inline editing --------------------------------------------------------
+  function startEdit(i: number) {
+    editRowIndex = i;
+    editValues = [...dataRows[i]];
+    inserting = false;
+  }
+  function cancelEdit() {
+    editRowIndex = null;
+    editValues = [];
+    inserting = false;
+    insertValues = [];
+  }
+  function setEditNull(c: number) {
+    editValues[c] = null;
+    editValues = [...editValues];
+  }
+
+  function pkCellsFor(rowIndex: number) {
+    return whereCols.map((col) => ({
+      column: col,
+      value: dataRows[rowIndex][dataColumns.indexOf(col)] ?? null,
+    }));
+  }
+
+  async function saveEdit() {
+    if (editRowIndex === null) return;
+    const values = dataColumns.map((col, c) => ({ column: col, value: editValues[c] }));
+    const pk = pkCellsFor(editRowIndex);
+    try {
+      await invoke('db_update_row', {
+        connectionId,
+        database: engine === 'mysql' ? selectedDb : null,
+        table: selectedTable,
+        values,
+        pk,
+      });
+      notifications.success(get(LL).database.rowUpdated());
+      cancelEdit();
+      await loadData();
+    } catch (err) {
+      notifications.error(get(LL).database.queryError({ error: formatInvokeError(err) }));
+    }
+  }
+
+  function startInsert() {
+    inserting = true;
+    editRowIndex = null;
+    insertValues = dataColumns.map(() => null);
+  }
+  function setInsertNull(c: number) {
+    insertValues[c] = null;
+    insertValues = [...insertValues];
+  }
+  async function saveInsert() {
+    // Omit cells left as NULL so column defaults / auto-increment apply.
+    const values = dataColumns
+      .map((col, c) => ({ column: col, value: insertValues[c] }))
+      .filter((cell) => cell.value !== null && cell.value !== undefined);
+    if (values.length === 0) {
+      notifications.warning(get(LL).database.noValues());
       return;
     }
-    running = true;
-    errorMsg = '';
     try {
-      result = await query(sqlText, selectedDb);
+      await invoke('db_insert_row', {
+        connectionId,
+        database: engine === 'mysql' ? selectedDb : null,
+        table: selectedTable,
+        values,
+      });
+      notifications.success(get(LL).database.rowInserted());
+      cancelEdit();
+      await loadData();
     } catch (err) {
-      errorMsg = get(LL).database.queryError({ error: formatInvokeError(err) });
-    } finally {
-      running = false;
+      notifications.error(get(LL).database.queryError({ error: formatInvokeError(err) }));
     }
   }
 
-  function exportCsv() {
-    if (!result || result.columns.length === 0) return;
-    const esc = (v: string) => `"${(v ?? '').replace(/"/g, '""')}"`;
-    const lines = [result.columns.map(esc).join(',')];
-    for (const row of result.rows) lines.push(row.map(esc).join(','));
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  function toggleRowSelect(i: number) {
+    const s = new Set(selectedRows);
+    if (s.has(i)) s.delete(i);
+    else s.add(i);
+    selectedRows = s;
+  }
+  function toggleSelectAll() {
+    if (selectedRows.size === dataRows.length) selectedRows = new Set();
+    else selectedRows = new Set(dataRows.map((_, i) => i));
+  }
+
+  async function deleteSelected() {
+    if (selectedRows.size === 0) return;
+    if (!confirm(get(LL).database.confirmDeleteRows({ count: selectedRows.size }))) return;
+    const rows = [...selectedRows].map((i) => pkCellsFor(i));
+    try {
+      await invoke('db_delete_rows', {
+        connectionId,
+        database: engine === 'mysql' ? selectedDb : null,
+        table: selectedTable,
+        rows,
+      });
+      notifications.success(get(LL).database.rowsDeleted({ count: rows.length }));
+      await loadData();
+    } catch (err) {
+      notifications.error(get(LL).database.queryError({ error: formatInvokeError(err) }));
+    }
+  }
+
+  // --- SQL editor ------------------------------------------------------------
+  async function runSql() {
+    if (!sqlText.trim()) return;
+    sqlRunning = true;
+    errorMsg = '';
+    try {
+      sqlResult = await invoke<QueryResult>('db_query', {
+        connectionId,
+        database: engine === 'mysql' ? selectedDb || null : null,
+        sql: sqlText,
+      });
+    } catch (err) {
+      errorMsg = get(LL).database.queryError({ error: formatInvokeError(err) });
+    } finally {
+      sqlRunning = false;
+    }
+  }
+
+  // --- Export ----------------------------------------------------------------
+  function download(name: string, content: string, mime: string) {
+    const blob = new Blob([content], { type: mime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${selectedTable || 'query'}.csv`;
+    a.download = name;
     a.click();
     URL.revokeObjectURL(url);
   }
+  function exportCsv(cols: string[], rows: (string | null)[][], base: string) {
+    const esc = (v: string | null) => `"${(v ?? '').replace(/"/g, '""')}"`;
+    const lines = [cols.map((c) => esc(c)).join(',')];
+    for (const row of rows) lines.push(row.map(esc).join(','));
+    download(`${base}.csv`, lines.join('\n'), 'text/csv');
+  }
+  function exportJson(cols: string[], rows: (string | null)[][], base: string) {
+    const objs = rows.map((row) => Object.fromEntries(cols.map((c, i) => [c, row[i]])));
+    download(`${base}.json`, JSON.stringify(objs, null, 2), 'application/json');
+  }
 
-  const sourceLabel = $derived(
-    useDocker ? container : get(LL).database.sourceHost(),
-  );
+  const sourceLabel = $derived(useDocker ? container : get(LL).database.sourceHost());
 
   onMount(async () => {
     await loadContainers();
     if (profileId) loadProfiles();
+  });
+
+  onDestroy(() => {
+    if (connectionId) invoke('db_disconnect', { connectionId }).catch(() => {});
   });
 
   $effect(() => {
@@ -470,7 +746,7 @@
           <span class="ps-label">{$LL.database.activeProfile()}:</span>
           <select bind:value={activeProfileId} class="profile-select" onchange={handleProfileChange}>
             {#each profiles as p}
-              <option value={p.id}>{p.name} ({p.engine === 'postgres' ? 'PostgreSQL' : 'MySQL'} · {p.kind === 'host' ? $LL.database.sourceHost() : p.container})</option>
+              <option value={p.id}>{p.name} ({engineLabel(p.engine)} · {p.kind === 'host' ? $LL.database.sourceHost() : p.container})</option>
             {/each}
           </select>
           <button class="icon-btn-compact" onclick={() => (showProfilesModal = true)} title={$LL.database.manageProfiles()}>
@@ -490,9 +766,7 @@
           <h2>{$LL.database.setupTitle()}</h2>
           <p>{$LL.database.setupDesc()}</p>
         </div>
-
         {@render profileForm()}
-
         <div class="setup-actions">
           <button class="primary" onclick={saveProfileForm} disabled={!profileFormName.trim()}>
             <Save size={14} /> {$LL.database.saveProfile()}
@@ -505,7 +779,7 @@
     <div class="conn-bar glass">
       <span class="engine-badge">
         {#if useDocker}<Container size={13} />{:else}<HardDrive size={13} />{/if}
-        {engine === 'postgres' ? 'PostgreSQL' : 'MySQL'}
+        {engineLabel(engine)}
       </span>
       <span class="conn-detail mono">{user}@{sourceLabel}:{port}</span>
       <div class="conn-spacer"></div>
@@ -538,10 +812,11 @@
               <div class="sb-title"><Table size={13} /> {$LL.database.tables()} ({tables.length})</div>
               <div class="sb-list">
                 {#each tables as t}
-                  <button class="sb-item" class:active={selectedTable === t} onclick={() => browseTable(t)}>
-                    <ChevronRight size={11} /> {t}
+                  <button class="sb-item" class:active={selectedTable === t.name} onclick={() => openTable(t)}>
+                    {#if t.kind === 'view'}<Eye size={11} />{:else}<ChevronRight size={11} />{/if} {t.name}
                   </button>
                 {/each}
+                {#if tables.length === 0}<span class="sb-empty">{$LL.database.noTables()}</span>{/if}
               </div>
             </div>
           {/if}
@@ -549,46 +824,219 @@
 
         <main class="db-main">
           <div class="main-tabs">
-            <button class="mtab" class:active={mode === 'browse'} onclick={() => (mode = 'browse')}><Table size={13} /> {$LL.database.browse()}</button>
-            <button class="mtab" class:active={mode === 'sql'} onclick={() => (mode = 'sql')}><Terminal size={13} /> {$LL.database.sqlEditor()}</button>
-            <div class="mtab-spacer"></div>
-            {#if result && result.columns.length}
-              <button class="secondary btn-compact" onclick={exportCsv}><Download size={13} /> {$LL.database.exportCsv()}</button>
-            {/if}
+            <button class="mtab" class:active={view === 'data'} disabled={!selectedTable} onclick={() => (view = 'data')}><Table size={13} /> {$LL.database.data()}</button>
+            <button class="mtab" class:active={view === 'structure'} disabled={!selectedTable} onclick={() => (view = 'structure')}><Columns3 size={13} /> {$LL.database.structure()}</button>
+            <button class="mtab" class:active={view === 'sql'} onclick={() => (view = 'sql')}><Terminal size={13} /> {$LL.database.sqlEditor()}</button>
           </div>
 
-          {#if mode === 'sql'}
-            <div class="sql-box">
-              <textarea class="sql-area" bind:value={sqlText} placeholder={selectedDb ? `SELECT * FROM ... ` : $LL.database.selectDbFirst()} spellcheck="false"></textarea>
-              <button class="primary btn-compact run-btn" disabled={running} onclick={runSql}><Play size={14} /> {running ? $LL.database.running() : $LL.database.runQuery()}</button>
-            </div>
-          {/if}
-
-          <div class="result-area glass">
-            {#if running}
-              <div class="result-empty">{$LL.common.loading()}</div>
-            {:else if !result}
+          <!-- ============================ DATA ============================ -->
+          {#if view === 'data'}
+            {#if !selectedTable}
               <div class="result-empty"><Database size={22} /> {$LL.database.pickHint()}</div>
-            {:else if result.message}
-              <div class="result-msg">{result.message}</div>
-            {:else if result.columns.length === 0}
-              <div class="result-empty">{$LL.database.noResults()}</div>
             {:else}
-              <div class="result-meta">{$LL.database.rows({ count: result.rows.length })}</div>
-              <div class="grid-scroll">
-                <table>
-                  <thead>
-                    <tr>{#each result.columns as col}<th>{col}</th>{/each}</tr>
-                  </thead>
-                  <tbody>
-                    {#each result.rows as row}
-                      <tr>{#each row as cell}<td title={cell}>{cell}</td>{/each}</tr>
-                    {/each}
-                  </tbody>
-                </table>
+              <div class="data-toolbar">
+                <button class="secondary btn-compact" onclick={loadData} title={$LL.common.refresh()}><RefreshCw size={13} class={running ? 'spin' : ''} /></button>
+                <button class="secondary btn-compact" onclick={startInsert} disabled={selectedKind === 'view'}><Plus size={13} /> {$LL.database.addRow()}</button>
+                <button class="secondary btn-compact danger" onclick={deleteSelected} disabled={selectedRows.size === 0 || selectedKind === 'view'}><Trash2 size={13} /> {$LL.database.deleteSelected()} {selectedRows.size > 0 ? `(${selectedRows.size})` : ''}</button>
+                <div class="mtab-spacer"></div>
+                <button class="secondary btn-compact" onclick={() => exportCsv(dataColumns, dataRows, selectedTable)}><Download size={13} /> CSV</button>
+                <button class="secondary btn-compact" onclick={() => exportJson(dataColumns, dataRows, selectedTable)}><Download size={13} /> JSON</button>
+              </div>
+
+              <!-- Filters -->
+              <div class="filter-bar">
+                <FilterIcon size={13} class="filter-icon" />
+                {#each filters as f, i}
+                  <div class="filter-row">
+                    <select bind:value={f.column} class="flt-col">
+                      {#each dataColumns as c}<option value={c}>{c}</option>{/each}
+                    </select>
+                    <select bind:value={f.op} class="flt-op">
+                      {#each FILTER_OPS as op}<option value={op}>{op}</option>{/each}
+                    </select>
+                    <input class="flt-val mono" bind:value={f.value} placeholder={$LL.database.filterValue()} />
+                    <button class="icon-btn-compact" onclick={() => removeFilter(i)}><X size={12} /></button>
+                  </div>
+                {/each}
+                <button class="secondary btn-compact" onclick={addFilter}><Plus size={12} /> {$LL.database.addFilter()}</button>
+                {#if filters.length > 0}
+                  <button class="primary btn-compact" onclick={applyFilters}><Check size={12} /> {$LL.database.applyFilters()}</button>
+                  <button class="secondary btn-compact" onclick={clearFilters}>{$LL.database.clearFilters()}</button>
+                {/if}
+              </div>
+
+              <div class="result-area glass">
+                {#if running}
+                  <div class="result-empty">{$LL.common.loading()}</div>
+                {:else}
+                  <div class="grid-scroll">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th class="sel-col"><input type="checkbox" checked={selectedRows.size === dataRows.length && dataRows.length > 0} onchange={toggleSelectAll} /></th>
+                          <th class="act-col"></th>
+                          {#each dataColumns as col}
+                            <th class="sortable" onclick={() => toggleSort(col)}>
+                              {col}{#if orderBy === col}<span class="sort-ind">{orderDir === 'asc' ? '▲' : '▼'}</span>{/if}
+                            </th>
+                          {/each}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {#if inserting}
+                          <tr class="edit-row">
+                            <td class="sel-col"></td>
+                            <td class="act-col">
+                              <button class="row-btn ok" onclick={saveInsert} title={$LL.common.save()}><Check size={13} /></button>
+                              <button class="row-btn" onclick={cancelEdit} title={$LL.common.cancel()}><X size={13} /></button>
+                            </td>
+                            {#each dataColumns as _col, c}
+                              <td>
+                                <div class="cell-edit">
+                                  <input class="cell-input mono" value={insertValues[c] ?? ''} oninput={(e) => (insertValues[c] = e.currentTarget.value)} placeholder={insertValues[c] === null ? 'NULL' : ''} />
+                                  <button class="null-btn" class:on={insertValues[c] === null} onclick={() => setInsertNull(c)} title={$LL.database.setNull()}>∅</button>
+                                </div>
+                              </td>
+                            {/each}
+                          </tr>
+                        {/if}
+                        {#each dataRows as row, i}
+                          {#if editRowIndex === i}
+                            <tr class="edit-row">
+                              <td class="sel-col"></td>
+                              <td class="act-col">
+                                <button class="row-btn ok" onclick={saveEdit} title={$LL.common.save()}><Check size={13} /></button>
+                                <button class="row-btn" onclick={cancelEdit} title={$LL.common.cancel()}><X size={13} /></button>
+                              </td>
+                              {#each dataColumns as _col, c}
+                                <td>
+                                  <div class="cell-edit">
+                                    <input class="cell-input mono" value={editValues[c] ?? ''} oninput={(e) => (editValues[c] = e.currentTarget.value)} placeholder={editValues[c] === null ? 'NULL' : ''} />
+                                    <button class="null-btn" class:on={editValues[c] === null} onclick={() => setEditNull(c)} title={$LL.database.setNull()}>∅</button>
+                                  </div>
+                                </td>
+                              {/each}
+                            </tr>
+                          {:else}
+                            <tr class:selected={selectedRows.has(i)}>
+                              <td class="sel-col"><input type="checkbox" checked={selectedRows.has(i)} onchange={() => toggleRowSelect(i)} /></td>
+                              <td class="act-col">
+                                <button class="row-btn" onclick={() => startEdit(i)} disabled={selectedKind === 'view'} title={$LL.common.edit()}><Pencil size={12} /></button>
+                              </td>
+                              {#each row as cell}
+                                <td title={cell ?? 'NULL'}>{#if cell === null}<span class="null-cell">NULL</span>{:else}{cell}{/if}</td>
+                              {/each}
+                            </tr>
+                          {/if}
+                        {/each}
+                      </tbody>
+                    </table>
+                    {#if dataRows.length === 0 && !inserting}<div class="result-empty">{$LL.database.emptyTable()}</div>{/if}
+                  </div>
+                  <div class="pager">
+                    <span class="pager-info">{$LL.database.rows({ count: total })}</span>
+                    {#if structure && structure.primaryKey.length === 0}<span class="pk-warn">{$LL.database.noPrimaryKeyHint()}</span>{/if}
+                    <div class="mtab-spacer"></div>
+                    <select class="page-size" value={pageSize} onchange={(e) => changePageSize(Number(e.currentTarget.value))}>
+                      {#each [10, 25, 50, 100, 200] as n}<option value={n}>{n}</option>{/each}
+                    </select>
+                    <button class="icon-btn-compact" disabled={page <= 0} onclick={() => gotoPage(page - 1)}><ChevronLeft size={14} /></button>
+                    <span class="pager-info">{page + 1} / {pages}</span>
+                    <button class="icon-btn-compact" disabled={page >= pages - 1} onclick={() => gotoPage(page + 1)}><ChevronRight size={14} /></button>
+                  </div>
+                {/if}
               </div>
             {/if}
-          </div>
+
+          <!-- ========================== STRUCTURE ========================== -->
+          {:else if view === 'structure'}
+            {#if structure}
+              <div class="result-area glass struct-area">
+                <h4 class="struct-h">{$LL.database.structureColumns()}</h4>
+                <div class="grid-scroll struct-grid">
+                  <table>
+                    <thead><tr><th>{$LL.database.colName()}</th><th>{$LL.database.colType()}</th><th>{$LL.database.colNull()}</th><th>{$LL.database.colDefault()}</th><th>{$LL.database.colKey()}</th><th>{$LL.database.colExtra()}</th></tr></thead>
+                    <tbody>
+                      {#each structure.columns as c}
+                        <tr>
+                          <td class="mono">{c.name}</td>
+                          <td class="mono">{c.dataType}</td>
+                          <td>{c.nullable ? 'YES' : 'NO'}</td>
+                          <td class="mono">{c.default ?? ''}</td>
+                          <td>{c.key}</td>
+                          <td>{c.extra}</td>
+                        </tr>
+                      {/each}
+                    </tbody>
+                  </table>
+                </div>
+
+                {#if structure.indexes.length}
+                  <h4 class="struct-h">{$LL.database.structureIndexes()}</h4>
+                  <div class="grid-scroll struct-grid">
+                    <table>
+                      <thead><tr><th>{$LL.database.colName()}</th><th>{$LL.database.idxColumns()}</th><th>{$LL.database.idxUnique()}</th><th>{$LL.database.idxPrimary()}</th></tr></thead>
+                      <tbody>
+                        {#each structure.indexes as ix}
+                          <tr><td class="mono">{ix.name}</td><td class="mono">{ix.columns.join(', ')}</td><td>{ix.unique ? '✓' : ''}</td><td>{ix.primary ? '✓' : ''}</td></tr>
+                        {/each}
+                      </tbody>
+                    </table>
+                  </div>
+                {/if}
+
+                {#if structure.foreignKeys.length}
+                  <h4 class="struct-h">{$LL.database.structureForeignKeys()}</h4>
+                  <div class="grid-scroll struct-grid">
+                    <table>
+                      <thead><tr><th>{$LL.database.colName()}</th><th>{$LL.database.colName()}</th><th>{$LL.database.fkRef()}</th></tr></thead>
+                      <tbody>
+                        {#each structure.foreignKeys as fk}
+                          <tr><td class="mono">{fk.name}</td><td class="mono">{fk.column}</td><td class="mono">{fk.refTable}.{fk.refColumn}</td></tr>
+                        {/each}
+                      </tbody>
+                    </table>
+                  </div>
+                {/if}
+              </div>
+            {:else}
+              <div class="result-empty">{$LL.database.pickHint()}</div>
+            {/if}
+
+          <!-- ============================= SQL ============================= -->
+          {:else}
+            <div class="sql-box">
+              <textarea class="sql-area" bind:value={sqlText} placeholder={`SELECT * FROM ...`} spellcheck="false"></textarea>
+              <div class="sql-actions">
+                <button class="primary btn-compact" disabled={sqlRunning} onclick={runSql}><Play size={14} /> {sqlRunning ? $LL.database.running() : $LL.database.runQuery()}</button>
+                {#if sqlResult && sqlResult.columns.length}
+                  <button class="secondary btn-compact" onclick={() => exportCsv(sqlResult!.columns, sqlResult!.rows, 'query')}><Download size={13} /> CSV</button>
+                  <button class="secondary btn-compact" onclick={() => exportJson(sqlResult!.columns, sqlResult!.rows, 'query')}><Download size={13} /> JSON</button>
+                {/if}
+              </div>
+            </div>
+            <div class="result-area glass">
+              {#if sqlRunning}
+                <div class="result-empty">{$LL.common.loading()}</div>
+              {:else if !sqlResult}
+                <div class="result-empty"><Terminal size={22} /> {$LL.database.pickHint()}</div>
+              {:else if sqlResult.columns.length === 0}
+                <div class="result-msg">{sqlResult.message}</div>
+              {:else}
+                <div class="result-meta">{$LL.database.rows({ count: sqlResult.rows.length })}</div>
+                <div class="grid-scroll">
+                  <table>
+                    <thead><tr>{#each sqlResult.columns as col}<th>{col}</th>{/each}</tr></thead>
+                    <tbody>
+                      {#each sqlResult.rows as row}
+                        <tr>{#each row as cell}<td title={cell ?? 'NULL'}>{#if cell === null}<span class="null-cell">NULL</span>{:else}{cell}{/if}</td>{/each}</tr>
+                      {/each}
+                    </tbody>
+                  </table>
+                </div>
+              {/if}
+            </div>
+          {/if}
         </main>
       </div>
     {:else}
@@ -614,7 +1062,7 @@
               <div class="profile-item glass" class:active={p.id === activeProfileId}>
                 <div class="profile-details">
                   <span class="profile-title">{p.name}</span>
-                  <span class="profile-subtitle mono">{p.engine === 'postgres' ? 'PostgreSQL' : 'MySQL'} · {p.kind === 'host' ? $LL.database.sourceHost() : p.container}</span>
+                  <span class="profile-subtitle mono">{engineLabel(p.engine)} · {p.kind === 'host' ? $LL.database.sourceHost() : p.container}</span>
                 </div>
                 <div class="profile-actions">
                   <button class="row-btn" onclick={() => openEditProfile(p)} title={$LL.common.edit()}><FileCode size={13} /></button>
@@ -733,6 +1181,7 @@
   .db-sidebar { width: 230px; flex-shrink: 0; overflow-y: auto; padding: 10px; border-radius: var(--radius-md); display: flex; flex-direction: column; gap: 14px; }
   .sb-title { display: flex; align-items: center; gap: 6px; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 6px; }
   .sb-list { display: flex; flex-direction: column; gap: 2px; }
+  .sb-empty { font-size: 0.74rem; color: var(--text-muted); padding: 4px 8px; }
   .sb-item { display: flex; align-items: center; gap: 6px; background: transparent; border: none; color: var(--text-secondary); padding: 5px 8px; border-radius: var(--radius-sm); cursor: pointer; font-size: 0.78rem; text-align: left; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); }
   .sb-item:hover { background: var(--bg-hover); color: var(--text-primary); }
   .sb-item.active { background: var(--bg-active); color: var(--accent-amber); }
@@ -740,10 +1189,19 @@
   .main-tabs { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
   .mtab { display: flex; align-items: center; gap: 6px; background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); padding: 6px 12px; font-size: 0.78rem; border-radius: var(--radius-sm); cursor: pointer; }
   .mtab.active { background: var(--bg-active); color: var(--accent-amber); border-color: rgba(245,158,11,0.25); }
+  .mtab:disabled { opacity: 0.4; cursor: not-allowed; }
   .mtab-spacer { flex: 1; }
+
+  .data-toolbar { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+  .filter-bar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; flex-shrink: 0; }
+  :global(.filter-bar .filter-icon) { color: var(--text-muted); }
+  .filter-row { display: flex; gap: 4px; align-items: center; }
+  .flt-col, .flt-op, .flt-val { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); padding: 4px 6px; font-size: 0.76rem; }
+  .flt-val { width: 140px; }
+
   .sql-box { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
   .sql-area { min-height: 120px; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 10px; color: var(--text-primary); font-family: var(--font-mono); font-size: 0.8rem; resize: vertical; }
-  .run-btn { align-self: flex-start; }
+  .sql-actions { display: flex; gap: 6px; }
   .result-area { flex: 1; overflow: hidden; border-radius: var(--radius-md); display: flex; flex-direction: column; }
   .result-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--text-muted); padding: 30px; }
   .result-msg { padding: 16px; color: var(--accent-green); font-family: var(--font-mono); font-size: 0.85rem; }
@@ -753,8 +1211,32 @@
   th, td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--border-color); border-right: 1px solid var(--border-color); white-space: nowrap; max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
   th { color: var(--text-muted); font-weight: 600; position: sticky; top: 0; background: var(--bg-secondary); font-family: var(--font-mono); }
   td { color: var(--text-secondary); font-family: var(--font-mono); }
+  th.sortable { cursor: pointer; user-select: none; }
+  th.sortable:hover { color: var(--accent-amber); }
+  .sort-ind { margin-left: 4px; font-size: 0.6rem; }
+  .sel-col, .act-col { width: 1%; white-space: nowrap; }
+  .act-col { min-width: 56px; }
+  tr.selected td { background: rgba(245,158,11,0.08); }
+  tr.edit-row td { background: var(--bg-active); }
+  .null-cell { color: var(--text-muted); font-style: italic; opacity: 0.6; }
+  .cell-edit { display: flex; gap: 2px; align-items: center; }
+  .cell-input { background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 3px; color: var(--text-primary); padding: 3px 5px; font-size: 0.74rem; width: 160px; }
+  .null-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; padding: 2px 5px; font-size: 0.7rem; }
+  .null-btn.on { color: var(--accent-amber); border-color: rgba(245,158,11,0.4); }
+  .row-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); border-radius: var(--radius-sm); padding: 4px 6px; cursor: pointer; }
+  .row-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .row-btn.ok:hover { color: var(--accent-green); }
+  .row-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
-  /* Setup view */
+  .pager { display: flex; gap: 8px; align-items: center; padding: 8px 10px; border-top: 1px solid var(--border-color); flex-shrink: 0; }
+  .pager-info { font-size: 0.74rem; color: var(--text-muted); }
+  .pk-warn { font-size: 0.7rem; color: var(--accent-red); }
+  .page-size { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); padding: 3px 6px; font-size: 0.74rem; }
+
+  .struct-area { overflow-y: auto; padding: 12px; gap: 8px; }
+  .struct-h { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin: 8px 0 4px; }
+  .struct-grid { max-height: none; border: 1px solid var(--border-color); border-radius: var(--radius-sm); }
+
   .setup-container { display: flex; align-items: center; justify-content: center; padding: 40px 20px; min-height: 70vh; }
   .setup-card { width: 480px; max-width: 94vw; padding: 30px; border-radius: var(--radius-lg); display: flex; flex-direction: column; gap: 16px; box-shadow: var(--shadow-md); }
   .setup-header { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 10px; }
@@ -763,7 +1245,6 @@
   :global(.setup-header .accent) { color: var(--accent-amber); }
   .setup-actions { margin-top: 10px; display: flex; justify-content: flex-end; }
 
-  /* Form */
   .seg { display: flex; gap: 6px; }
   .seg-btn { flex: 1; background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); padding: 8px 10px; font-size: 0.78rem; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.15s ease; }
   .seg-btn:hover { background: var(--bg-hover); }
@@ -780,7 +1261,6 @@
   .form-group.grow { flex: 1; }
   .form-group.port-col { width: 110px; flex-shrink: 0; }
 
-  /* Profiles modal */
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
   .modal-content { background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow-lg); display: flex; flex-direction: column; }
   .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
@@ -795,9 +1275,8 @@
   .profile-subtitle { font-size: 0.7rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .profile-actions { display: flex; gap: 6px; flex-shrink: 0; }
   .profile-form-section { border-radius: var(--radius-md); border: 1px solid var(--border-color); }
-  .row-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); border-radius: var(--radius-sm); padding: 6px 8px; cursor: pointer; }
-  .row-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
   .row-btn.danger:hover { color: var(--accent-red); border-color: rgba(239,68,68,0.3); }
+  .btn-compact.danger:hover { color: var(--accent-red); }
 
   .form-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
   .form-group label { font-size: 0.78rem; color: var(--text-secondary); }

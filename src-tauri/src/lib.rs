@@ -5,7 +5,8 @@ mod du_size;
 mod sftp_find;
 mod pangolin;
 mod profile_extras;
-mod database;
+mod ssh_tunnel;
+mod db;
 
 use app_error::AppError;
 use parking_lot::Mutex;
@@ -62,6 +63,7 @@ pub struct AppState {
     pub docker_compose_cancel: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
     pub sftp_transfer_cancel: Arc<AtomicBool>,
     pub sftp_transfer_running: Arc<AtomicBool>,
+    pub db_connections: Arc<Mutex<HashMap<String, db::DbConnection>>>,
 }
 
 fn stop_terminal_sessions(state: &AppState) {
@@ -1892,6 +1894,7 @@ pub fn run() {
             docker_compose_cancel: Arc::new(Mutex::new(None)),
             sftp_transfer_cancel: Arc::new(AtomicBool::new(false)),
             sftp_transfer_running: Arc::new(AtomicBool::new(false)),
+            db_connections: Arc::new(Mutex::new(HashMap::new())),
         })
         .setup(|app| {
             // Intercept close → hide to tray instead of quitting
@@ -1996,7 +1999,17 @@ pub fn run() {
             pangolin::pangolin_api_request,
             profile_extras::get_profile_extras,
             profile_extras::save_profile_extras,
-            database::db_query,
+            db::db_connect,
+            db::db_disconnect,
+            db::db_query,
+            db::db_exec_sql,
+            db::introspect::db_list_databases,
+            db::introspect::db_list_tables,
+            db::introspect::db_table_structure,
+            db::introspect::db_select,
+            db::crud::db_insert_row,
+            db::crud::db_update_row,
+            db::crud::db_delete_rows,
             secure_create_user,
             secure_delete_user,
             secure_change_password,
