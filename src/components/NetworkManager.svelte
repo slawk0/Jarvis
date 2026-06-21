@@ -4,8 +4,7 @@
   import { Network, Globe, ArrowRightLeft } from 'lucide-svelte';
   import SortableTh from './ui/SortableTh.svelte';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
-  import { LL } from '$lib/i18n/i18n-svelte';
-  import { formatInvokeError } from '$lib/i18n/backendErrors';
+    import { formatInvokeError } from '$lib/backendErrors';
   import { notifications } from '$lib/notifications.svelte';
 
   let { visible = true } = $props();
@@ -102,15 +101,15 @@
 
 <div class="network manager-shell fade-in">
   <header class="manager-header">
-    <h1 class="page-title">{$LL.network.title()}</h1>
+    <h1 class="page-title">Network & ports</h1>
   </header>
 
   <div class="sub-tabs">
     <button class="sub-tab {activeSubTab === 'listening' ? 'active' : ''}" onclick={() => (activeSubTab = 'listening')}>
-      <Network size={14} /> {$LL.network.listening({ count: listening.length })}
+      <Network size={14} /> {`Listening (${listening.length})`}
     </button>
     <button class="sub-tab {activeSubTab === 'connections' ? 'active' : ''}" onclick={() => (activeSubTab = 'connections')}>
-      <ArrowRightLeft size={14} /> {$LL.network.connections({ count: connections.length })}
+      <ArrowRightLeft size={14} /> {`Connections (${connections.length})`}
     </button>
   </div>
 
@@ -119,9 +118,9 @@
       <table>
         <thead>
           <tr>
-            <SortableTh label={$LL.network.protocol()} column="proto" activeColumn={listenSort.column} direction={listenSort.direction} onsort={(c) => { listenSort = nextSort(listenSort, c as ListenSortCol); }} />
-            <SortableTh label={$LL.network.localAddress()} column="local" activeColumn={listenSort.column} direction={listenSort.direction} onsort={(c) => { listenSort = nextSort(listenSort, c as ListenSortCol); }} />
-            <SortableTh label={$LL.network.process()} column="process" activeColumn={listenSort.column} direction={listenSort.direction} onsort={(c) => { listenSort = nextSort(listenSort, c as ListenSortCol); }} />
+            <SortableTh label="Protocol" column="proto" activeColumn={listenSort.column} direction={listenSort.direction} onsort={(c) => { listenSort = nextSort(listenSort, c as ListenSortCol); }} />
+            <SortableTh label="Local address" column="local" activeColumn={listenSort.column} direction={listenSort.direction} onsort={(c) => { listenSort = nextSort(listenSort, c as ListenSortCol); }} />
+            <SortableTh label="Process" column="process" activeColumn={listenSort.column} direction={listenSort.direction} onsort={(c) => { listenSort = nextSort(listenSort, c as ListenSortCol); }} />
           </tr>
         </thead>
         <tbody>
@@ -138,9 +137,9 @@
       <table>
         <thead>
           <tr>
-            <SortableTh label={$LL.network.state()} column="state" activeColumn={connSort.column} direction={connSort.direction} onsort={(c) => { connSort = nextSort(connSort, c as ConnSortCol); }} />
-            <SortableTh label={$LL.network.local()} column="local" activeColumn={connSort.column} direction={connSort.direction} onsort={(c) => { connSort = nextSort(connSort, c as ConnSortCol); }} />
-            <SortableTh label={$LL.network.remote()} column="remote" activeColumn={connSort.column} direction={connSort.direction} onsort={(c) => { connSort = nextSort(connSort, c as ConnSortCol); }} />
+            <SortableTh label="State" column="state" activeColumn={connSort.column} direction={connSort.direction} onsort={(c) => { connSort = nextSort(connSort, c as ConnSortCol); }} />
+            <SortableTh label="Local" column="local" activeColumn={connSort.column} direction={connSort.direction} onsort={(c) => { connSort = nextSort(connSort, c as ConnSortCol); }} />
+            <SortableTh label="Remote" column="remote" activeColumn={connSort.column} direction={connSort.direction} onsort={(c) => { connSort = nextSort(connSort, c as ConnSortCol); }} />
           </tr>
         </thead>
         <tbody>
@@ -158,7 +157,7 @@
 
   <div class="hint glass">
     <Globe size={14} />
-    <span>{$LL.network.hint()}</span>
+    <span>Docker and nginx ports appear in the process column. Compare with UFW rules in the Firewall tab.</span>
   </div>
 </div>
 

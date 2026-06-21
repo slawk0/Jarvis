@@ -9,12 +9,11 @@
   import type { BackupTemplate, ProfileExtras } from '$lib/admin/types';
   import { DEFAULT_PROFILE_EXTRAS } from '$lib/admin/types';
   import { get } from 'svelte/store';
-  import { LL } from '$lib/i18n/i18n-svelte';
-  import { notifications } from '$lib/notifications.svelte';
+    import { notifications } from '$lib/notifications.svelte';
   import {
     formatInvokeError,
     isSudoPasswordRequired,
-  } from '$lib/i18n/backendErrors';
+  } from '$lib/backendErrors';
 
   let { profileId = '', visible = true } = $props();
 
@@ -127,7 +126,7 @@
 
   async function saveTemplate() {
     if (!formName.trim()) {
-      alert(get(LL).backup.alertTemplateName());
+      alert("Enter template name");
       return;
     }
     const tpl: BackupTemplate = {
@@ -160,7 +159,7 @@
   }
 
   async function deleteTemplate(id: string) {
-    if (!confirm(get(LL).backup.confirmDeleteTemplate())) return;
+    if (!confirm("Delete backup template?")) return;
     extras.backup_templates = extras.backup_templates.filter((t) => t.id !== id);
     await saveExtras();
   }
@@ -229,10 +228,9 @@
 
     await withSudo(async () => {
       try {
-        const ll = get(LL);
         const cmd = buildBackupCmd(t, remotePath);
         const out = await exec(cmd, isFiles);
-        let msg = String(ll.backup.createdOnServer({ path: remotePath, output: out }));
+        let msg = `Backup successfully created on server at "${remotePath}".\nOutput:\n${out}`;
 
         // Ensure the SSH user can read the dump (it may be root-owned for files).
         if (isFiles) await exec(`chmod 644 ${remotePath}`, true).catch(() => {});
@@ -242,13 +240,13 @@
             remotePaths: [remotePath],
             localDir: null,
           });
-          msg += `\n\n${String(ll.backup.downloading({ count }))}`;
+          msg += `\n\nStarted downloading ${count} file(s).`;
         } else {
           const pushOut = await exec(buildRclonePush(t, remotePath, destFile), false);
           if (/error|failed|fatal/i.test(pushOut)) {
             throw new Error(pushOut.trim().slice(0, 300));
           }
-          msg += `\n\n${String(ll.backup.pushedOffsite({ dest: dest.toUpperCase(), file: destFile }))}`;
+          msg += `\n\nBackup successfully pushed offsite to ${dest.toUpperCase()} as "${destFile}".`;
         }
         notifications.success(msg);
         await exec(`rm -f ${remotePath}`, isFiles).catch(() => {});
@@ -256,7 +254,7 @@
         if (isSudoPasswordRequired(err)) {
           throw err;
         }
-        notifications.error(get(LL).backup.error({ error: formatInvokeError(err) }));
+        notifications.error(`Backup error: ${formatInvokeError(err)}`);
       } finally {
         isRunning = false;
       }
@@ -273,10 +271,10 @@
 
 <div class="backup manager-shell scrollable fade-in">
   <header class="manager-header">
-    <h1 class="page-title">{$LL.backup.title()}</h1>
+    <h1 class="page-title">Backups</h1>
     <div class="header-actions">
       <button class="primary btn-compact" onclick={openAdd}>
-        <Plus size={14} /> {$LL.backup.newTemplate()}
+        <Plus size={14} /> New template
       </button>
     </div>
   </header>
@@ -284,8 +282,8 @@
   {#if extras.backup_templates.length === 0}
     <div class="empty glass">
       <FolderArchive size={36} class="muted" />
-      <p>{$LL.backup.empty()}</p>
-      <button class="primary btn-compact" onclick={openAdd}><Plus size={14} /> {$LL.backup.addTemplate()}</button>
+      <p>No backup templates. Create one for www directories or databases.</p>
+      <button class="primary btn-compact" onclick={openAdd}><Plus size={14} /> Add template</button>
     </div>
   {:else}
     <div class="templates-grid">
@@ -307,15 +305,15 @@
             {#if tpl.backup_type === 'files'}
               {tpl.source_path}
             {:else}
-              {tpl.db_name || '—'} @ {tpl.docker_container || $LL.common.host()}
+              {tpl.db_name || '—'} @ {tpl.docker_container || "host"}
             {/if}
           </div>
           <div class="tpl-actions">
             <button class="primary btn-compact" disabled={isRunning} onclick={() => runBackup(tpl)}>
               {#if isRunning}<Loader2 size={14} class="spin" />{:else}<Play size={14} />{/if}
-              {$LL.backup.run()}
+              Run
             </button>
-            <button class="secondary btn-compact" onclick={() => openEdit(tpl)}>{$LL.common.edit()}</button>
+            <button class="secondary btn-compact" onclick={() => openEdit(tpl)}>Edit</button>
             <button class="secondary btn-compact hover-red" onclick={() => deleteTemplate(tpl.id)}>
               <Trash2 size={14} />
             </button>
@@ -327,61 +325,61 @@
 
   <section class="info glass">
     <Download size={16} />
-    <p>{$LL.backup.info()}</p>
+    <p>Backup creates an archive on the server, downloads it to Downloads (Jarvis-SFTP-*), then removes the temporary file.</p>
   </section>
 </div>
 
 {#if showAddModal}
   <div class="modal-overlay" role="presentation" onclick={() => (showAddModal = false)}>
     <div class="modal glass" role="dialog" onclick={(e) => e.stopPropagation()}>
-      <h3>{editId ? $LL.backup.editTemplate() : $LL.backup.newBackupTemplate()}</h3>
-      <label>{$LL.backup.name()}<input bind:value={formName} placeholder={$LL.backup.namePlaceholder()} /></label>
-      <label>{$LL.backup.type()}
+      <h3>{editId ? "Edit template" : "New backup template"}</h3>
+      <label>Name<input bind:value={formName} placeholder="WWW backup" /></label>
+      <label>Type
         <select bind:value={formType}>
-          <option value="files">{$LL.backup.typeFiles()}</option>
-          <option value="mysql">{$LL.backup.typeMysql()}</option>
-          <option value="postgres">{$LL.backup.typePostgres()}</option>
+          <option value="files">Files (tar.gz)</option>
+          <option value="mysql">MySQL (mysqldump)</option>
+          <option value="postgres">PostgreSQL (pg_dump)</option>
         </select>
       </label>
       {#if formType === 'files'}
-        <label>{$LL.backup.pathLabel()}
+        <label>Directory path
           <PathAutocomplete bind:value={formPath} placeholder="/var/www" onlyDirs={true} />
         </label>
       {:else}
-        <label>{$LL.backup.dockerContainer()}<input bind:value={formContainer} placeholder={$LL.backup.dockerPlaceholder()} /></label>
-        <label>{$LL.backup.dbName()}<input bind:value={formDbName} /></label>
-        <label>{$LL.backup.dbUser()}<input bind:value={formDbUser} /></label>
-        <label>{$LL.backup.dbPassword()}<input type="password" bind:value={formDbPassword} /></label>
+        <label>Docker container (empty = host)<input bind:value={formContainer} placeholder="mysql" /></label>
+        <label>Database name<input bind:value={formDbName} /></label>
+        <label>DB user<input bind:value={formDbUser} /></label>
+        <label>DB password (optional)<input type="password" bind:value={formDbPassword} /></label>
       {/if}
 
-      <div class="dest-divider">{$LL.backup.destinationSection()}</div>
-      <label>{$LL.backup.destination()}
+      <div class="dest-divider">Destination</div>
+      <label>Send backup to
         <select bind:value={formDestination}>
-          <option value="download">{$LL.backup.destDownload()}</option>
-          <option value="s3">{$LL.backup.destS3()}</option>
-          <option value="sftp">{$LL.backup.destSftp()}</option>
+          <option value="download">Download to this computer</option>
+          <option value="s3">S3 / Backblaze B2 (S3-compatible)</option>
+          <option value="sftp">Remote SFTP server</option>
         </select>
       </label>
       {#if formDestination === 's3'}
-        <label>{$LL.backup.destBucket()}<input bind:value={formDestBucket} placeholder="my-bucket" /></label>
-        <label>{$LL.backup.destPath()}<input bind:value={formDestPath} placeholder="backups/db" /></label>
-        <label>{$LL.backup.destEndpoint()}<input bind:value={formDestEndpoint} placeholder={$LL.backup.destEndpointPlaceholder()} /></label>
-        <label>{$LL.backup.destRegion()}<input bind:value={formDestRegion} placeholder="us-east-1" /></label>
-        <label>{$LL.backup.destAccessKey()}<input bind:value={formDestAccessKey} /></label>
-        <label>{$LL.backup.destSecretKey()}<input type="password" bind:value={formDestSecretKey} /></label>
-        <p class="dest-hint">{$LL.backup.rcloneHint()}</p>
+        <label>Bucket<input bind:value={formDestBucket} placeholder="my-bucket" /></label>
+        <label>Path / prefix<input bind:value={formDestPath} placeholder="backups/db" /></label>
+        <label>Endpoint (leave empty for AWS S3)<input bind:value={formDestEndpoint} placeholder="s3.us-west-002.backblazeb2.com" /></label>
+        <label>Region<input bind:value={formDestRegion} placeholder="us-east-1" /></label>
+        <label>Access key ID<input bind:value={formDestAccessKey} /></label>
+        <label>Secret access key<input type="password" bind:value={formDestSecretKey} /></label>
+        <p class="dest-hint">Requires rclone installed on the server. Credentials are stored in the OS keyring.</p>
       {:else if formDestination === 'sftp'}
-        <label>{$LL.backup.destHost()}<input bind:value={formDestHost} placeholder="backup.example.com" /></label>
-        <label>{$LL.backup.destPort()}<input bind:value={formDestPort} placeholder="22" /></label>
-        <label>{$LL.backup.destUser()}<input bind:value={formDestUser} /></label>
-        <label>{$LL.backup.dbPassword()}<input type="password" bind:value={formDestSecretKey} /></label>
-        <label>{$LL.backup.destPath()}<input bind:value={formDestPath} placeholder="/backups" /></label>
-        <p class="dest-hint">{$LL.backup.rcloneHint()}</p>
+        <label>SFTP host<input bind:value={formDestHost} placeholder="backup.example.com" /></label>
+        <label>Port<input bind:value={formDestPort} placeholder="22" /></label>
+        <label>SFTP user<input bind:value={formDestUser} /></label>
+        <label>DB password (optional)<input type="password" bind:value={formDestSecretKey} /></label>
+        <label>Path / prefix<input bind:value={formDestPath} placeholder="/backups" /></label>
+        <p class="dest-hint">Requires rclone installed on the server. Credentials are stored in the OS keyring.</p>
       {/if}
 
       <div class="modal-actions">
-        <button class="secondary" onclick={() => (showAddModal = false)}>{$LL.common.cancel()}</button>
-        <button class="primary" onclick={saveTemplate}>{$LL.common.save()}</button>
+        <button class="secondary" onclick={() => (showAddModal = false)}>Cancel</button>
+        <button class="primary" onclick={saveTemplate}>Save</button>
       </div>
     </div>
   </div>

@@ -882,14 +882,14 @@ async fn start_terminal(
                             Some(russh::ChannelMsg::ExitStatus { exit_status }) => {
                                 app_handle_read.emit(
                                     &format!("terminal-stdout-{}", session_id_clone),
-                                    format!("\r\n[Połączenie terminala zamknięte, kod: {}]\r\n", exit_status),
+                                    format!("\r\n[Terminal connection closed, code: {}]\r\n", exit_status),
                                 ).ok();
                                 break;
                             }
                             Some(russh::ChannelMsg::Eof) => {
                                 app_handle_read.emit(
                                     &format!("terminal-stdout-{}", session_id_clone),
-                                    "\r\n[Połączenie terminala zamknięte]\r\n".to_string(),
+                                    "\r\n[Terminal connection closed]\r\n".to_string(),
                                 ).ok();
                                 break;
                             }
@@ -903,7 +903,7 @@ async fn start_terminal(
                                 if let Err(e) = channel.data(input_data.as_bytes()).await {
                                     app_handle_read.emit(
                                         &format!("terminal-stdout-{}", session_id_clone),
-                                        format!("\r\n[Błąd zapisu do terminala: {}]\r\n", e),
+                                        format!("\r\n[Terminal write error: {}]\r\n", e),
                                     ).ok();
                                     break;
                                 }
@@ -934,7 +934,7 @@ async fn start_terminal(
             app_handle_clone
                 .emit(
                     &format!("terminal-stdout-{}", session_id_clone),
-                    format!("\r\n[Błąd sesji SSH terminala: {}]\r\n", e),
+                    format!("\r\n[Terminal SSH session error: {}]\r\n", e),
                 )
                 .ok();
         }
@@ -1220,22 +1220,9 @@ fn sftp_get_downloads_dir() -> String {
     get_downloads_dir().to_string_lossy().to_string()
 }
 
-fn pick_dialog_title(locale: &str, en: &str, pl: &str) -> String {
-    if locale.starts_with("pl") {
-        pl.to_string()
-    } else {
-        en.to_string()
-    }
-}
-
 #[tauri::command]
-fn sftp_pick_files(locale: String) -> Result<Vec<String>, AppError> {
-    let title = pick_dialog_title(
-        &locale,
-        "Select files to upload",
-        "Wybierz pliki do wysłania",
-    );
-    let files = rfd::FileDialog::new().set_title(&title).pick_files();
+fn sftp_pick_files() -> Result<Vec<String>, AppError> {
+    let files = rfd::FileDialog::new().set_title("Select files to upload").pick_files();
     Ok(files
         .unwrap_or_default()
         .iter()
@@ -1244,14 +1231,9 @@ fn sftp_pick_files(locale: String) -> Result<Vec<String>, AppError> {
 }
 
 #[tauri::command]
-fn sftp_pick_folder(locale: String) -> Result<Option<String>, AppError> {
-    let title = pick_dialog_title(
-        &locale,
-        "Select folder to upload",
-        "Wybierz folder do wysłania",
-    );
+fn sftp_pick_folder() -> Result<Option<String>, AppError> {
     Ok(rfd::FileDialog::new()
-        .set_title(&title)
+        .set_title("Select folder to upload")
         .pick_folder()
         .map(|p| p.to_string_lossy().to_string()))
 }

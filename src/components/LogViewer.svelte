@@ -5,13 +5,11 @@
   import { stickToBottom } from '$lib/stickToBottom';
   import SortableTh from './ui/SortableTh.svelte';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
-  import { get } from 'svelte/store';
-  import { LL } from '$lib/i18n/i18n-svelte';
   import { notifications } from '$lib/notifications.svelte';
   import {
     formatInvokeError,
     isSudoPasswordRequired,
-  } from '$lib/i18n/backendErrors';
+  } from '$lib/backendErrors';
 
   let { visible = true } = $props();
 
@@ -44,16 +42,13 @@
   let isStreaming = $state(true);
   let logIntervalId: any;
 
-  const logSources = $derived.by(() => {
-    const ll = get(LL);
-    return [
-      { id: 'syslog', label: ll.logs.sourceSyslog(), cmd: 'tail -n 150 /var/log/syslog' },
-      { id: 'auth', label: ll.logs.sourceAuth(), cmd: 'tail -n 150 /var/log/auth.log' },
-      { id: 'nginx_access', label: ll.logs.sourceNginxAccess(), cmd: 'tail -n 150 /var/log/nginx/access.log' },
-      { id: 'nginx_error', label: ll.logs.sourceNginxError(), cmd: 'tail -n 150 /var/log/nginx/error.log' },
-      { id: 'journal', label: ll.logs.sourceJournal(), cmd: 'journalctl -n 150 --no-pager' },
-    ];
-  });
+  const logSources = [
+    { id: 'syslog', label: 'System Log (syslog)', cmd: 'tail -n 150 /var/log/syslog' },
+    { id: 'auth', label: 'Auth Log (auth.log)', cmd: 'tail -n 150 /var/log/auth.log' },
+    { id: 'nginx_access', label: 'Nginx Access Log', cmd: 'tail -n 150 /var/log/nginx/access.log' },
+    { id: 'nginx_error', label: 'Nginx Error Log', cmd: 'tail -n 150 /var/log/nginx/error.log' },
+    { id: 'journal', label: 'Systemd Journal (journalctl)', cmd: 'journalctl -n 150 --no-pager' },
+  ];
 
   async function loadLogs() {
     if (!isStreaming && logContent !== '') return;
@@ -62,7 +57,7 @@
     try {
       const output: string = await invoke('exec_custom_command', {
         cmd: source.cmd,
-        useSudo: selectedLogFile === 'auth' // auth.log wymaga roota
+        useSudo: selectedLogFile === 'auth' // auth.log requires sudo
       });
       logContent = output;
     } catch (err: unknown) {
@@ -71,7 +66,7 @@
         showSudoModal = true;
         isStreaming = false;
       } else {
-        logContent = get(LL).logs.readFailed({ error: formatInvokeError(err) });
+        logContent = `Could not read log file: ${formatInvokeError(err)}`;
       }
     }
   }
@@ -138,7 +133,7 @@
           username: parts[0],
           tty: parts[1],
           date: parts.slice(2, 4).join(' '),
-          ip: parts[4] ? parts[4].replace(/[()]/g, '') : get(LL).common.local()
+          ip: parts[4] ? parts[4].replace(/[()]/g, '') : 'local'
         };
       }).filter(Boolean);
 
@@ -161,7 +156,7 @@
           
           // If IP is not an IP but a date
           if (ip.includes(':') || ip.length > 15 || ip === 'gone' || ip === 'still') {
-            ip = get(LL).common.local();
+            ip = 'local';
             dateIndex = 2;
           }
           
@@ -178,7 +173,7 @@
       activeSessions = sessions;
       loginHistory = history;
     } catch (err: unknown) {
-      errorMsg = get(LL).logs.sessionsLoadFailed({ error: formatInvokeError(err) });
+      errorMsg = 'Failed to load active sessions: ' + formatInvokeError(err);
     } finally {
       isLoading = false;
     }
@@ -193,7 +188,7 @@
           pendingAction = run;
           showSudoModal = true;
         } else {
-          errorMsg = get(LL).common.actionFailed({ error: formatInvokeError(err) });
+          errorMsg = 'Action failed: ' + formatInvokeError(err);
         }
       }
     };
@@ -217,7 +212,7 @@
   }
 
   async function disconnectSession(tty: string) {
-    if (confirm(get(LL).logs.confirmDisconnect({ tty }))) {
+    if (confirm(`Are you sure you want to disconnect session ${tty}?`)) {
       const action = async () => {
         isLoading = true;
         errorMsg = '';
@@ -255,16 +250,16 @@
 
 <div class="log-viewer manager-shell fade-in">
   <header class="manager-header">
-    <h1 class="page-title">{$LL.logs.title()}</h1>
+    <h1 class="page-title">System Logs & Sessions</h1>
   </header>
 
   <!-- Sub-tabs navigation bar -->
   <div class="tabs-bar glass">
     <button class="tab-btn {activeSubTab === 'logs' ? 'active' : ''}" onclick={() => activeSubTab = 'logs'}>
-      <FileText size={16} /> {$LL.logs.tabLogs()}
+      <FileText size={16} /> Logs
     </button>
     <button class="tab-btn {activeSubTab === 'sessions' ? 'active' : ''}" onclick={() => activeSubTab = 'sessions'}>
-      <Users size={16} /> {$LL.logs.tabSessions()}
+      <Users size={16} /> Sessions & logins
     </button>
   </div>
 
@@ -272,7 +267,7 @@
     <!-- LOGS SECTION -->
     <div class="log-controls-bar glass">
       <div class="selector-group">
-        <label for="log-select">{$LL.logs.selectLog()}</label>
+        <label for="log-select">Select log:</label>
         <select id="log-select" bind:value={selectedLogFile} onchange={() => { logContent = ''; loadLogs(); }}>
           {#each logSources as source}
             <option value={source.id}>{source.label}</option>
@@ -282,15 +277,15 @@
 
       <div class="search-bar">
         <span class="search-icon-wrapper"><Search size={16} /></span>
-        <input type="text" placeholder={$LL.logs.filterResults()} bind:value={logSearchQuery} />
+        <input type="text" placeholder="Filter results…" bind:value={logSearchQuery} />
       </div>
 
       <div class="stream-actions">
         <button class="secondary" onclick={toggleStream}>
           {#if isStreaming}
-            <Pause size={16} /> {$LL.common.pause()}
+            <Pause size={16} /> Pause
           {:else}
-            <Play size={16} /> {$LL.common.stream()}
+            <Play size={16} /> Stream
           {/if}
         </button>
       </div>
@@ -298,7 +293,7 @@
 
     <!-- Log Preview -->
     <div class="log-display-container glass" use:stickToBottom>
-      <pre class="log-text"><code>{getFilteredLogs() || $LL.logs.loadingContent()}</code></pre>
+      <pre class="log-text"><code>{getFilteredLogs() || "Loading log content…"}</code></pre>
     </div>
   {:else}
     <!-- SESSIONS SECTION -->
@@ -306,7 +301,7 @@
       <!-- Aktywne Sesje -->
       <div class="sessions-table-card glass">
         <div class="card-header">
-          <h3>{$LL.logs.currentlyLoggedIn()}</h3>
+          <h3>Currently logged in (who)</h3>
           <button class="secondary btn-sm" onclick={loadSessionsAndHistory} disabled={isLoading}>
             <RefreshCw size={14} class={isLoading ? 'spin' : ''} />
           </button>
@@ -315,11 +310,11 @@
         <table class="sessions-table">
           <thead>
             <tr>
-              <SortableTh label={$LL.logs.user()} column="username" activeColumn={sessionSort.column} direction={sessionSort.direction} onsort={setSessionSort} />
-              <SortableTh label={$LL.logs.terminal()} column="tty" activeColumn={sessionSort.column} direction={sessionSort.direction} onsort={setSessionSort} />
-              <SortableTh label={$LL.logs.ipAddress()} column="ip" activeColumn={sessionSort.column} direction={sessionSort.direction} onsort={setSessionSort} />
-              <SortableTh label={$LL.logs.loginDate()} column="date" activeColumn={sessionSort.column} direction={sessionSort.direction} onsort={setSessionSort} />
-              <th style="text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">{$LL.logs.kick()}</th>
+              <SortableTh label="User" column="username" activeColumn={sessionSort.column} direction={sessionSort.direction} onsort={setSessionSort} />
+              <SortableTh label="Terminal" column="tty" activeColumn={sessionSort.column} direction={sessionSort.direction} onsort={setSessionSort} />
+              <SortableTh label="IP address" column="ip" activeColumn={sessionSort.column} direction={sessionSort.direction} onsort={setSessionSort} />
+              <SortableTh label="Login date" column="date" activeColumn={sessionSort.column} direction={sessionSort.direction} onsort={setSessionSort} />
+              <th style="text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Kick</th>
             </tr>
           </thead>
           <tbody>
@@ -331,7 +326,7 @@
                 <td class="date-cell mono-val">{session.date}</td>
                 <td class="actions-cell">
                   {#if session.tty !== 'tty1' && session.username !== 'slawek'}
-                    <button class="btn-table danger-text" onclick={() => disconnectSession(session.tty)} title={$LL.logs.disconnectSession()}>
+                    <button class="btn-table danger-text" onclick={() => disconnectSession(session.tty)} title="Disconnect session">
                       <LogOut size={14} />
                     </button>
                   {/if}
@@ -341,7 +336,7 @@
 
             {#if sortedSessions.length === 0}
               <tr>
-                <td colspan="5" class="empty-state">{$LL.logs.noActiveSessions()}</td>
+                <td colspan="5" class="empty-state">No active sessions</td>
               </tr>
             {/if}
           </tbody>
@@ -351,16 +346,16 @@
       <!-- Ostatnie Logowania -->
       <div class="history-table-card glass">
         <div class="card-header">
-          <h3>{$LL.logs.loginHistory()}</h3>
+          <h3>Recent login history (last)</h3>
         </div>
         
         <table class="history-table">
           <thead>
             <tr>
-              <SortableTh label={$LL.logs.user()} column="username" activeColumn={historySort.column} direction={historySort.direction} onsort={setHistorySort} />
-              <SortableTh label={$LL.logs.terminal()} column="tty" activeColumn={historySort.column} direction={historySort.direction} onsort={setHistorySort} />
-              <SortableTh label={$LL.logs.loginIp()} column="ip" activeColumn={historySort.column} direction={historySort.direction} onsort={setHistorySort} />
-              <SortableTh label={$LL.logs.timeDetails()} column="time" activeColumn={historySort.column} direction={historySort.direction} onsort={setHistorySort} />
+              <SortableTh label="User" column="username" activeColumn={historySort.column} direction={historySort.direction} onsort={setHistorySort} />
+              <SortableTh label="Terminal" column="tty" activeColumn={historySort.column} direction={historySort.direction} onsort={setHistorySort} />
+              <SortableTh label="Login IP" column="ip" activeColumn={historySort.column} direction={historySort.direction} onsort={setHistorySort} />
+              <SortableTh label="Time details" column="time" activeColumn={historySort.column} direction={historySort.direction} onsort={setHistorySort} />
             </tr>
           </thead>
           <tbody>
@@ -375,7 +370,7 @@
             
             {#if sortedHistory.length === 0}
               <tr>
-                <td colspan="4" class="empty-state">{$LL.logs.noLoginHistory()}</td>
+                <td colspan="4" class="empty-state">No login history</td>
               </tr>
             {/if}
           </tbody>
@@ -391,11 +386,11 @@
         <div class="modal-header-icon">
           <KeyRound size={32} class="accent-amber-text" />
         </div>
-        <h3>{$LL.sudo.authTitle()}</h3>
-        <p class="modal-desc">{$LL.sudo.authDesc()}</p>
+        <h3>Sudo authentication required</h3>
+        <p class="modal-desc">This operation requires root privileges. Enter your user password (sudo):</p>
         <input 
           type="password" 
-          placeholder={$LL.sudo.passwordInputPlaceholder()} 
+          placeholder="Enter password…" 
           bind:value={sudoPassword} 
           onkeydown={(e) => e.key === 'Enter' && submitSudoPassword()}
         />
@@ -403,8 +398,8 @@
           <span class="error-text">{sudoError}</span>
         {/if}
         <div class="modal-actions">
-          <button class="primary" onclick={submitSudoPassword}>{$LL.common.submit()}</button>
-          <button class="secondary" onclick={() => { showSudoModal = false; sudoPassword = ''; pendingAction = null; if (activeSubTab === 'logs') isStreaming = true; }}>{$LL.common.cancel()}</button>
+          <button class="primary" onclick={submitSudoPassword}>Submit</button>
+          <button class="secondary" onclick={() => { showSudoModal = false; sudoPassword = ''; pendingAction = null; if (activeSubTab === 'logs') isStreaming = true; }}>Cancel</button>
         </div>
       </div>
     </div>

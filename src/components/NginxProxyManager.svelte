@@ -7,12 +7,11 @@
     FileCode, Power, PowerOff, CheckCircle, Save, Download, Server, Lock, Network, Settings2,
   } from 'lucide-svelte';
   import SudoModal from './SudoModal.svelte';
-  import { LL } from '$lib/i18n/i18n-svelte';
-  import { get } from 'svelte/store';
+    import { get } from 'svelte/store';
   import { wrapCmd, shQuote, isDocker, type ExecTarget, listContainers } from '$lib/exec/target';
   import { stickToBottom } from '$lib/stickToBottom';
   import { notifications } from '$lib/notifications.svelte';
-  import { formatInvokeError, isSudoPasswordRequired } from '$lib/i18n/backendErrors';
+  import { formatInvokeError, isSudoPasswordRequired } from '$lib/backendErrors';
 
   // ---------------------------------------------------------------------------
   // Types
@@ -230,7 +229,7 @@
   function deleteProfile(id: string) {
     const p = profiles.find((x) => x.id === id);
     if (!p) return;
-    if (!confirm(get(LL).webserver.deleteProfileConfirm({ name: p.name }))) return;
+    if (!confirm(`Are you sure you want to delete the profile "${p.name}"?`)) return;
     profiles = profiles.filter((x) => x.id !== id);
     saveProfiles();
     if (activeProfileId === id) {
@@ -264,7 +263,7 @@
         `echo 'No supported package manager found'; ` +
       `fi`
     );
-    runStreamed(cmd, get(LL).webserver.installingRequirements(), reloadCertsAndHosts);
+    runStreamed(cmd, "Installing Certbot & DNS plugins...", reloadCertsAndHosts);
   }
 
   $effect(() => {
@@ -522,7 +521,7 @@
   async function saveHost() {
     const m = form;
     if (!m.domain.trim() || !m.forwardHost.trim()) {
-      errorMsg = get(LL).webserver.needDomainForward();
+      errorMsg = "Enter a domain and a forward host";
       return;
     }
     const content = genConfig(m);
@@ -556,7 +555,7 @@
     showHostModal = false;
     await withSudo(async () => {
       await invoke('exec_custom_command', { cmd, useSudo: true });
-      notifications.success(get(LL).webserver.savedHost({ name: m.domain }));
+      notifications.success(`Proxy host ${m.domain} saved`);
       await loadHosts();
     });
   }
@@ -576,15 +575,15 @@
       await invoke('exec_custom_command', { cmd: wrapCmd(target, `${cmd} && ${reloadCmd()}`), useSudo: true });
       notifications.success(
         h.enabled
-          ? get(LL).webserver.hostDisabled({ name: h.meta.domain })
-          : get(LL).webserver.hostEnabled({ name: h.meta.domain }),
+          ? `Proxy host ${h.meta.domain} disabled`
+          : `Proxy host ${h.meta.domain} enabled`,
       );
       await loadHosts();
     });
   }
 
   function deleteHost(h: ProxyHost) {
-    if (!confirm(get(LL).webserver.confirmDeleteHost({ name: h.meta.domain }))) return;
+    if (!confirm(`Delete proxy host ${h.meta.domain}? This removes its config file.`)) return;
     const cmds = [`rm -f ${shQuote(h.path)}`];
     if (h.group === 'site') {
       const base = h.path.split('/').pop() || '';
@@ -593,7 +592,7 @@
     cmds.push(reloadCmd());
     withSudo(async () => {
       await invoke('exec_custom_command', { cmd: wrapCmd(target, cmds.join('; ')), useSudo: true });
-      notifications.success(get(LL).common.delete());
+      notifications.success("Delete");
       await loadHosts();
     });
   }
@@ -660,7 +659,7 @@
         `elif command -v yum >/dev/null 2>&1; then yum install -y certbot; ` +
         `else echo 'No supported package manager found'; fi`,
     );
-    runStreamed(cmd, get(LL).webserver.installingCertbot(), reloadCertsAndHosts);
+    runStreamed(cmd, "Installing certbot", reloadCertsAndHosts);
   }
 
   function installPlugin(provider: DnsProvider) {
@@ -672,7 +671,7 @@
         `elif command -v pip3 >/dev/null 2>&1; then pip3 install certbot-dns-${provider}; ` +
         `else echo 'No supported package manager found'; fi`,
     );
-    runStreamed(cmd, get(LL).webserver.installingPlugin({ plugin: provider }), reloadCertsAndHosts);
+    runStreamed(cmd, `Installing DNS plugin ${provider}`, reloadCertsAndHosts);
   }
 
   // ---- issue modal ----
@@ -699,7 +698,7 @@
   function submitIssue() {
     const domains = issueDomains.split(',').map((d) => d.trim()).filter(Boolean);
     if (domains.length === 0) {
-      errorMsg = get(LL).webserver.needDomains();
+      errorMsg = "Enter at least one domain";
       return;
     }
     const dArgs = domains.map((d) => `-d ${shQuote(d)}`).join(' ');
@@ -734,27 +733,27 @@
     }
     const cmd = wrapCmd(target, pre + base);
     showIssue = false;
-    runStreamed(cmd, get(LL).webserver.issueTitle(), loadCerts);
+    runStreamed(cmd, "Issue a new certificate", loadCerts);
   }
 
   function renewAll() {
-    runStreamed(wrapCmd(target, 'certbot renew'), get(LL).webserver.renewAll(), loadCerts);
+    runStreamed(wrapCmd(target, 'certbot renew'), "Renew all", loadCerts);
   }
   function dryRun() {
-    runStreamed(wrapCmd(target, 'certbot renew --dry-run'), get(LL).webserver.dryRun(), loadCerts);
+    runStreamed(wrapCmd(target, 'certbot renew --dry-run'), "Renew (dry run)", loadCerts);
   }
   function renewCert(c: Cert) {
     runStreamed(
       wrapCmd(target, `certbot renew --cert-name ${shQuote(c.name)} --force-renewal`),
-      `${get(LL).webserver.renew()}: ${c.name}`,
+      `$Renew: ${c.name}`,
       loadCerts,
     );
   }
   function deleteCert(c: Cert) {
-    if (!confirm(get(LL).webserver.confirmDeleteCert({ name: c.name }))) return;
+    if (!confirm(`Delete certificate ${c.name}? This removes its files.`)) return;
     runStreamed(
       wrapCmd(target, `certbot delete --cert-name ${shQuote(c.name)} --non-interactive`),
-      `${get(LL).common.delete()}: ${c.name}`,
+      `$Delete: ${c.name}`,
       loadCerts,
     );
   }
@@ -798,7 +797,7 @@
 
   async function openEdit(path: string) {
     editPath = path;
-    editContent = get(LL).common.loading();
+    editContent = "Loading…";
     try {
       if (isDocker(target)) {
         editContent = await invoke<string>('exec_custom_command', { cmd: wrapCmd(target, `cat ${shQuote(path)}`), useSudo: true });
@@ -810,7 +809,7 @@
         editContent = await invoke<string>('exec_custom_command', { cmd: wrapCmd(target, `cat ${shQuote(path)}`), useSudo: true });
       } catch (e2) {
         editContent = '';
-        errorMsg = get(LL).webserver.readFailed({ error: formatInvokeError(e2) });
+        errorMsg = `Could not read file: ${formatInvokeError(e2)}`;
       }
     }
   }
@@ -823,7 +822,7 @@
     await withSudo(async () => {
       const cmd = wrapCmd(target, writeFileCmd(path, content));
       await invoke('exec_custom_command', { cmd, useSudo: true });
-      notifications.success(get(LL).webserver.saved());
+      notifications.success("Configuration saved");
       editPath = null;
     });
     editSaving = false;
@@ -838,22 +837,22 @@
     withSudo(async () => {
       const out = await invoke<string>('exec_custom_command', { cmd: wrapCmd(target, 'nginx -t 2>&1'), useSudo: true });
       controlOutput = out.trim();
-      if (/successful/i.test(out)) notifications.success(get(LL).webserver.configOk());
+      if (/successful/i.test(out)) notifications.success("Configuration is valid");
       else notifications.error(out.trim().slice(0, 300));
     });
   }
   function reloadNginx() {
     withSudo(async () => {
       await invoke('exec_custom_command', { cmd: wrapCmd(target, reloadCmd()), useSudo: true });
-      notifications.success(get(LL).webserver.reloaded());
+      notifications.success("Nginx reloaded");
     });
   }
   function restartNginx() {
-    if (!confirm(get(LL).webserver.confirmRestart())) return;
+    if (!confirm("Restart Nginx? Active connections may be briefly dropped.")) return;
     const cmd = isDocker(target) ? 'nginx -s stop; nginx' : 'systemctl restart nginx';
     withSudo(async () => {
       await invoke('exec_custom_command', { cmd: wrapCmd(target, cmd), useSudo: true });
-      notifications.success(get(LL).webserver.restarted());
+      notifications.success("Nginx restarted");
     });
   }
   function checkStatus() {
@@ -896,18 +895,18 @@
 
 <div class="npm manager-shell fade-in">
   <header class="manager-header">
-    <h1 class="page-title">{$LL.webserver.title()}</h1>
+    <h1 class="page-title">Nginx Manager</h1>
     <div class="header-actions">
       {#if profiles.length > 0}
         <!-- Profile Selector -->
         <div class="profile-selector glass">
-          <span class="ps-label">{$LL.webserver.activeProfile()}:</span>
+          <span class="ps-label">Active Profile:</span>
           <select bind:value={activeProfileId} class="profile-select" onchange={handleProfileChange}>
             {#each profiles as p}
-              <option value={p.id}>{p.name} ({p.target.kind === 'host' ? $LL.execTarget.host() : p.target.container})</option>
+              <option value={p.id}>{p.name} ({p.target.kind === 'host' ? "Host" : p.target.container})</option>
             {/each}
           </select>
-          <button class="icon-btn-compact" onclick={() => { showProfilesModal = true; }} title={$LL.webserver.manageProfiles()}>
+          <button class="icon-btn-compact" onclick={() => { showProfilesModal = true; }} title="Manage Profiles">
             <Settings2 size={14} />
           </button>
         </div>
@@ -923,32 +922,32 @@
       <div class="setup-card glass">
         <div class="setup-header">
           <Server size={32} class="accent" />
-          <h2>{$LL.webserver.setupTitle()}</h2>
-          <p>{$LL.webserver.setupDesc()}</p>
+          <h2>Nginx Manager Setup</h2>
+          <p>To start managing Nginx, configure a connection profile. Choose whether Nginx runs directly on the host or inside a Docker container.</p>
         </div>
 
         <div class="form-group">
-          <label for="setup-name">{$LL.webserver.profileName()}</label>
-          <input id="setup-name" type="text" bind:value={profileFormName} placeholder={$LL.webserver.profileNamePlaceholder()} />
+          <label for="setup-name">Profile Name</label>
+          <input id="setup-name" type="text" bind:value={profileFormName} placeholder="e.g. My Website Nginx" />
         </div>
 
         <div class="form-group">
-          <label>{$LL.webserver.nginxTarget()}</label>
+          <label>Nginx Location</label>
           <div class="target-options">
             <label class="target-radio" class:active={profileFormKind === 'host'}>
               <input type="radio" name="setup-kind" value="host" bind:group={profileFormKind} />
-              <span>{$LL.webserver.nginxTargetHost()}</span>
+              <span>Host (Bare Metal)</span>
             </label>
             <label class="target-radio" class:active={profileFormKind === 'docker'}>
               <input type="radio" name="setup-kind" value="docker" bind:group={profileFormKind} />
-              <span>{$LL.webserver.nginxTargetDocker()}</span>
+              <span>Docker Container</span>
             </label>
           </div>
         </div>
 
         {#if profileFormKind === 'docker'}
           <div class="form-group fade-in">
-            <label for="setup-container">{$LL.webserver.selectContainer()}</label>
+            <label for="setup-container">Select Container</label>
             <div class="select-row">
               <select id="setup-container" bind:value={profileFormContainer}>
                 {#each containers as c}
@@ -964,7 +963,7 @@
 
         <div class="setup-actions">
           <button class="primary" onclick={saveProfileForm} disabled={!profileFormName.trim()}>
-            <Save size={14} /> {$LL.webserver.saveProfile()}
+            <Save size={14} /> Save Profile
           </button>
         </div>
       </div>
@@ -972,16 +971,16 @@
   {:else}
     <!-- TABS VIEW -->
     <div class="subtabs">
-      <button class="subtab" class:active={subTab === 'hosts'} onclick={() => switchTab('hosts')}><Network size={14} /> {$LL.webserver.tabHosts()}</button>
-      <button class="subtab" class:active={subTab === 'certs'} onclick={() => switchTab('certs')}><Lock size={14} /> {$LL.webserver.tabCerts()}</button>
-      <button class="subtab" class:active={subTab === 'files'} onclick={() => switchTab('files')}><FileCode size={14} /> {$LL.webserver.tabFiles()}</button>
-      <button class="subtab" class:active={subTab === 'control'} onclick={() => switchTab('control')}><Settings2 size={14} /> {$LL.webserver.tabControl()}</button>
+      <button class="subtab" class:active={subTab === 'hosts'} onclick={() => switchTab('hosts')}><Network size={14} /> Proxy Hosts</button>
+      <button class="subtab" class:active={subTab === 'certs'} onclick={() => switchTab('certs')}><Lock size={14} /> SSL Certificates</button>
+      <button class="subtab" class:active={subTab === 'files'} onclick={() => switchTab('files')}><FileCode size={14} /> Nginx Files</button>
+      <button class="subtab" class:active={subTab === 'control'} onclick={() => switchTab('control')}><Settings2 size={14} /> Control</button>
     </div>
 
   <!-- ================= PROXY HOSTS ================= -->
   {#if subTab === 'hosts'}
     <div class="tab-toolbar">
-      <button class="secondary btn-compact" onclick={openAddHost}><Plus size={14} /> {$LL.webserver.addHost()}</button>
+      <button class="secondary btn-compact" onclick={openAddHost}><Plus size={14} /> Add Proxy Host</button>
     </div>
     <div class="card-list">
       {#each hosts as h (h.path)}
@@ -989,23 +988,23 @@
           <Globe2 size={16} class="glyph" />
           <div class="card-info">
             <span class="card-name">{h.meta.domain}</span>
-            <span class="card-sub mono">{$LL.webserver.forwardsTo()} {h.meta.scheme}://{h.meta.forwardHost}:{h.meta.forwardPort}</span>
+            <span class="card-sub mono">Forwards to {h.meta.scheme}://{h.meta.forwardHost}:{h.meta.forwardPort}</span>
           </div>
           {#if h.meta.sslEnabled}<span class="badge success"><Lock size={11} /> SSL</span>{/if}
-          <span class="badge" class:success={h.enabled} class:muted={!h.enabled}>{h.enabled ? $LL.webserver.enabledLabel() : $LL.webserver.disabledLabel()}</span>
+          <span class="badge" class:success={h.enabled} class:muted={!h.enabled}>{h.enabled ? "enabled" : "disabled"}</span>
           <div class="card-actions">
-            <button class="row-btn" onclick={() => openEditHost(h)} title={$LL.common.edit()}><FileCode size={13} /></button>
+            <button class="row-btn" onclick={() => openEditHost(h)} title="Edit"><FileCode size={13} /></button>
             {#if h.enabled}
-              <button class="row-btn warn" onclick={() => toggleHost(h)} title={$LL.common.disable()}><PowerOff size={13} /></button>
+              <button class="row-btn warn" onclick={() => toggleHost(h)} title="Disable"><PowerOff size={13} /></button>
             {:else}
-              <button class="row-btn" onclick={() => toggleHost(h)} title={$LL.common.enable()}><Power size={13} /></button>
+              <button class="row-btn" onclick={() => toggleHost(h)} title="Enable"><Power size={13} /></button>
             {/if}
-            <button class="row-btn danger" onclick={() => deleteHost(h)} title={$LL.common.delete()}><Trash2 size={13} /></button>
+            <button class="row-btn danger" onclick={() => deleteHost(h)} title="Delete"><Trash2 size={13} /></button>
           </div>
         </div>
       {/each}
       {#if hosts.length === 0 && !isLoading}
-        <div class="empty glass"><Globe2 size={22} /> {$LL.webserver.noHosts()}</div>
+        <div class="empty glass"><Globe2 size={22} /> No Jarvis-managed proxy hosts found. Add one to get started.</div>
       {/if}
     </div>
   {/if}
@@ -1013,16 +1012,16 @@
   <!-- ================= SSL CERTIFICATES ================= -->
   {#if subTab === 'certs'}
     <div class="tab-toolbar">
-      <button class="secondary btn-compact" disabled={!certbotInstalled} onclick={() => (showIssue = true)}><Plus size={14} /> {$LL.webserver.issueBtn()}</button>
-      <button class="secondary btn-compact" disabled={!certbotInstalled} onclick={dryRun}><FlaskConical size={14} /> {$LL.webserver.dryRun()}</button>
-      <button class="secondary btn-compact" disabled={!certbotInstalled} onclick={renewAll}><RotateCw size={14} /> {$LL.webserver.renewAll()}</button>
+      <button class="secondary btn-compact" disabled={!certbotInstalled} onclick={() => (showIssue = true)}><Plus size={14} /> Issue certificate</button>
+      <button class="secondary btn-compact" disabled={!certbotInstalled} onclick={dryRun}><FlaskConical size={14} /> Renew (dry run)</button>
+      <button class="secondary btn-compact" disabled={!certbotInstalled} onclick={renewAll}><RotateCw size={14} /> Renew all</button>
     </div>
 
     {#if !certbotInstalled && !isLoading}
       <div class="hint glass warn">
         <ShieldAlert size={16} />
-        <span>{$LL.webserver.certNotInstalled()}</span>
-        <button class="secondary btn-compact" onclick={installCertbot}><Download size={13} /> {$LL.webserver.installCertbot()}</button>
+        <span>certbot was not found on this target.</span>
+        <button class="secondary btn-compact" onclick={installCertbot}><Download size={13} /> Install Certbot</button>
       </div>
     {/if}
 
@@ -1037,17 +1036,17 @@
             <span class="card-sub">{c.domains}</span>
             <span class="card-sub mono">
               {c.expiry}
-              {#if c.daysLeft !== null}· <span class="days" class:soon={c.daysLeft <= 14} class:bad={c.daysLeft <= 3}>{$LL.webserver.daysLeft({ days: c.daysLeft })}</span>{/if}
+              {#if c.daysLeft !== null}· <span class="days" class:soon={c.daysLeft <= 14} class:bad={c.daysLeft <= 3}>{`${c.daysLeft} days left`}</span>{/if}
             </span>
           </div>
           <div class="card-actions">
-            <button class="row-btn" onclick={() => renewCert(c)} title={$LL.webserver.renew()}><RotateCw size={13} /></button>
-            <button class="row-btn danger" onclick={() => deleteCert(c)} title={$LL.common.delete()}><Trash2 size={13} /></button>
+            <button class="row-btn" onclick={() => renewCert(c)} title="Renew"><RotateCw size={13} /></button>
+            <button class="row-btn danger" onclick={() => deleteCert(c)} title="Delete"><Trash2 size={13} /></button>
           </div>
         </div>
       {/each}
       {#if certs.length === 0 && certbotInstalled && !isLoading}
-        <div class="empty glass"><Lock size={22} /> {$LL.webserver.noCerts()}</div>
+        <div class="empty glass"><Lock size={22} /> No certificates found</div>
       {/if}
     </div>
   {/if}
@@ -1064,12 +1063,12 @@
           </div>
           <span class="badge">{f.group}</span>
           <div class="card-actions">
-            <button class="row-btn" onclick={() => openEdit(f.path)} title={$LL.common.edit()}><FileCode size={13} /></button>
+            <button class="row-btn" onclick={() => openEdit(f.path)} title="Edit"><FileCode size={13} /></button>
           </div>
         </div>
       {/each}
       {#if files.length === 0 && !isLoading}
-        <div class="empty glass"><FileCode size={22} /> {$LL.webserver.noFiles()}</div>
+        <div class="empty glass"><FileCode size={22} /> No Nginx configuration files found</div>
       {/if}
     </div>
   {/if}
@@ -1077,12 +1076,12 @@
   <!-- ================= CONTROL ================= -->
   {#if subTab === 'control'}
     <div class="tab-toolbar">
-      <button class="secondary btn-compact" onclick={testConfig}><CheckCircle size={14} /> {$LL.webserver.testConfig()}</button>
-      <button class="secondary btn-compact" onclick={reloadNginx}><RotateCw size={14} /> {$LL.webserver.reload()}</button>
-      <button class="secondary btn-compact" onclick={restartNginx}><Power size={14} /> {$LL.webserver.restart()}</button>
-      <button class="secondary btn-compact" onclick={checkStatus}><Server size={14} /> {$LL.webserver.checkStatus()}</button>
+      <button class="secondary btn-compact" onclick={testConfig}><CheckCircle size={14} /> Test config</button>
+      <button class="secondary btn-compact" onclick={reloadNginx}><RotateCw size={14} /> Reload</button>
+      <button class="secondary btn-compact" onclick={restartNginx}><Power size={14} /> Restart</button>
+      <button class="secondary btn-compact" onclick={checkStatus}><Server size={14} /> Status</button>
     </div>
-    <pre class="control-output glass">{controlOutput || $LL.webserver.statusHint()}</pre>
+    <pre class="control-output glass">{controlOutput || "Run a control action to see Nginx output here."}</pre>
   {/if}
   {/if}
 </div>
@@ -1092,65 +1091,65 @@
   <div class="modal-overlay" role="presentation" onclick={() => (showProfilesModal = false)}>
     <div class="modal-content glass profiles-modal" role="dialog" onclick={(e) => e.stopPropagation()}>
       <div class="modal-header">
-        <h3>{$LL.webserver.manageProfiles()}</h3>
+        <h3>Manage Profiles</h3>
         <button class="icon-btn-compact" onclick={() => (showProfilesModal = false)}><X size={16} /></button>
       </div>
 
       <div class="modal-body flex-col gap-md">
         <!-- List of Profiles -->
         <div class="profiles-list-section">
-          <h4>{$LL.webserver.profilesTitle()}</h4>
+          <h4>Nginx Profiles</h4>
           <div class="profiles-grid">
             {#each profiles as p}
               <div class="profile-item glass" class:active={p.id === activeProfileId}>
                 <div class="profile-details">
                   <span class="profile-title">{p.name}</span>
-                  <span class="profile-subtitle mono">{p.target.kind === 'host' ? $LL.execTarget.host() : p.target.container}</span>
+                  <span class="profile-subtitle mono">{p.target.kind === 'host' ? "Host" : p.target.container}</span>
                 </div>
                 <div class="profile-actions">
-                  <button class="row-btn" onclick={() => openEditProfile(p)} title={$LL.common.edit()}><FileCode size={13} /></button>
-                  <button class="row-btn danger" onclick={() => deleteProfile(p.id)} title={$LL.common.delete()}><Trash2 size={13} /></button>
+                  <button class="row-btn" onclick={() => openEditProfile(p)} title="Edit"><FileCode size={13} /></button>
+                  <button class="row-btn danger" onclick={() => deleteProfile(p.id)} title="Delete"><Trash2 size={13} /></button>
                 </div>
               </div>
             {/each}
           </div>
           <button class="secondary btn-compact mt-sm" onclick={openAddProfile}>
-            <Plus size={14} /> {$LL.webserver.addProfile()}
+            <Plus size={14} /> Add Profile
           </button>
         </div>
 
         <!-- Dependency Status for Active Profile -->
         {#if activeProfileId}
           <div class="dep-status-section glass mt-sm">
-            <h4 class="flex-align gap-xs"><Settings2 size={14} /> {$LL.webserver.requirementsTitle()}</h4>
-            <p class="desc-text mt-xs">{$LL.webserver.requirementsDesc()}</p>
+            <h4 class="flex-align gap-xs"><Settings2 size={14} /> Nginx Manager Requirements</h4>
+            <p class="desc-text mt-xs">Certbot and DNS challenge plugins are required for automated SSL certificate issuance.</p>
             
             <div class="dep-list mt-sm">
               <div class="dep-item">
                 <span>Certbot:</span>
                 {#if certbotInstalled}
-                  <span class="badge success-badge">{$LL.webserver.enabledLabel()}</span>
+                  <span class="badge success-badge">enabled</span>
                 {:else}
-                  <span class="badge danger-badge">{$LL.webserver.disabledLabel()}</span>
+                  <span class="badge danger-badge">disabled</span>
                 {/if}
               </div>
               <div class="dep-item">
                 <span>DNS Cloudflare:</span>
                 {#if installedPlugins.includes('dns-cloudflare')}
-                  <span class="badge success-badge">{$LL.webserver.enabledLabel()}</span>
+                  <span class="badge success-badge">enabled</span>
                 {:else}
-                  <span class="badge danger-badge">{$LL.webserver.disabledLabel()}</span>
+                  <span class="badge danger-badge">disabled</span>
                 {/if}
               </div>
             </div>
 
             {#if !certbotInstalled || !installedPlugins.includes('dns-cloudflare')}
               <button class="primary btn-compact mt-md w-full flex-center gap-xs" onclick={installAllRequirements}>
-                <Download size={14} /> {$LL.webserver.installBtn()}
+                <Download size={14} /> Install Certbot & Plugins
               </button>
             {:else}
               <div class="success-message mt-md">
-                <CheckCircle size={14} /> {$LL.webserver.requirementsInstalled()}
+                <CheckCircle size={14} /> All requirements are installed!
               </div>
             {/if}
           </div>
@@ -1160,30 +1159,30 @@
       <!-- Add/Edit form inline in the modal when active -->
       {#if showProfilesModal && (profileFormId && !profiles.some(p => p.id === profileFormId) || isEditingProfile)}
         <div class="profile-form-section glass mt-md p-md">
-          <h4>{isEditingProfile ? $LL.webserver.editProfile() : $LL.webserver.addProfile()}</h4>
+          <h4>{isEditingProfile ? "Edit Profile" : "Add Profile"}</h4>
           
           <div class="form-group mt-sm">
-            <label for="form-name">{$LL.webserver.profileName()}</label>
-            <input id="form-name" type="text" bind:value={profileFormName} placeholder={$LL.webserver.profileNamePlaceholder()} />
+            <label for="form-name">Profile Name</label>
+            <input id="form-name" type="text" bind:value={profileFormName} placeholder="e.g. My Website Nginx" />
           </div>
 
           <div class="form-group">
-            <label>{$LL.webserver.nginxTarget()}</label>
+            <label>Nginx Location</label>
             <div class="target-options">
               <label class="target-radio" class:active={profileFormKind === 'host'}>
                 <input type="radio" name="form-kind" value="host" bind:group={profileFormKind} />
-                <span>{$LL.webserver.nginxTargetHost()}</span>
+                <span>Host (Bare Metal)</span>
               </label>
               <label class="target-radio" class:active={profileFormKind === 'docker'}>
                 <input type="radio" name="form-kind" value="docker" bind:group={profileFormKind} />
-                <span>{$LL.webserver.nginxTargetDocker()}</span>
+                <span>Docker Container</span>
               </label>
             </div>
           </div>
 
           {#if profileFormKind === 'docker'}
             <div class="form-group">
-              <label for="form-container">{$LL.webserver.selectContainer()}</label>
+              <label for="form-container">Select Container</label>
               <div class="select-row">
                 <select id="form-container" bind:value={profileFormContainer}>
                   {#each containers as c}
@@ -1198,8 +1197,8 @@
           {/if}
 
           <div class="modal-actions mt-md">
-            <button class="secondary" onclick={() => { isEditingProfile = false; profileFormId = ''; }}>{$LL.common.cancel()}</button>
-            <button class="primary" onclick={saveProfileForm} disabled={!profileFormName.trim()}><Save size={14} /> {$LL.common.save()}</button>
+            <button class="secondary" onclick={() => { isEditingProfile = false; profileFormId = ''; }}>Cancel</button>
+            <button class="primary" onclick={saveProfileForm} disabled={!profileFormName.trim()}><Save size={14} /> Save</button>
           </div>
         </div>
       {/if}
@@ -1212,76 +1211,76 @@
   <div class="modal-overlay" role="presentation" onclick={() => (showHostModal = false)}>
     <div class="modal-content glass host-modal" role="dialog" onclick={(e) => e.stopPropagation()}>
       <div class="modal-header">
-        <h3>{editing ? $LL.webserver.modalEditTitle() : $LL.webserver.modalAddTitle()}</h3>
+        <h3>{editing ? "Edit proxy host" : "New proxy host"}</h3>
         <button class="icon-btn-compact" onclick={() => (showHostModal = false)}><X size={16} /></button>
       </div>
 
       <div class="modal-tabs">
-        <button class="mtab" class:active={hostModalTab === 'details'} onclick={() => (hostModalTab = 'details')}>{$LL.webserver.tabDetails()}</button>
-        <button class="mtab" class:active={hostModalTab === 'ssl'} onclick={() => (hostModalTab = 'ssl')}>{$LL.webserver.tabSsl()}</button>
-        <button class="mtab" class:active={hostModalTab === 'advanced'} onclick={() => (hostModalTab = 'advanced')}>{$LL.webserver.tabAdvanced()}</button>
+        <button class="mtab" class:active={hostModalTab === 'details'} onclick={() => (hostModalTab = 'details')}>Details</button>
+        <button class="mtab" class:active={hostModalTab === 'ssl'} onclick={() => (hostModalTab = 'ssl')}>SSL</button>
+        <button class="mtab" class:active={hostModalTab === 'advanced'} onclick={() => (hostModalTab = 'advanced')}>Advanced</button>
       </div>
 
       <div class="modal-body">
         {#if hostModalTab === 'details'}
           <div class="form-group">
-            <label for="np-domain">{$LL.webserver.domain()}</label>
-            <input id="np-domain" type="text" bind:value={form.domain} placeholder={$LL.webserver.domainPlaceholder()} />
+            <label for="np-domain">Domain name</label>
+            <input id="np-domain" type="text" bind:value={form.domain} placeholder="example.com" />
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label for="np-scheme">{$LL.webserver.scheme()}</label>
+              <label for="np-scheme">Scheme</label>
               <select id="np-scheme" bind:value={form.scheme}>
                 <option value="http">http</option>
                 <option value="https">https</option>
               </select>
             </div>
             <div class="form-group grow">
-              <label for="np-fhost">{$LL.webserver.forwardHost()}</label>
-              <input id="np-fhost" type="text" bind:value={form.forwardHost} placeholder={$LL.webserver.forwardHostPlaceholder()} />
+              <label for="np-fhost">Forward host / IP</label>
+              <input id="np-fhost" type="text" bind:value={form.forwardHost} placeholder="127.0.0.1" />
             </div>
             <div class="form-group">
-              <label for="np-fport">{$LL.webserver.forwardPort()}</label>
+              <label for="np-fport">Forward port</label>
               <input id="np-fport" type="number" bind:value={form.forwardPort} />
             </div>
           </div>
-          <label class="check"><input type="checkbox" bind:checked={form.websockets} /> {$LL.webserver.websockets()}</label>
-          <label class="check"><input type="checkbox" bind:checked={form.blockExploits} /> {$LL.webserver.blockExploits()}</label>
-          <label class="check"><input type="checkbox" bind:checked={form.cacheAssets} /> {$LL.webserver.cacheAssets()}</label>
+          <label class="check"><input type="checkbox" bind:checked={form.websockets} /> Websockets support</label>
+          <label class="check"><input type="checkbox" bind:checked={form.blockExploits} /> Block common exploits</label>
+          <label class="check"><input type="checkbox" bind:checked={form.cacheAssets} /> Cache static assets</label>
         {/if}
 
         {#if hostModalTab === 'ssl'}
-          <label class="check"><input type="checkbox" bind:checked={form.sslEnabled} /> {$LL.webserver.sslEnabled()}</label>
+          <label class="check"><input type="checkbox" bind:checked={form.sslEnabled} /> Enable SSL</label>
           {#if form.sslEnabled}
             <div class="form-group">
-              <label for="np-cert">{$LL.webserver.sslCert()}</label>
+              <label for="np-cert">SSL certificate</label>
               <select id="np-cert" bind:value={form.sslCertName}>
-                <option value="">{$LL.webserver.sslCertNone()}</option>
+                <option value="">— none —</option>
                 {#each certs as c}<option value={c.name}>{c.name}</option>{/each}
               </select>
-              <span class="field-hint">{$LL.webserver.sslCertHint()}</span>
+              <span class="field-hint">Pick an existing certificate, or issue one in the SSL Certificates tab.</span>
             </div>
-            <label class="check"><input type="checkbox" bind:checked={form.forceSsl} /> {$LL.webserver.forceSsl()}</label>
-            <label class="check"><input type="checkbox" bind:checked={form.http2} /> {$LL.webserver.http2()}</label>
-            <label class="check"><input type="checkbox" bind:checked={form.hstsEnabled} /> {$LL.webserver.hsts()}</label>
+            <label class="check"><input type="checkbox" bind:checked={form.forceSsl} /> Force SSL (redirect HTTP → HTTPS)</label>
+            <label class="check"><input type="checkbox" bind:checked={form.http2} /> HTTP/2 support</label>
+            <label class="check"><input type="checkbox" bind:checked={form.hstsEnabled} /> HSTS enabled</label>
             {#if form.hstsEnabled}
-              <label class="check indent"><input type="checkbox" bind:checked={form.hstsSubdomains} /> {$LL.webserver.hstsSubdomains()}</label>
-              <label class="check indent"><input type="checkbox" bind:checked={form.hstsPreload} /> {$LL.webserver.hstsPreload()}</label>
+              <label class="check indent"><input type="checkbox" bind:checked={form.hstsSubdomains} /> Include subdomains</label>
+              <label class="check indent"><input type="checkbox" bind:checked={form.hstsPreload} /> Preload</label>
             {/if}
           {/if}
         {/if}
 
         {#if hostModalTab === 'advanced'}
           <div class="form-group">
-            <label for="np-adv">{$LL.webserver.advancedConfig()}</label>
-            <textarea id="np-adv" class="adv-area" bind:value={form.advancedConfig} spellcheck="false" placeholder={$LL.webserver.advancedPlaceholder()}></textarea>
+            <label for="np-adv">Custom Nginx configuration</label>
+            <textarea id="np-adv" class="adv-area" bind:value={form.advancedConfig} spellcheck="false" placeholder="Directives placed inside the server block…"></textarea>
           </div>
         {/if}
       </div>
 
       <div class="modal-actions">
-        <button class="secondary" onclick={() => (showHostModal = false)}>{$LL.common.cancel()}</button>
-        <button class="primary" onclick={saveHost}><Save size={14} /> {$LL.common.save()}</button>
+        <button class="secondary" onclick={() => (showHostModal = false)}>Cancel</button>
+        <button class="primary" onclick={saveHost}><Save size={14} /> Save</button>
       </div>
     </div>
   </div>
@@ -1291,70 +1290,70 @@
 {#if showIssue}
   <div class="modal-overlay" role="presentation" onclick={() => (showIssue = false)}>
     <div class="modal-content glass" role="dialog" onclick={(e) => e.stopPropagation()}>
-      <div class="modal-header"><h3>{$LL.webserver.issueTitle()}</h3><button class="icon-btn-compact" onclick={() => (showIssue = false)}><X size={16} /></button></div>
+      <div class="modal-header"><h3>Issue a new certificate</h3><button class="icon-btn-compact" onclick={() => (showIssue = false)}><X size={16} /></button></div>
       <div class="form-group">
-        <label for="ssl-domains">{$LL.webserver.domainsField()}</label>
-        <input id="ssl-domains" type="text" bind:value={issueDomains} placeholder={$LL.webserver.domainsPlaceholder()} />
+        <label for="ssl-domains">Domains (comma-separated)</label>
+        <input id="ssl-domains" type="text" bind:value={issueDomains} placeholder="example.com, www.example.com" />
       </div>
       <div class="form-group">
-        <label for="ssl-email">{$LL.webserver.email()}</label>
-        <input id="ssl-email" type="text" bind:value={issueEmail} placeholder={$LL.webserver.emailPlaceholder()} />
+        <label for="ssl-email">Email (for expiry notices)</label>
+        <input id="ssl-email" type="text" bind:value={issueEmail} placeholder="admin@example.com" />
       </div>
       <div class="form-group">
-        <label for="ssl-method">{$LL.webserver.method()}</label>
+        <label for="ssl-method">Validation method</label>
         <select id="ssl-method" bind:value={issueMethod}>
-          <option value="nginx">{$LL.webserver.methodNginx()}</option>
-          <option value="webroot">{$LL.webserver.methodWebroot()}</option>
-          <option value="standalone">{$LL.webserver.methodStandalone()}</option>
-          <option value="dns">{$LL.webserver.methodDns()}</option>
+          <option value="nginx">Nginx plugin</option>
+          <option value="webroot">Webroot</option>
+          <option value="standalone">Standalone</option>
+          <option value="dns">DNS challenge</option>
         </select>
       </div>
       {#if issueMethod === 'webroot'}
         <div class="form-group">
-          <label for="ssl-webroot">{$LL.webserver.webrootPath()}</label>
+          <label for="ssl-webroot">Webroot path</label>
           <input id="ssl-webroot" type="text" bind:value={issueWebroot} />
         </div>
       {/if}
       {#if issueMethod === 'dns'}
         <div class="form-group">
-          <label for="ssl-dns">{$LL.webserver.dnsProvider()}</label>
+          <label for="ssl-dns">DNS provider</label>
           <select id="ssl-dns" bind:value={dnsProvider}>
             <option value="cloudflare">Cloudflare</option>
             <option value="digitalocean">DigitalOcean</option>
             <option value="route53">AWS Route53</option>
-            <option value="manual">{$LL.webserver.providerManual()}</option>
+            <option value="manual">Manual</option>
           </select>
         </div>
         {#if !pluginInstalled}
           <div class="hint warn">
             <ShieldAlert size={14} />
-            <span>{$LL.webserver.pluginMissing({ plugin: `dns-${dnsProvider}` })}</span>
-            <button class="secondary btn-compact" onclick={() => installPlugin(dnsProvider)}><Download size={12} /> {$LL.webserver.installPlugin()}</button>
+            <span>DNS plugin dns-{dnsProvider} is not installed on this target.</span>
+            <button class="secondary btn-compact" onclick={() => installPlugin(dnsProvider)}><Download size={12} /> Install DNS plugin</button>
           </div>
         {/if}
         {#if dnsProvider === 'cloudflare' || dnsProvider === 'digitalocean'}
           <div class="form-group">
-            <label for="dns-token">{$LL.webserver.dnsToken()}</label>
-            <input id="dns-token" type="password" bind:value={dnsToken} placeholder={$LL.webserver.dnsTokenPlaceholder()} />
+            <label for="dns-token">API token</label>
+            <input id="dns-token" type="password" bind:value={dnsToken} placeholder="Provider API token" />
           </div>
         {/if}
         {#if dnsProvider === 'route53'}
           <div class="form-group">
-            <label for="dns-ak">{$LL.webserver.dnsAccessKey()}</label>
+            <label for="dns-ak">AWS access key ID</label>
             <input id="dns-ak" type="text" bind:value={dnsAccessKey} />
           </div>
           <div class="form-group">
-            <label for="dns-sk">{$LL.webserver.dnsSecretKey()}</label>
+            <label for="dns-sk">AWS secret access key</label>
             <input id="dns-sk" type="password" bind:value={dnsSecretKey} />
           </div>
         {/if}
         {#if dnsProvider === 'manual'}
-          <span class="field-hint">{$LL.webserver.manualHint()}</span>
+          <span class="field-hint">Manual DNS requires interactive TXT record entry and may not complete unattended.</span>
         {/if}
       {/if}
       <div class="modal-actions">
-        <button class="secondary" onclick={() => (showIssue = false)}>{$LL.common.cancel()}</button>
-        <button class="primary" onclick={submitIssue}>{$LL.webserver.issue()}</button>
+        <button class="secondary" onclick={() => (showIssue = false)}>Cancel</button>
+        <button class="primary" onclick={submitIssue}>Issue</button>
       </div>
     </div>
   </div>
@@ -1367,8 +1366,8 @@
       <div class="modal-header"><h3 class="mono">{editPath}</h3><button class="icon-btn-compact" onclick={() => (editPath = null)}><X size={16} /></button></div>
       <textarea class="config-area" bind:value={editContent} spellcheck="false"></textarea>
       <div class="modal-actions">
-        <button class="secondary" onclick={() => (editPath = null)}>{$LL.common.cancel()}</button>
-        <button class="primary" disabled={editSaving} onclick={saveEdit}><Save size={14} /> {editSaving ? $LL.common.loading() : $LL.common.save()}</button>
+        <button class="secondary" onclick={() => (editPath = null)}>Cancel</button>
+        <button class="primary" disabled={editSaving} onclick={saveEdit}><Save size={14} /> {editSaving ? "Loading…" : "Save"}</button>
       </div>
     </div>
   </div>

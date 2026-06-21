@@ -19,14 +19,13 @@
   import PathAutocomplete from './ui/PathAutocomplete.svelte';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
   import { get } from 'svelte/store';
-  import { LL } from '$lib/i18n/i18n-svelte';
-  import { notifications } from '$lib/notifications.svelte';
+    import { notifications } from '$lib/notifications.svelte';
   import {
     formatInvokeError,
     isSudoPasswordIncorrect,
     isSudoPasswordRequired,
     parseAppError,
-  } from '$lib/i18n/backendErrors';
+  } from '$lib/backendErrors';
   import { validateContent } from '$lib/syntaxValidator';
 
   // Props
@@ -99,10 +98,10 @@
   let shellPickContainerName = $state('');
   let selectedShell = $state('/bin/bash');
   const shellOptions = $derived([
-    { value: '/bin/bash', label: get(LL).docker.shellBash() },
+    { value: '/bin/bash', label: "bash" },
     { value: '/bin/sh', label: 'sh' },
-    { value: '/bin/ash', label: get(LL).docker.shellAsh() },
-    { value: '/bin/zsh', label: get(LL).docker.shellZsh() },
+    { value: '/bin/ash', label: "ash (Alpine)" },
+    { value: '/bin/zsh', label: "zsh" },
   ]);
   let showExecModal = $state(false);
   let execContainerId = $state('');
@@ -447,7 +446,7 @@
       }
     } catch (err: unknown) {
       sudoError = isSudoPasswordIncorrect(err)
-        ? get(LL).common.sudoIncorrect()
+        ? "Incorrect sudo password. Try again."
         : formatInvokeError(err);
     }
   }
@@ -483,11 +482,11 @@
       if (errStr.includes('cannot connect') || errStr.includes('is the docker daemon running')) {
         dockerInstalled = true;
         dockerVersion = '';
-        errorMsg = get(LL).docker.daemonNotRunning();
+        errorMsg = "Docker is installed but the daemon is not running. Start it with: systemctl start docker";
         isLoading = false;
         return;
       }
-      errorMsg = get(LL).docker.checkFailed({ error: formatInvokeError(err) });
+      errorMsg = `Docker check error: ${formatInvokeError(err)}`;
     } finally {
       isLoading = false;
     }
@@ -517,7 +516,7 @@
         pendingAction = loadContainers;
         showSudoModal = true;
       } else {
-        errorMsg = get(LL).docker.loadContainersFailed({ error: formatInvokeError(err) });
+        errorMsg = `Failed to load containers: ${formatInvokeError(err)}`;
       }
     } finally {
       isLoading = false;
@@ -549,13 +548,13 @@
       isLoading = true;
       await execDocker(`docker ${action} ${id}`);
       await loadContainers();
-      successMsg = action === 'start' ? get(LL).docker.containerStarted() : action === 'stop' ? get(LL).docker.containerStopped() : action === 'restart' ? get(LL).docker.containerRestarted() : get(LL).docker.containerRemoved();
+      successMsg = action === 'start' ? "Container started" : action === 'stop' ? "Container stopped" : action === 'restart' ? "Container restarted" : "Container removed";
       setTimeout(() => successMsg = '', 3000);
     });
   }
 
   async function removeContainer(id: string, name: string) {
-    confirmMessage = get(LL).docker.confirmRemoveContainer({ name });
+    confirmMessage = `Remove container "${name}"? This cannot be undone.`;
     confirmAction = async () => {
       await containerAction('rm -f', id);
       showConfirmModal = false;
@@ -575,7 +574,7 @@
       const output = await execDocker(`docker inspect ${id}`);
       containerInspectData = JSON.stringify(JSON.parse(output), null, 2);
     } catch (err: any) {
-      containerInspectData = get(LL).docker.inspectFailed({ error: formatInvokeError(err) });
+      containerInspectData = `Inspect error: ${formatInvokeError(err)}`;
     } finally {
       inspectLoading = false;
     }
@@ -600,7 +599,7 @@
       });
       await invoke('start_container_logs', { containerId: id, tail: 200, useSudo });
     } catch (err: any) {
-      logLines = [get(LL).docker.logsStreamFailed({ error: formatInvokeError(err) })];
+      logLines = [`Failed to start log streaming: ${formatInvokeError(err)}`];
     }
   }
 
@@ -654,7 +653,7 @@
         pendingAction = runExec;
         showSudoModal = true;
       } else {
-        execOutput = get(LL).docker.execFailed({ error: formatInvokeError(err) });
+        execOutput = `Error: ${formatInvokeError(err)}`;
       }
     } finally {
       execRunning = false;
@@ -717,7 +716,7 @@
         pendingAction = loadImages;
         showSudoModal = true;
       } else {
-        errorMsg = get(LL).docker.loadImagesFailed({ error: formatInvokeError(err) });
+        errorMsg = `Failed to load images: ${formatInvokeError(err)}`;
       }
     } finally {
       isLoading = false;
@@ -742,7 +741,7 @@
       const output = await execDocker(`docker pull ${pullImageName.trim()}`);
       pullProgress = output;
       await loadImages();
-      successMsg = get(LL).docker.imagePulled({ name: pullImageName });
+      successMsg = `Image "${pullImageName}" pulled successfully`;
       setTimeout(() => successMsg = '', 3000);
       setTimeout(() => { showPullModal = false; pullImageName = ''; pullProgress = ''; }, 1500);
     } catch (err: any) {
@@ -750,7 +749,7 @@
         pendingAction = pullImage;
         showSudoModal = true;
       } else {
-        pullProgress = get(LL).docker.pullFailed({ error: formatInvokeError(err) });
+        pullProgress = `Pull error: ${formatInvokeError(err)}`;
       }
     } finally {
       isPulling = false;
@@ -758,14 +757,14 @@
   }
 
   async function removeImage(id: string, name: string) {
-    confirmMessage = get(LL).docker.confirmRemoveImage({ name });
+    confirmMessage = `Remove image "${name}"?`;
     confirmAction = async () => {
       await handleWithSudo(async () => {
         isLoading = true;
         await execDocker(`docker rmi ${id}`);
         await loadImages();
         showConfirmModal = false;
-        successMsg = get(LL).docker.imageRemoved();
+        successMsg = "Image removed";
         setTimeout(() => successMsg = '', 3000);
       });
     };
@@ -773,14 +772,14 @@
   }
 
   async function pruneImages() {
-    confirmMessage = get(LL).docker.confirmPruneImages();
+    confirmMessage = "Remove all unused images? This will free disk space.";
     confirmAction = async () => {
       await handleWithSudo(async () => {
         isLoading = true;
         const output = await execDocker('docker image prune -f');
         await loadImages();
         showConfirmModal = false;
-        successMsg = get(LL).docker.imagesPruned({ output: output.trim().split('\n').pop() || '' });
+        successMsg = `Unused images removed. ${output.trim().split('\n').pop() || ''}`;
         setTimeout(() => successMsg = '', 5000);
       });
     };
@@ -807,7 +806,7 @@
         pendingAction = loadNetworks;
         showSudoModal = true;
       } else {
-        errorMsg = get(LL).docker.loadNetworksFailed({ error: formatInvokeError(err) });
+        errorMsg = `Failed to load networks: ${formatInvokeError(err)}`;
       }
     } finally {
       isLoading = false;
@@ -826,7 +825,7 @@
       const output = await execDocker(`docker network inspect ${id}`);
       networkInspectData = JSON.stringify(JSON.parse(output), null, 2);
     } catch (err: any) {
-      networkInspectData = get(LL).docker.inspectFailed({ error: formatInvokeError(err) });
+      networkInspectData = `Inspect error: ${formatInvokeError(err)}`;
     } finally {
       networkInspectLoading = false;
     }
@@ -841,20 +840,20 @@
       newNetworkName = '';
       newNetworkDriver = 'bridge';
       await loadNetworks();
-      successMsg = get(LL).docker.networkCreated();
+      successMsg = "Network created";
       setTimeout(() => successMsg = '', 3000);
     });
   }
 
   async function removeNetwork(id: string, name: string) {
-    confirmMessage = get(LL).docker.confirmRemoveNetwork({ name });
+    confirmMessage = `Remove network "${name}"?`;
     confirmAction = async () => {
       await handleWithSudo(async () => {
         isLoading = true;
         await execDocker(`docker network rm ${id}`);
         await loadNetworks();
         showConfirmModal = false;
-        successMsg = get(LL).docker.networkRemoved();
+        successMsg = "Network removed";
         setTimeout(() => successMsg = '', 3000);
       });
     };
@@ -889,7 +888,7 @@
         const errDetails = appErr?.details || '';
         const errStr = (errDetails || errCode || String(err)).toLowerCase();
         if (!errStr.includes('not found')) {
-          errorMsg = get(LL).docker.loadComposeFailed({ error: formatInvokeError(err) });
+          errorMsg = `Failed to load Compose projects: ${formatInvokeError(err)}`;
         }
       }
     } finally {
@@ -909,7 +908,7 @@
         successMsg = `Compose ${action} — wykonano`;
         setTimeout(() => successMsg = '', 3000);
       } catch (err: any) {
-        errorMsg = get(LL).docker.composeActionFailed({ error: formatInvokeError(err) });
+        errorMsg = `Compose error: ${formatInvokeError(err)}`;
       } finally {
         isLoading = false;
       }
@@ -926,7 +925,7 @@
       dirPickerPath = home;
       await loadDirEntries(home);
     } catch (err: any) {
-      errorMsg = get(LL).docker.dirPickerFailed({ error: formatInvokeError(err) });
+      errorMsg = `Directory browser error: ${formatInvokeError(err)}`;
       showDirPicker = false;
     } finally {
       dirPickerLoading = false;
@@ -941,7 +940,7 @@
         .filter((e: any) => e.is_dir || e.file_type === 'directory');
       dirPickerPath = path;
     } catch (err: any) {
-      errorMsg = get(LL).docker.dirLoadFailed({ error: formatInvokeError(err) });
+      errorMsg = `Directory load error: ${formatInvokeError(err)}`;
     } finally {
       dirPickerLoading = false;
     }
@@ -996,7 +995,7 @@ networks:
       successMsg = `Projekt "${newProjectFolder.trim() || 'nowy'}" utworzony w ${projectPath}`;
       setTimeout(() => successMsg = '', 4000);
     } catch (err: any) {
-      errorMsg = get(LL).docker.composeActionFailed({ error: formatInvokeError(err) });
+      errorMsg = `Compose error: ${formatInvokeError(err)}`;
     } finally {
       isLoading = false;
     }
@@ -1051,7 +1050,7 @@ networks:
         }
       }, 100);
     } catch (err: any) {
-      composeEditorContent = '# ' + get(LL).docker.fileReadFailed({ error: formatInvokeError(err) });
+      composeEditorContent = '# ' + `File read error: ${formatInvokeError(err)}`;
     }
   }
 
@@ -1065,7 +1064,7 @@ networks:
       setTimeout(() => successMsg = '', 3000);
       closeComposeEditor();
     } catch (err: any) {
-      errorMsg = get(LL).docker.saveComposeFailed({ error: formatInvokeError(err) });
+      errorMsg = `Compose save error: ${formatInvokeError(err)}`;
     } finally {
       composeEditorSaving = false;
     }
@@ -1080,13 +1079,13 @@ networks:
 
     try {
       const output = await execDocker(`docker compose -f ${firstFile} logs --tail 200`);
-      composeLogs = output.trim() ? output.split('\n') : [get(LL).common.noData()];
+      composeLogs = output.trim() ? output.split('\n') : ["(no data)"];
     } catch (err: any) {
       if (isSudoPasswordRequired(err)) {
         pendingAction = () => openComposeLogs(name, configFiles);
         showSudoModal = true;
       } else {
-        composeLogs = [get(LL).docker.logsDownloadFailed({ error: formatInvokeError(err) })];
+        composeLogs = [`Log download error: ${formatInvokeError(err)}`];
       }
     }
   }
@@ -1117,7 +1116,7 @@ networks:
         const data = event.payload as string;
         composePullLogs = [...composePullLogs, data];
         parseComposePullProgress(data);
-        if (data.includes(get(LL).docker.pullStreamErrorMarker()) || data.includes('[Pull error') || data.includes('Error response from daemon')) {
+        if (data.includes("Error response from daemon") || data.includes('[Pull error') || data.includes('Error response from daemon')) {
           composePullStatus = 'error';
         }
       });
@@ -1129,7 +1128,7 @@ networks:
         showComposePullModal = false;
       } else {
         composePullStatus = 'error';
-        composePullLogs = [...composePullLogs, get(LL).docker.pullFailed({ error: formatInvokeError(err) })];
+        composePullLogs = [...composePullLogs, `Pull error: ${formatInvokeError(err)}`];
       }
     }
   }
@@ -1152,10 +1151,10 @@ networks:
       } else if (cleanLine.includes('Pull complete') || cleanLine.includes('Already exists')) {
         const firstWord = cleanLine.split(/\s+/)[0] || 'layer';
         if (!composePullLayers[firstWord]) {
-          composePullLayers[firstWord] = { service: firstWord, status: get(LL).docker.composePullDone(), percent: 100 };
+          composePullLayers[firstWord] = { service: firstWord, status: "Done", percent: 100 };
         } else {
           composePullLayers[firstWord].percent = 100;
-          composePullLayers[firstWord].status = get(LL).docker.composePullDone();
+          composePullLayers[firstWord].status = "Done";
         }
       }
     }
@@ -1166,7 +1165,7 @@ networks:
       composePullProgress = Math.min(Math.round(total / keys.length), 100);
     }
     
-    if (data.includes(get(LL).docker.pullStreamErrorMarker()) || data.includes('[Pull error') || data.includes('Error')) {
+    if (data.includes("Error response from daemon") || data.includes('[Pull error') || data.includes('Error')) {
       composePullStatus = 'error';
     } else if (data.includes('Finished') || data.includes('Pull complete') && composePullProgress >= 100) {
       // Done
@@ -1205,7 +1204,7 @@ networks:
         yaml.load(content);
       } catch (e: any) {
         markers.push({
-          message: e.message || get(LL).docker.yamlSyntaxError(),
+          message: e.message || "YAML syntax error",
           severity: monaco.MarkerSeverity.Error,
           startLineNumber: e.mark ? e.mark.line + 1 : 1,
           startColumn: e.mark ? e.mark.column + 1 : 1,
@@ -1218,7 +1217,7 @@ networks:
         toml.parse(content);
       } catch (e: any) {
         markers.push({
-          message: e.message || get(LL).docker.tomlSyntaxError(),
+          message: e.message || "TOML syntax error",
           severity: monaco.MarkerSeverity.Error,
           startLineNumber: e.line || 1,
           startColumn: e.column || 1,
@@ -1305,7 +1304,7 @@ networks:
     if (selectedContainers.length === 0) return;
     const ids = selectedContainers.join(' ');
     if (action === 'rm -f') {
-      confirmMessage = get(LL).docker.confirmRemoveContainer({ name: String(selectedContainers.length) });
+      confirmMessage = `Remove container "${String(selectedContainers.length)}"? This cannot be undone.`;
       confirmAction = async () => {
         await handleWithSudo(async () => {
           isLoading = true;
@@ -1329,14 +1328,14 @@ networks:
   async function runBulkImageAction() {
     if (selectedImages.length === 0) return;
     const ids = selectedImages.join(' ');
-    confirmMessage = get(LL).docker.confirmRemoveImage({ name: String(selectedImages.length) });
+    confirmMessage = `Remove image "${String(selectedImages.length)}"?`;
     confirmAction = async () => {
       await handleWithSudo(async () => {
         isLoading = true;
         try {
           await execDocker(`docker rmi ${ids}`);
         } catch (e: any) {
-          errorMsg = get(LL).docker.pruneFailed({ error: formatInvokeError(e) });
+          errorMsg = `Prune error: ${formatInvokeError(e)}`;
         }
         selectedImages = [];
         await loadImages();
@@ -1350,17 +1349,17 @@ networks:
     if (selectedNetworks.length === 0) return;
     const safeIds = selectedNetworks.filter(n => n !== 'bridge' && n !== 'host' && n !== 'none').join(' ');
     if (!safeIds) {
-      errorMsg = get(LL).docker.removeNetworkFailed({ error: 'built-in' });
+      errorMsg = `Network removal error: $built-in`;
       return;
     }
-    confirmMessage = get(LL).docker.confirmRemoveNetwork({ name: String(selectedNetworks.filter(n => n !== 'bridge' && n !== 'host' && n !== 'none').length) });
+    confirmMessage = `Remove network "${String(selectedNetworks.filter(n => n !== 'bridge' && n !== 'host' && n !== 'none').length)}"?`;
     confirmAction = async () => {
       await handleWithSudo(async () => {
         isLoading = true;
         try {
           await execDocker(`docker network rm ${safeIds}`);
         } catch (e: any) {
-          errorMsg = get(LL).docker.removeNetworkFailed({ error: formatInvokeError(e) });
+          errorMsg = `Network removal error: ${formatInvokeError(e)}`;
         }
         selectedNetworks = [];
         await loadNetworks();
@@ -1383,7 +1382,7 @@ networks:
           try {
             await execDocker(`docker compose -f ${file} ${action}`);
           } catch (e: any) {
-            errorMsg += get(LL).docker.composeActionFailed({ error: `${name}: ${formatInvokeError(e)}` }) + '\n';
+            errorMsg += `Compose error: ${name}: ${formatInvokeError(e)}\n`;
           }
         }
       }
@@ -1391,13 +1390,13 @@ networks:
       await loadComposeProjects();
       isLoading = false;
       if (!errorMsg) {
-        successMsg = get(LL).docker.composeDone({ action });
+        successMsg = `Compose ${action} — done`;
         setTimeout(() => successMsg = '', 3000);
       }
     };
 
     if (action === 'down') {
-      confirmMessage = get(LL).docker.composeStop() + ' (' + selectedCompose.length + ')?';
+      confirmMessage = "Stop" + ' (' + selectedCompose.length + ')?';
       confirmAction = async () => {
         await handleWithSudo(execute);
         showConfirmModal = false;
@@ -1420,7 +1419,7 @@ networks:
           try {
             await execDocker(`docker compose -f ${file} pull`);
           } catch (e: any) {
-            errorMsg += get(LL).docker.pullFailed({ error: `${name}: ${formatInvokeError(e)}` }) + '\n';
+            errorMsg += `Pull error: ${name}: ${formatInvokeError(e)}\n`;
           }
         }
       }
@@ -1429,7 +1428,7 @@ networks:
       await loadImages();
       isLoading = false;
       if (!errorMsg) {
-        successMsg = get(LL).docker.imagePulled({ name: 'compose' });
+        successMsg = `Image "$compose" pulled successfully`;
         setTimeout(() => successMsg = '', 3000);
       }
     });
@@ -1473,7 +1472,7 @@ networks:
         pendingAction = loadVolumes;
         showSudoModal = true;
       } else {
-        errorMsg = get(LL).docker.loadVolumesFailed({ error: formatInvokeError(err) });
+        errorMsg = `Failed to load volumes: ${formatInvokeError(err)}`;
       }
     } finally {
       isLoading = false;
@@ -1498,21 +1497,21 @@ networks:
       const output = await execDocker(`docker volume inspect ${name}`);
       volumeInspectData = JSON.stringify(JSON.parse(output), null, 2);
     } catch (err: any) {
-      volumeInspectData = get(LL).docker.inspectFailed({ error: formatInvokeError(err) });
+      volumeInspectData = `Inspect error: ${formatInvokeError(err)}`;
     } finally {
       volumeInspectLoading = false;
     }
   }
 
   async function removeVolume(name: string) {
-    confirmMessage = get(LL).docker.confirmRemoveVolume({ name });
+    confirmMessage = `Remove volume "${name}"?`;
     confirmAction = async () => {
       await handleWithSudo(async () => {
         isLoading = true;
         await execDocker(`docker volume rm ${name}`);
         await loadVolumes();
         showConfirmModal = false;
-        successMsg = get(LL).docker.volumeRemoved();
+        successMsg = "Volume removed";
         setTimeout(() => successMsg = '', 3000);
       });
     };
@@ -1531,7 +1530,7 @@ networks:
       browserVolumePath = inspectOut.trim();
       await loadVolumeDirectory();
     } catch (err: any) {
-      browserErrorMsg = get(LL).docker.volumePathFailed({ error: formatInvokeError(err) });
+      browserErrorMsg = `Cannot read volume path: ${formatInvokeError(err)}`;
     } finally {
       browserLoading = false;
     }
@@ -1568,7 +1567,7 @@ networks:
       
       browserEntries = parsed;
     } catch (err: any) {
-      browserErrorMsg = get(LL).docker.folderLoadFailed({ error: formatInvokeError(err) });
+      browserErrorMsg = `Folder load error: ${formatInvokeError(err)}`;
       browserEntries = [];
     } finally {
       browserLoading = false;
@@ -1631,7 +1630,7 @@ networks:
         }
       }, 100);
     } catch (err: any) {
-      browserErrorMsg = get(LL).docker.fileReadFailed({ error: formatInvokeError(err) });
+      browserErrorMsg = `File read error: ${formatInvokeError(err)}`;
     } finally {
       browserLoading = false;
     }
@@ -1652,12 +1651,12 @@ networks:
       const escapedTemp = "'" + tempFile.replace(/'/g, "'\\''") + "'";
       await execDocker(`sudo mv ${escapedTemp} ${escapedDest}`);
       
-      successMsg = get(LL).docker.fileSaved();
+      successMsg = "File saved successfully";
       setTimeout(() => successMsg = '', 3000);
       closeVolumeEditor();
       await loadVolumeDirectory();
     } catch (err: any) {
-      browserErrorMsg = get(LL).docker.saveComposeFailed({ error: formatInvokeError(err) });
+      browserErrorMsg = `Compose save error: ${formatInvokeError(err)}`;
     } finally {
       browserEditorSaving = false;
     }
@@ -1736,7 +1735,7 @@ networks:
       modifyEntrypoint = (inspect.Config.Entrypoint || []).join(' ');
 
     } catch (err: any) {
-      errorMsg = get(LL).docker.inspectFailed({ error: formatInvokeError(err) });
+      errorMsg = `Inspect error: ${formatInvokeError(err)}`;
       showModifyModal = false;
     } finally {
       modifyLoading = false;
@@ -1822,12 +1821,12 @@ networks:
           }
         }
 
-        successMsg = get(LL).docker.containerModified();
+        successMsg = "Container modified successfully!";
         setTimeout(() => successMsg = '', 3000);
         showModifyModal = false;
         await loadContainers();
       } catch (err: any) {
-        errorMsg = get(LL).docker.modifyFailed({ error: formatInvokeError(err) });
+        errorMsg = `Modify error: ${formatInvokeError(err)}`;
       }
     });
     modifyLoading = false;
@@ -1874,12 +1873,12 @@ networks:
       await invoke('sftp_write', { path: composeFile, content: updatedContent });
       await execDocker(`docker compose -f ${composeFile} up -d --remove-orphans`);
       
-      successMsg = get(LL).docker.composeNetworkUpdated();
+      successMsg = "Compose project network updated!";
       setTimeout(() => successMsg = '', 3000);
       showComposeNetworkModal = false;
       await loadComposeProjects();
     } catch (err: any) {
-      errorMsg = get(LL).docker.composeNetworkFailed({ error: formatInvokeError(err) });
+      errorMsg = `Compose network change error: ${formatInvokeError(err)}`;
     } finally {
       composeNetworkLoading = false;
     }
@@ -1959,18 +1958,18 @@ networks:
       <div class="not-installed-icon">
         <Container size={48} />
       </div>
-      <h2>{$LL.docker.notInstalled()}</h2>
+      <h2>Docker is not installed</h2>
       <p class="not-installed-desc">
-        {$LL.docker.notInstalledDesc()}
+        Docker Engine was not found on this server. Install Docker to use containerization.
       </p>
       <a href="https://docs.docker.com/engine/install/" target="_blank" rel="noopener" class="install-link">
-        {$LL.docker.installLink()}
+        Docker installation guide →
       </a>
     </div>
   {:else}
     <!-- Compact status bar -->
     <div class="docker-top-bar glass">
-      <h1 class="page-title">{$LL.docker.title()}</h1>
+      <h1 class="page-title">Docker</h1>
       <div class="status-item">
         <Container size={14} class="status-icon" />
         <span class="status-value mono-val tabular-nums">{dockerVersion || '—'}</span>
@@ -1979,22 +1978,22 @@ networks:
         <div class="stat-chip running">
           <Play size={11} />
           <span class="mono-val tabular-nums">{runningCount}</span>
-          <span class="stat-label">{$LL.docker.statActive()}</span>
+          <span class="stat-label">running</span>
         </div>
         <div class="stat-chip stopped">
           <Square size={11} />
           <span class="mono-val tabular-nums">{stoppedCount}</span>
-          <span class="stat-label">{$LL.docker.statStopped()}</span>
+          <span class="stat-label">stopped</span>
         </div>
         <div class="stat-chip neutral">
           <Box size={11} />
           <span class="mono-val tabular-nums">{totalImages}</span>
-          <span class="stat-label">{$LL.docker.statImages()}</span>
+          <span class="stat-label">images</span>
         </div>
         <div class="stat-chip neutral">
           <Network size={11} />
           <span class="mono-val tabular-nums">{totalNetworks}</span>
-          <span class="stat-label">{$LL.docker.statNetworks()}</span>
+          <span class="stat-label">networks</span>
         </div>
       </div>
     </div>
@@ -2002,22 +2001,22 @@ networks:
     <!-- Sub-tabs -->
     <div class="tabs-bar glass">
       <button class="tab-btn {dockerTab === 'containers' ? 'active' : ''}" onclick={() => { dockerTab = 'containers'; loadContainers(); }}>
-        <Container size={16} /> {$LL.docker.tabContainers()}
+        <Container size={16} /> Containers
       </button>
       <button class="tab-btn {dockerTab === 'images' ? 'active' : ''}" onclick={() => { dockerTab = 'images'; loadImages(); }}>
-        <Box size={16} /> {$LL.docker.tabImages()}
+        <Box size={16} /> Images
       </button>
       <button class="tab-btn {dockerTab === 'networks' ? 'active' : ''}" onclick={() => { dockerTab = 'networks'; loadNetworks(); }}>
-        <Network size={16} /> {$LL.docker.tabNetworks()}
+        <Network size={16} /> Networks
       </button>
       <button class="tab-btn {dockerTab === 'compose' ? 'active' : ''}" onclick={() => { dockerTab = 'compose'; loadComposeProjects(); }}>
-        <Layers size={16} /> {$LL.docker.tabCompose()}
+        <Layers size={16} /> Compose
       </button>
       <button class="tab-btn {dockerTab === 'volumes' ? 'active' : ''}" onclick={() => { dockerTab = 'volumes'; loadVolumes(); }}>
-        <Database size={16} /> {$LL.docker.tabVolumes()}
+        <Database size={16} /> Volumes
       </button>
       <button class="tab-btn {dockerTab === 'stats' ? 'active' : ''}" onclick={() => { dockerTab = 'stats'; loadStats(); }}>
-        <Activity size={16} /> {$LL.docker.tabStats()}
+        <Activity size={16} /> Live Stats
       </button>
     </div>
 
@@ -2028,19 +2027,19 @@ networks:
         <div class="ops-bar glass">
           <div class="search-bar">
             <span class="search-icon-wrapper"><Search size={16} /></span>
-            <input type="text" placeholder={$LL.docker.searchContainers()} bind:value={containerSearch} />
+            <input type="text" placeholder="Search containers…" bind:value={containerSearch} />
           </div>
           {#if selectedContainers.length > 0}
             <div class="bulk-actions">
-              <span class="bulk-count">{$LL.docker.selectedCount({ count: String(selectedContainers.length) })}</span>
+              <span class="bulk-count">{`Selected: ${String(selectedContainers.length)}`}</span>
               <button class="secondary btn-sm" onclick={() => runBulkContainerAction('start')}><Play size={12} /> Start</button>
               <button class="secondary btn-sm" onclick={() => runBulkContainerAction('stop')}><Square size={12} /> Stop</button>
               <button class="secondary btn-sm" onclick={() => runBulkContainerAction('restart')}><RotateCw size={12} /> Restart</button>
-              <button class="danger btn-sm" onclick={() => runBulkContainerAction('rm -f')}><Trash2 size={12} /> {$LL.common.remove()}</button>
+              <button class="danger btn-sm" onclick={() => runBulkContainerAction('rm -f')}><Trash2 size={12} /> Remove</button>
             </div>
           {/if}
           <button class="secondary" onclick={loadContainers} disabled={isLoading}>
-            <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> {$LL.common.refresh()}
+            <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> Refresh
           </button>
         </div>
 
@@ -2048,19 +2047,19 @@ networks:
           {#if containersLoading}
             <div class="loading-state">
               <Loader2 class="spin" size={36} />
-              <p>{$LL.docker.loadingContainers()}</p>
+              <p>Loading containers…</p>
             </div>
           {:else}
             <table class="data-table">
               <thead>
                 <tr>
                   <th style="width: 5%;"><input type="checkbox" checked={selectedContainers.length > 0 && selectedContainers.length === getFilteredContainers().length} onchange={toggleSelectAllContainers} /></th>
-                  <SortableTh label={$LL.docker.colName()} column="name" activeColumn={containerSort.column} direction={containerSort.direction} onsort={(c) => containerSort = nextSort(containerSort, c)} width="20%" />
-                  <SortableTh label={$LL.docker.colImage()} column="image" activeColumn={containerSort.column} direction={containerSort.direction} onsort={(c) => containerSort = nextSort(containerSort, c)} width="18%" />
-                  <SortableTh label={$LL.docker.colStatus()} column="status" activeColumn={containerSort.column} direction={containerSort.direction} onsort={(c) => containerSort = nextSort(containerSort, c)} width="12%" />
-                  <SortableTh label={$LL.docker.colPorts()} column="ports" activeColumn={containerSort.column} direction={containerSort.direction} onsort={(c) => containerSort = nextSort(containerSort, c)} width="15%" />
-                  <SortableTh label={$LL.docker.colCreated()} column="created" activeColumn={containerSort.column} direction={containerSort.direction} onsort={(c) => containerSort = nextSort(containerSort, c)} width="13%" />
-                  <th style="width: 17%; text-align: right;">{$LL.docker.operations()}</th>
+                  <SortableTh label="Name" column="name" activeColumn={containerSort.column} direction={containerSort.direction} onsort={(c) => containerSort = nextSort(containerSort, c)} width="20%" />
+                  <SortableTh label="Image" column="image" activeColumn={containerSort.column} direction={containerSort.direction} onsort={(c) => containerSort = nextSort(containerSort, c)} width="18%" />
+                  <SortableTh label="Status" column="status" activeColumn={containerSort.column} direction={containerSort.direction} onsort={(c) => containerSort = nextSort(containerSort, c)} width="12%" />
+                  <SortableTh label="Ports" column="ports" activeColumn={containerSort.column} direction={containerSort.direction} onsort={(c) => containerSort = nextSort(containerSort, c)} width="15%" />
+                  <SortableTh label="Created" column="created" activeColumn={containerSort.column} direction={containerSort.direction} onsort={(c) => containerSort = nextSort(containerSort, c)} width="13%" />
+                  <th style="width: 17%; text-align: right;">Operations</th>
                 </tr>
               </thead>
               <tbody>
@@ -2078,35 +2077,35 @@ networks:
                     <td class="time-cell">{container.CreatedAt?.split(' ')[0] || container.RunningFor || '—'}</td>
                     <td class="actions-cell">
                       {#if container.State === 'running'}
-                        <button class="btn-action danger-text" onclick={() => containerAction('stop', container.ID)} title={$LL.docker.stop()}>
+                        <button class="btn-action danger-text" onclick={() => containerAction('stop', container.ID)} title="Stop">
                           <Square size={14} />
                         </button>
-                        <button class="btn-action" onclick={() => containerAction('restart', container.ID)} title={$LL.docker.restart()}>
+                        <button class="btn-action" onclick={() => containerAction('restart', container.ID)} title="Restart">
                           <RotateCw size={14} />
                         </button>
                       {:else}
-                        <button class="btn-action success-text" onclick={() => containerAction('start', container.ID)} title={$LL.docker.start()}>
+                        <button class="btn-action success-text" onclick={() => containerAction('start', container.ID)} title="Start">
                           <Play size={14} />
                         </button>
                       {/if}
-                      <button class="btn-action" onclick={() => openModifyContainer(container.ID)} title={$LL.docker.modify()}>
+                      <button class="btn-action" onclick={() => openModifyContainer(container.ID)} title="Modify (Portainer-like)">
                         <Edit size={14} class="accent-amber-text" />
                       </button>
-                      <button class="btn-action" onclick={() => inspectContainer(container.ID)} title={$LL.docker.inspect()}>
+                      <button class="btn-action" onclick={() => inspectContainer(container.ID)} title="Inspect">
                         <Eye size={14} />
                       </button>
-                      <button class="btn-action" onclick={() => openLogs(container.ID, container.Names)} title={$LL.docker.logs()}>
+                      <button class="btn-action" onclick={() => openLogs(container.ID, container.Names)} title="Logs">
                         <FileText size={14} />
                       </button>
-                      <button class="btn-action" onclick={() => openExec(container.ID, container.Names)} title={$LL.docker.exec()}>
+                      <button class="btn-action" onclick={() => openExec(container.ID, container.Names)} title="Run command">
                         <Terminal size={14} />
                       </button>
                       {#if container.State === 'running'}
-                        <button class="btn-action amber-text" onclick={() => openInteractiveShell(container.ID, container.Names)} title={$LL.docker.interactiveShell()}>
+                        <button class="btn-action amber-text" onclick={() => openInteractiveShell(container.ID, container.Names)} title="Interactive shell">
                           <ChevronsUpDown size={14} />
                         </button>
                       {/if}
-                      <button class="btn-action danger-text" onclick={() => removeContainer(container.ID, container.Names)} title={$LL.docker.remove()}>
+                      <button class="btn-action danger-text" onclick={() => removeContainer(container.ID, container.Names)} title="Remove">
                         <Trash2 size={14} />
                       </button>
                     </td>
@@ -2118,13 +2117,13 @@ networks:
                       <td colspan="7">
                         <div class="inspect-card">
                           <div class="inspect-header">
-                            <span class="inspect-title">{$LL.docker.inspectTitle({ name: container.Names })}</span>
+                            <span class="inspect-title">{`Inspect: ${container.Names}`}</span>
                             <button class="btn-action" onclick={() => expandedContainer = ''}>
                               <X size={14} />
                             </button>
                           </div>
                           {#if inspectLoading}
-                            <div class="inspect-loading"><Loader2 size={20} class="spin" /> {$LL.common.loading()}</div>
+                            <div class="inspect-loading"><Loader2 size={20} class="spin" /> Loading…</div>
                           {:else}
                             <pre class="inspect-json">{containerInspectData}</pre>
                           {/if}
@@ -2138,9 +2137,9 @@ networks:
                   <tr>
                     <td colspan="7" class="empty-state">
                       {#if containers.length === 0}
-                        {$LL.docker.emptyContainers()}
+                        No containers. Create one with docker run or Docker Compose.
                       {:else}
-                        {$LL.common.noResults()}
+                        No results
                       {/if}
                     </td>
                   </tr>
@@ -2155,22 +2154,22 @@ networks:
         <div class="ops-bar glass">
           <div class="search-bar">
             <span class="search-icon-wrapper"><Search size={16} /></span>
-            <input type="text" placeholder={$LL.docker.searchImages()} bind:value={imageSearch} />
+            <input type="text" placeholder="Search images…" bind:value={imageSearch} />
           </div>
           {#if selectedImages.length > 0}
             <div class="bulk-actions">
-              <span class="bulk-count">{$LL.docker.selectedCount({ count: String(selectedImages.length) })}</span>
-              <button class="danger btn-sm" onclick={runBulkImageAction}><Trash2 size={12} /> {$LL.docker.removeSelected()}</button>
+              <span class="bulk-count">{`Selected: ${String(selectedImages.length)}`}</span>
+              <button class="danger btn-sm" onclick={runBulkImageAction}><Trash2 size={12} /> Remove selected</button>
             </div>
           {/if}
           <button class="secondary" onclick={loadImages} disabled={isLoading}>
-            <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> {$LL.common.refresh()}
+            <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> Refresh
           </button>
           <button class="secondary" onclick={pruneImages}>
-            <Eraser size={16} /> {$LL.docker.pruneImages()}
+            <Eraser size={16} /> Prune unused images
           </button>
           <button class="primary" onclick={() => { showPullModal = true; pullImageName = ''; pullProgress = ''; }}>
-            <Download size={16} /> {$LL.docker.pullImage()}
+            <Download size={16} /> Pull image
           </button>
         </div>
 
@@ -2178,19 +2177,19 @@ networks:
           {#if isLoading && images.length === 0}
             <div class="loading-state">
               <RefreshCw class="spin" size={32} />
-              <p>{$LL.docker.loadingImages()}</p>
+              <p>Loading images…</p>
             </div>
           {:else}
             <table class="data-table">
               <thead>
                 <tr>
                   <th style="width: 5%;"><input type="checkbox" checked={selectedImages.length > 0 && selectedImages.length === getFilteredImages().length} onchange={toggleSelectAllImages} /></th>
-                  <SortableTh label={$LL.docker.colRepository()} column="repository" activeColumn={imageSort.column} direction={imageSort.direction} onsort={(c) => imageSort = nextSort(imageSort, c)} width="25%" />
-                  <SortableTh label={$LL.docker.colTag()} column="tag" activeColumn={imageSort.column} direction={imageSort.direction} onsort={(c) => imageSort = nextSort(imageSort, c)} width="15%" />
-                  <SortableTh label={$LL.docker.id()} column="id" activeColumn={imageSort.column} direction={imageSort.direction} onsort={(c) => imageSort = nextSort(imageSort, c)} width="18%" />
-                  <SortableTh label={$LL.docker.colSize()} column="size" activeColumn={imageSort.column} direction={imageSort.direction} onsort={(c) => imageSort = nextSort(imageSort, c)} width="12%" />
-                  <SortableTh label={$LL.docker.colCreated()} column="created" activeColumn={imageSort.column} direction={imageSort.direction} onsort={(c) => imageSort = nextSort(imageSort, c)} width="12%" />
-                  <th style="width: 13%; text-align: right;">{$LL.docker.operations()}</th>
+                  <SortableTh label="Repository" column="repository" activeColumn={imageSort.column} direction={imageSort.direction} onsort={(c) => imageSort = nextSort(imageSort, c)} width="25%" />
+                  <SortableTh label="Tag" column="tag" activeColumn={imageSort.column} direction={imageSort.direction} onsort={(c) => imageSort = nextSort(imageSort, c)} width="15%" />
+                  <SortableTh label="ID" column="id" activeColumn={imageSort.column} direction={imageSort.direction} onsort={(c) => imageSort = nextSort(imageSort, c)} width="18%" />
+                  <SortableTh label="Size" column="size" activeColumn={imageSort.column} direction={imageSort.direction} onsort={(c) => imageSort = nextSort(imageSort, c)} width="12%" />
+                  <SortableTh label="Created" column="created" activeColumn={imageSort.column} direction={imageSort.direction} onsort={(c) => imageSort = nextSort(imageSort, c)} width="12%" />
+                  <th style="width: 13%; text-align: right;">Operations</th>
                 </tr>
               </thead>
               <tbody>
@@ -2200,7 +2199,7 @@ networks:
                     <td class="mono-val">
                       <strong>{image.Repository}</strong>
                       {#if isImageUnused(image)}
-                        <span class="badge secondary" style="margin-left: 8px; font-size: 0.7rem; padding: 2px 6px;">{$LL.docker.unused()}</span>
+                        <span class="badge secondary" style="margin-left: 8px; font-size: 0.7rem; padding: 2px 6px;">Unused</span>
                       {/if}
                     </td>
                     <td><span class="badge warning">{image.Tag}</span></td>
@@ -2209,7 +2208,7 @@ networks:
                     <td class="time-cell">{image.CreatedSince || image.CreatedAt || '—'}</td>
                     <td class="actions-cell">
                       {#if isImageUnused(image)}
-                        <button class="btn-action danger-text" onclick={() => removeImage(image.ID, image.Repository + ':' + image.Tag)} title={$LL.docker.removeUnusedImage()}>
+                        <button class="btn-action danger-text" onclick={() => removeImage(image.ID, image.Repository + ':' + image.Tag)} title="Remove unused image">
                           <Trash2 size={14} />
                         </button>
                       {/if}
@@ -2221,9 +2220,9 @@ networks:
                   <tr>
                     <td colspan="7" class="empty-state">
                       {#if images.length === 0}
-                        {$LL.docker.emptyContainers()}
+                        No containers. Create one with docker run or Docker Compose.
                       {:else}
-                        {$LL.common.noResults()}
+                        No results
                       {/if}
                     </td>
                   </tr>
@@ -2238,15 +2237,15 @@ networks:
         <div class="ops-bar glass">
           {#if selectedNetworks.length > 0}
             <div class="bulk-actions">
-              <span class="bulk-count">{$LL.docker.selectedCount({ count: String(selectedNetworks.length) })}</span>
-              <button class="danger btn-sm" onclick={runBulkNetworkAction}><Trash2 size={12} /> {$LL.docker.removeSelected()}</button>
+              <span class="bulk-count">{`Selected: ${String(selectedNetworks.length)}`}</span>
+              <button class="danger btn-sm" onclick={runBulkNetworkAction}><Trash2 size={12} /> Remove selected</button>
             </div>
           {/if}
           <button class="secondary" onclick={loadNetworks} disabled={isLoading}>
-            <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> {$LL.common.refresh()}
+            <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> Refresh
           </button>
           <button class="primary" onclick={() => { showCreateNetworkModal = true; newNetworkName = ''; newNetworkDriver = 'bridge'; }}>
-            <Plus size={16} /> {$LL.docker.createNetwork()}
+            <Plus size={16} /> Create network
           </button>
         </div>
 
@@ -2254,18 +2253,18 @@ networks:
           {#if isLoading && networks.length === 0}
             <div class="loading-state">
               <RefreshCw class="spin" size={32} />
-              <p>{$LL.docker.loadingNetworks()}</p>
+              <p>Loading networks…</p>
             </div>
           {:else}
             <table class="data-table">
               <thead>
                 <tr>
                   <th style="width: 5%;"><input type="checkbox" checked={selectedNetworks.length > 0 && selectedNetworks.length === networks.length} onchange={toggleSelectAllNetworks} /></th>
-                  <SortableTh label={$LL.docker.colName()} column="name" activeColumn={networkSort.column} direction={networkSort.direction} onsort={(c) => networkSort = nextSort(networkSort, c)} width="25%" />
-                  <SortableTh label={$LL.docker.colDriver()} column="driver" activeColumn={networkSort.column} direction={networkSort.direction} onsort={(c) => networkSort = nextSort(networkSort, c)} width="18%" />
-                  <SortableTh label={$LL.docker.colScope()} column="scope" activeColumn={networkSort.column} direction={networkSort.direction} onsort={(c) => networkSort = nextSort(networkSort, c)} width="15%" />
+                  <SortableTh label="Name" column="name" activeColumn={networkSort.column} direction={networkSort.direction} onsort={(c) => networkSort = nextSort(networkSort, c)} width="25%" />
+                  <SortableTh label="Driver" column="driver" activeColumn={networkSort.column} direction={networkSort.direction} onsort={(c) => networkSort = nextSort(networkSort, c)} width="18%" />
+                  <SortableTh label="Scope" column="scope" activeColumn={networkSort.column} direction={networkSort.direction} onsort={(c) => networkSort = nextSort(networkSort, c)} width="15%" />
                   <SortableTh label="ID Sieci" column="id" activeColumn={networkSort.column} direction={networkSort.direction} onsort={(c) => networkSort = nextSort(networkSort, c)} width="22%" />
-                  <th style="width: 15%; text-align: right;">{$LL.docker.operations()}</th>
+                  <th style="width: 15%; text-align: right;">Operations</th>
                 </tr>
               </thead>
               <tbody>
@@ -2277,11 +2276,11 @@ networks:
                     <td>{network.Scope || '—'}</td>
                     <td class="mono-val id-cell">{network.ID?.substring(0, 12) || '—'}</td>
                     <td class="actions-cell">
-                      <button class="btn-action" onclick={() => inspectNetwork(network.ID || network.Name)} title={$LL.docker.inspect()}>
+                      <button class="btn-action" onclick={() => inspectNetwork(network.ID || network.Name)} title="Inspect">
                         <Eye size={14} />
                       </button>
                       {#if network.Name !== 'bridge' && network.Name !== 'host' && network.Name !== 'none'}
-                        <button class="btn-action danger-text" onclick={() => removeNetwork(network.ID || network.Name, network.Name)} title={$LL.docker.removeNetworkBtn()}>
+                        <button class="btn-action danger-text" onclick={() => removeNetwork(network.ID || network.Name, network.Name)} title="Remove network">
                           <Trash2 size={14} />
                         </button>
                       {/if}
@@ -2300,7 +2299,7 @@ networks:
                             </button>
                           </div>
                           {#if networkInspectLoading}
-                            <div class="inspect-loading"><Loader2 size={20} class="spin" /> {$LL.common.loading()}</div>
+                            <div class="inspect-loading"><Loader2 size={20} class="spin" /> Loading…</div>
                           {:else}
                             <pre class="inspect-json">{networkInspectData}</pre>
                           {/if}
@@ -2312,7 +2311,7 @@ networks:
 
                 {#if networks.length === 0 && !isLoading}
                   <tr>
-                    <td colspan="6" class="empty-state">{$LL.docker.emptyNetworks()}</td>
+                    <td colspan="6" class="empty-state">No Docker networks</td>
                   </tr>
                 {/if}
               </tbody>
@@ -2333,7 +2332,7 @@ networks:
             </div>
           {/if}
           <button class="secondary" onclick={loadComposeProjects} disabled={isLoading}>
-            <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> {$LL.common.refresh()}
+            <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> Refresh
           </button>
           <button class="primary" onclick={openDirPicker}>
             <FolderPlus size={16} /> Nowy Projekt
@@ -2344,7 +2343,7 @@ networks:
           {#if isLoading && composeProjects.length === 0}
             <div class="loading-state">
               <RefreshCw class="spin" size={32} />
-              <p>{$LL.docker.loadingCompose()}</p>
+              <p>Loading Compose projects…</p>
             </div>
           {:else}
             <table class="data-table">
@@ -2352,9 +2351,9 @@ networks:
                 <tr>
                   <th style="width: 5%;"><input type="checkbox" checked={selectedCompose.length > 0 && selectedCompose.length === composeProjects.length} onchange={toggleSelectAllCompose} /></th>
                   <SortableTh label="Nazwa Projektu" column="name" activeColumn={composeSort.column} direction={composeSort.direction} onsort={(c) => composeSort = nextSort(composeSort, c)} width="20%" />
-                  <SortableTh label={$LL.docker.colStatus()} column="status" activeColumn={composeSort.column} direction={composeSort.direction} onsort={(c) => composeSort = nextSort(composeSort, c)} width="12%" />
+                  <SortableTh label="Status" column="status" activeColumn={composeSort.column} direction={composeSort.direction} onsort={(c) => composeSort = nextSort(composeSort, c)} width="12%" />
                   <SortableTh label="Plik Konfiguracyjny" column="config" activeColumn={composeSort.column} direction={composeSort.direction} onsort={(c) => composeSort = nextSort(composeSort, c)} width="28%" />
-                  <th style="width: 35%; text-align: right;">{$LL.docker.operations()}</th>
+                  <th style="width: 35%; text-align: right;">Operations</th>
                 </tr>
               </thead>
               <tbody>
@@ -2383,13 +2382,13 @@ networks:
                       <button class="secondary btn-sm" onclick={() => openComposePull(projectName, configFiles)} title="Pobierz obrazy">
                         <Download size={14} /> Pull
                       </button>
-                      <button class="btn-action" onclick={() => openComposeEditor(configFiles)} title={$LL.docker.composeEditFileTitle()}>
+                      <button class="btn-action" onclick={() => openComposeEditor(configFiles)} title="Edit compose file">
                         <FileText size={14} />
                       </button>
-                      <button class="btn-action" onclick={() => openComposeLogs(projectName, configFiles)} title={$LL.docker.composeProjectLogsTitle()}>
+                      <button class="btn-action" onclick={() => openComposeLogs(projectName, configFiles)} title="Show project logs">
                         <Eye size={14} />
                       </button>
-                      <button class="btn-action" onclick={() => openChangeComposeNetwork(project)} title={$LL.docker.changeNetwork()}>
+                      <button class="btn-action" onclick={() => openChangeComposeNetwork(project)} title="Change network">
                         <Unplug size={14} />
                       </button>
                     </td>
@@ -2399,7 +2398,7 @@ networks:
                 {#if composeProjects.length === 0 && !isLoading}
                   <tr>
                     <td colspan="5" class="empty-state">
-                      {$LL.docker.emptyCompose()}
+                      No Docker Compose projects. Create a new project with the button above.
                     </td>
                   </tr>
                 {/if}
@@ -2413,10 +2412,10 @@ networks:
         <div class="ops-bar glass">
           <div class="search-bar">
             <span class="search-icon-wrapper"><Search size={16} /></span>
-            <input type="text" placeholder={$LL.docker.searchVolumes()} bind:value={volumeSearch} />
+            <input type="text" placeholder="Search volumes…" bind:value={volumeSearch} />
           </div>
           <button class="secondary" onclick={loadVolumes} disabled={isLoading}>
-            <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> {$LL.common.refresh()}
+            <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> Refresh
           </button>
         </div>
 
@@ -2424,15 +2423,15 @@ networks:
           {#if isLoading && volumes.length === 0}
             <div class="loading-state">
               <RefreshCw class="spin" size={32} />
-              <p>{$LL.docker.loadingVolumes()}</p>
+              <p>Loading volumes…</p>
             </div>
           {:else}
             <table class="data-table">
               <thead>
                 <tr>
-                  <SortableTh label={$LL.docker.colName()} column="name" activeColumn={volumeSort.column} direction={volumeSort.direction} onsort={(c) => volumeSort = nextSort(volumeSort, c)} width="30%" />
-                  <SortableTh label={$LL.docker.colDriver()} column="driver" activeColumn={volumeSort.column} direction={volumeSort.direction} onsort={(c) => volumeSort = nextSort(volumeSort, c)} width="20%" />
-                  <th style="width: 35%; text-align: right;">{$LL.docker.operations()}</th>
+                  <SortableTh label="Name" column="name" activeColumn={volumeSort.column} direction={volumeSort.direction} onsort={(c) => volumeSort = nextSort(volumeSort, c)} width="30%" />
+                  <SortableTh label="Driver" column="driver" activeColumn={volumeSort.column} direction={volumeSort.direction} onsort={(c) => volumeSort = nextSort(volumeSort, c)} width="20%" />
+                  <th style="width: 35%; text-align: right;">Operations</th>
                 </tr>
               </thead>
               <tbody>
@@ -2441,13 +2440,13 @@ networks:
                     <td class="mono-val"><strong>{volume.Name}</strong></td>
                     <td><span class="badge warning">{volume.Driver || 'local'}</span></td>
                     <td class="actions-cell">
-                      <button class="btn-action" onclick={() => inspectVolume(volume.Name)} title={$LL.docker.inspect()}>
+                      <button class="btn-action" onclick={() => inspectVolume(volume.Name)} title="Inspect">
                         <Eye size={14} />
                       </button>
-                      <button class="btn-action" onclick={() => openVolumeBrowser(volume.Name)} title={$LL.docker.browseContent()}>
+                      <button class="btn-action" onclick={() => openVolumeBrowser(volume.Name)} title="Browse contents">
                         <FolderOpen size={14} />
                       </button>
-                      <button class="btn-action danger-text" onclick={() => removeVolume(volume.Name)} title={$LL.docker.removeVolumeBtn()}>
+                      <button class="btn-action danger-text" onclick={() => removeVolume(volume.Name)} title="Remove volume">
                         <Trash2 size={14} />
                       </button>
                     </td>
@@ -2464,7 +2463,7 @@ networks:
                             </button>
                           </div>
                           {#if volumeInspectLoading}
-                            <div class="inspect-loading"><Loader2 size={20} class="spin" /> {$LL.common.loading()}</div>
+                            <div class="inspect-loading"><Loader2 size={20} class="spin" /> Loading…</div>
                           {:else}
                             <pre class="inspect-json">{volumeInspectData}</pre>
                           {/if}
@@ -2478,9 +2477,9 @@ networks:
                   <tr>
                     <td colspan="3" class="empty-state">
                       {#if volumes.length === 0}
-                        {$LL.docker.emptyVolumes()}
+                        No Docker volumes
                       {:else}
-                        {$LL.common.noResults()}
+                        No results
                       {/if}
                     </td>
                   </tr>
@@ -2494,13 +2493,13 @@ networks:
         <div class="ops-bar glass">
           <div class="search-bar">
             <span class="search-icon-wrapper"><Search size={16} /></span>
-            <input type="text" placeholder={$LL.docker.searchContainers()} bind:value={statsSearchQuery} />
+            <input type="text" placeholder="Search containers…" bind:value={statsSearchQuery} />
           </div>
           
           <div style="display: flex; align-items: center; gap: 16px;">
             <label class="toggle-checkbox" style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9rem;">
               <input type="checkbox" bind:checked={autoRefreshStats} />
-              <span>{$LL.docker.autoRefresh()}</span>
+              <span>Auto-refresh</span>
             </label>
 
             {#if autoRefreshStats}
@@ -2514,7 +2513,7 @@ networks:
             {/if}
 
             <button class="secondary" onclick={loadStats} disabled={statsLoading}>
-              <RefreshCw size={16} class={statsLoading ? 'spin' : ''} /> {$LL.common.refresh()}
+              <RefreshCw size={16} class={statsLoading ? 'spin' : ''} /> Refresh
             </button>
           </div>
         </div>
@@ -2523,18 +2522,18 @@ networks:
           {#if statsLoading && statsList.length === 0}
             <div class="loading-state">
               <RefreshCw class="spin" size={32} />
-              <p>{$LL.common.loading()}</p>
+              <p>Loading…</p>
             </div>
           {:else}
             <table class="data-table">
               <thead>
                 <tr>
-                  <SortableTh label={$LL.docker.statsContainerName()} column="name" activeColumn={statsSort.column} direction={statsSort.direction} onsort={(c) => statsSort = nextSort(statsSort, c)} width="25%" />
-                  <SortableTh label={$LL.docker.statsCpuUsage()} column="cpu" activeColumn={statsSort.column} direction={statsSort.direction} onsort={(c) => statsSort = nextSort(statsSort, c)} width="20%" />
-                  <SortableTh label={$LL.docker.statsMemUsage()} column="memory" activeColumn={statsSort.column} direction={statsSort.direction} onsort={(c) => statsSort = nextSort(statsSort, c)} width="25%" />
-                  <SortableTh label={$LL.docker.statsNetIo()} column="net" activeColumn={statsSort.column} direction={statsSort.direction} onsort={(c) => statsSort = nextSort(statsSort, c)} width="15%" />
-                  <SortableTh label={$LL.docker.statsBlockIo()} column="block" activeColumn={statsSort.column} direction={statsSort.direction} onsort={(c) => statsSort = nextSort(statsSort, c)} width="10%" />
-                  <SortableTh label={$LL.docker.statsPids()} column="pids" activeColumn={statsSort.column} direction={statsSort.direction} onsort={(c) => statsSort = nextSort(statsSort, c)} width="5%" align="right" />
+                  <SortableTh label="Container Name" column="name" activeColumn={statsSort.column} direction={statsSort.direction} onsort={(c) => statsSort = nextSort(statsSort, c)} width="25%" />
+                  <SortableTh label="CPU Usage" column="cpu" activeColumn={statsSort.column} direction={statsSort.direction} onsort={(c) => statsSort = nextSort(statsSort, c)} width="20%" />
+                  <SortableTh label="Memory Usage" column="memory" activeColumn={statsSort.column} direction={statsSort.direction} onsort={(c) => statsSort = nextSort(statsSort, c)} width="25%" />
+                  <SortableTh label="Net I/O" column="net" activeColumn={statsSort.column} direction={statsSort.direction} onsort={(c) => statsSort = nextSort(statsSort, c)} width="15%" />
+                  <SortableTh label="Block I/O" column="block" activeColumn={statsSort.column} direction={statsSort.direction} onsort={(c) => statsSort = nextSort(statsSort, c)} width="10%" />
+                  <SortableTh label="PIDs" column="pids" activeColumn={statsSort.column} direction={statsSort.direction} onsort={(c) => statsSort = nextSort(statsSort, c)} width="5%" align="right" />
                 </tr>
               </thead>
               <tbody>
@@ -2576,7 +2575,7 @@ networks:
                 {#if statsList.length === 0 && !statsLoading}
                   <tr>
                     <td colspan="6" class="empty-state">
-                      {$LL.common.noResults()}
+                      No results
                     </td>
                   </tr>
                 {/if}
@@ -2599,11 +2598,11 @@ networks:
         <div class="modal-header-icon">
           <KeyRound size={32} class="accent-amber-text" />
         </div>
-        <h3>{$LL.docker.sudoTitle()}</h3>
-        <p class="modal-desc">{$LL.docker.sudoDesc()}</p>
+        <h3>Sudo authentication required</h3>
+        <p class="modal-desc">This operation requires root privileges. Enter your user password (sudo):</p>
         <input
           type="password"
-          placeholder={$LL.docker.passwordPlaceholder()}
+          placeholder="Enter password…"
           bind:value={sudoPassword}
           onkeydown={(e) => e.key === 'Enter' && submitSudoPassword()}
         />
@@ -2611,8 +2610,8 @@ networks:
           <span class="error-text">{sudoError}</span>
         {/if}
         <div class="modal-actions">
-          <button class="primary" onclick={submitSudoPassword}>{$LL.common.submit()}</button>
-          <button class="secondary" onclick={() => { showSudoModal = false; sudoPassword = ''; pendingAction = null; }}>{$LL.common.cancel()}</button>
+          <button class="primary" onclick={submitSudoPassword}>Submit</button>
+          <button class="secondary" onclick={() => { showSudoModal = false; sudoPassword = ''; pendingAction = null; }}>Cancel</button>
         </div>
       </div>
     </div>
@@ -2625,11 +2624,11 @@ networks:
         <div class="modal-header-icon">
           <AlertCircle size={32} class="accent-red-text" />
         </div>
-        <h3>{$LL.docker.confirmTitle()}</h3>
+        <h3>Confirm operation</h3>
         <p class="modal-desc">{confirmMessage}</p>
         <div class="modal-actions">
-          <button class="danger" onclick={() => confirmAction && confirmAction()}>{$LL.docker.confirmYes()}</button>
-          <button class="secondary" onclick={() => { showConfirmModal = false; confirmAction = null; }}>{$LL.common.cancel()}</button>
+          <button class="danger" onclick={() => confirmAction && confirmAction()}>Yes, execute</button>
+          <button class="secondary" onclick={() => { showConfirmModal = false; confirmAction = null; }}>Cancel</button>
         </div>
       </div>
     </div>
@@ -2640,7 +2639,7 @@ networks:
     <div class="modal-overlay logs-overlay">
       <div class="modal-content glass logs-modal">
         <div class="logs-header">
-          <h3>{$LL.docker.logsTitle({ name: logsContainerName })}</h3>
+          <h3>{`Logs: ${logsContainerName}`}</h3>
           <div class="logs-controls">
             <div class="search-bar search-bar-sm">
               <span class="search-icon-wrapper"><Search size={14} /></span>
@@ -2648,13 +2647,13 @@ networks:
             </div>
             <button class="secondary btn-sm" onclick={() => logsPaused = !logsPaused}>
               {#if logsPaused}
-                <Play size={14} /> {$LL.docker.logsStream()}
+                <Play size={14} /> Stream logs
               {:else}
                 <Pause size={14} /> Pauza
               {/if}
             </button>
             <button class="secondary btn-sm" onclick={() => logLines = []}>
-              <Eraser size={14} /> {$LL.docker.logsClear()}
+              <Eraser size={14} /> Clear
             </button>
             <button class="secondary btn-sm" onclick={downloadLogs}>
               <Download size={14} /> Pobierz
@@ -2676,9 +2675,9 @@ networks:
     <div class="modal-overlay">
       <div class="modal-content glass exec-modal">
         <h3>Interaktywny shell: {shellPickContainerName}</h3>
-        <p class="modal-desc">{$LL.docker.shellDesc()}</p>
+        <p class="modal-desc">Choose a shell available in the container.</p>
         <div class="form-group">
-          <label for="shell-select">{$LL.docker.shellLabel()}</label>
+          <label for="shell-select">Shell</label>
           <select id="shell-select" bind:value={selectedShell}>
             {#each shellOptions as opt}
               <option value={opt.value}>{opt.label}</option>
@@ -2687,9 +2686,9 @@ networks:
         </div>
         <div class="modal-actions">
           <button class="primary" onclick={confirmShellLaunch}>
-            <Terminal size={16} /> {$LL.docker.shellOpen()}
+            <Terminal size={16} /> Open shell
           </button>
-          <button class="secondary" onclick={() => showShellModal = false}>{$LL.common.cancel()}</button>
+          <button class="secondary" onclick={() => showShellModal = false}>Cancel</button>
         </div>
       </div>
     </div>
@@ -2699,8 +2698,8 @@ networks:
   {#if showExecModal}
     <div class="modal-overlay">
       <div class="modal-content glass exec-modal">
-        <h3>{$LL.docker.execTitle({ name: execContainerName })}</h3>
-        <p class="modal-desc">{$LL.docker.execDesc()}</p>
+        <h3>{`Run command: ${execContainerName}`}</h3>
+        <p class="modal-desc">Run a command inside the container.</p>
         <div class="exec-input-row">
           <input
             type="text"
@@ -2758,7 +2757,7 @@ networks:
               <Download size={16} /> Pobierz
             {/if}
           </button>
-          <button class="secondary" onclick={() => { showPullModal = false; pullImageName = ''; pullProgress = ''; }}>{$LL.common.cancel()}</button>
+          <button class="secondary" onclick={() => { showPullModal = false; pullImageName = ''; pullProgress = ''; }}>Cancel</button>
         </div>
       </div>
     </div>
@@ -2768,7 +2767,7 @@ networks:
   {#if showCreateNetworkModal}
     <div class="modal-overlay">
       <div class="modal-content glass">
-        <h3>{$LL.docker.createNetworkTitle()}</h3>
+        <h3>Create Docker network</h3>
         <div class="form-group">
           <label for="net-name">Nazwa sieci</label>
           <input id="net-name" type="text" placeholder="my-network" bind:value={newNetworkName} />
@@ -2776,14 +2775,14 @@ networks:
         <div class="form-group">
           <label for="net-driver">Driver sieci</label>
           <select id="net-driver" bind:value={newNetworkDriver}>
-            <option value="bridge">{$LL.docker.driverBridge()}</option>
+            <option value="bridge">Bridge (default)</option>
             <option value="overlay">Overlay</option>
             <option value="host">Host</option>
           </select>
         </div>
         <div class="modal-actions">
-          <button class="primary" onclick={createNetwork} disabled={!newNetworkName.trim()}>{$LL.common.create()}</button>
-          <button class="secondary" onclick={() => showCreateNetworkModal = false}>{$LL.common.cancel()}</button>
+          <button class="primary" onclick={createNetwork} disabled={!newNetworkName.trim()}>Create</button>
+          <button class="secondary" onclick={() => showCreateNetworkModal = false}>Cancel</button>
         </div>
       </div>
     </div>
@@ -2794,7 +2793,7 @@ networks:
     <div class="modal-overlay fullscreen-overlay">
       <div class="modal-content glass fullscreen-modal dir-picker-modal">
         <h3>Nowy projekt Compose</h3>
-        <p class="modal-desc">{$LL.docker.newComposeDesc()}</p>
+        <p class="modal-desc">Choose a directory to create the project in and enter a folder name.</p>
 
         <!-- Current path -->
         <div class="dir-picker-path glass">
@@ -2825,7 +2824,7 @@ networks:
               </button>
             {/each}
             {#if dirPickerEntries.length === 0}
-              <div class="dir-picker-empty">{$LL.docker.dirPickerEmpty()}</div>
+              <div class="dir-picker-empty">No subdirectories in this folder</div>
             {/if}
           {/if}
         </div>
@@ -2848,9 +2847,9 @@ networks:
             {:else}
               <FolderPlus size={16} />
             {/if}
-            {$LL.docker.newComposeProject()}
+            New Compose project
           </button>
-          <button class="secondary" onclick={() => showDirPicker = false}>{$LL.common.cancel()}</button>
+          <button class="secondary" onclick={() => showDirPicker = false}>Cancel</button>
         </div>
       </div>
     </div>
@@ -2870,7 +2869,7 @@ networks:
             {#if composeEditorSaving}
               <Loader2 size={16} class="spin" /> Zapisywanie...
             {:else}
-              {$LL.common.save()}
+              Save
             {/if}
           </button>
           <button class="secondary" onclick={closeComposeEditor}>Zamknij</button>
@@ -2884,7 +2883,7 @@ networks:
     <div class="modal-overlay logs-overlay">
       <div class="modal-content glass compose-pull-modal">
         <div class="logs-header">
-          <h3>{$LL.docker.composePullTitle({ name: composePullProjectName })}</h3>
+          <h3>{`Pull images: ${composePullProjectName}`}</h3>
           <button class="secondary btn-sm" onclick={closeComposePull}>
             <X size={14} /> Zamknij
           </button>
@@ -2894,7 +2893,7 @@ networks:
           <div class="pull-progress-bar">
             <div class="pull-progress-fill" style="width: {composePullProgress}%"></div>
           </div>
-          <span class="pull-progress-label mono-val">{composePullProgress}% — {composePullStatus === 'pulling' ? $LL.docker.pullProgress() : composePullStatus === 'finished' ? $LL.docker.composePullDone() : composePullStatus === 'error' ? $LL.docker.composePullError() : $LL.sftp.statusQueued()}</span>
+          <span class="pull-progress-label mono-val">{composePullProgress}% — {composePullStatus === 'pulling' ? "Pulling…" : composePullStatus === 'finished' ? "Done" : composePullStatus === 'error' ? "Error" : "Queued"}</span>
         </div>
 
         {#if Object.keys(composePullLayers).length > 0}
@@ -2938,7 +2937,7 @@ networks:
                 {#if browserEditorSaving}
                   <Loader2 size={14} class="spin" /> Zapisywanie...
                 {:else}
-                  <Save size={14} /> {$LL.common.save()}
+                  <Save size={14} /> Save
                 {/if}
               </button>
               <button class="secondary btn-sm" onclick={closeVolumeEditor}>
@@ -2956,7 +2955,7 @@ networks:
           </div>
           <div class="volume-path-bar glass">
             <button class="secondary btn-sm" onclick={navigateVolumeUp} disabled={!browserRelativePath}>
-              <ArrowUp size={14} /> {$LL.docker.goUp()}
+              <ArrowUp size={14} /> Go up
             </button>
             <span class="mono-val volume-path">{browserVolumePath}{browserRelativePath}</span>
           </div>
@@ -2991,7 +2990,7 @@ networks:
                 </button>
               {/each}
               {#if browserEntries.length === 0}
-                <div class="dir-picker-empty">{$LL.docker.dirPickerEmptyVolume()}</div>
+                <div class="dir-picker-empty">Directory empty or no access</div>
               {/if}
             {/if}
           </div>
@@ -3011,7 +3010,7 @@ networks:
           </button>
         </div>
         {#if modifyLoading}
-          <div class="inspect-loading"><Loader2 size={24} class="spin" /> {$LL.common.loading()}</div>
+          <div class="inspect-loading"><Loader2 size={24} class="spin" /> Loading…</div>
         {:else}
           <div class="modify-form">
             <div class="form-row">
@@ -3020,7 +3019,7 @@ networks:
                 <input id="mod-name" type="text" bind:value={modifyName} />
               </div>
               <div class="form-group">
-                <label for="mod-image">{$LL.docker.modifyImage()}</label>
+                <label for="mod-image">Image</label>
                 <input id="mod-image" type="text" bind:value={modifyImage} />
               </div>
             </div>
@@ -3037,14 +3036,14 @@ networks:
 
             <div class="modify-section">
               <div class="modify-section-header">
-                <span>{$LL.docker.modifyPortMapping()}</span>
+                <span>Port mapping</span>
                 <button class="secondary btn-sm" onclick={addModifyPort}><Plus size={12} /> Dodaj</button>
               </div>
               {#each modifyPorts as port, i}
                 <div class="modify-row">
                   <input type="text" placeholder="Host" bind:value={port.host} class="mono-val" />
                   <span>→</span>
-                  <input type="text" placeholder={$LL.docker.modifyContainerPort()} bind:value={port.container} class="mono-val" />
+                  <input type="text" placeholder="Container port" bind:value={port.container} class="mono-val" />
                   <select bind:value={port.proto}>
                     <option value="tcp">TCP</option>
                     <option value="udp">UDP</option>
@@ -3061,9 +3060,9 @@ networks:
               </div>
               {#each modifyVolumes as vol, i}
                 <div class="modify-row">
-                  <PathAutocomplete placeholder={$LL.docker.modifyHostPath()} bind:value={vol.host} class="mono-val" onlyDirs={true} />
+                  <PathAutocomplete placeholder="Host path" bind:value={vol.host} class="mono-val" onlyDirs={true} />
                   <span>→</span>
-                  <input type="text" placeholder={$LL.docker.modifyContainerPath()} bind:value={vol.container} class="mono-val" />
+                  <input type="text" placeholder="Container path" bind:value={vol.container} class="mono-val" />
                   <label class="ro-label"><input type="checkbox" bind:checked={vol.ro} /> RO</label>
                   <button class="btn-action danger-text" onclick={() => removeModifyVolume(i)}><X size={14} /></button>
                 </div>
@@ -3072,14 +3071,14 @@ networks:
 
             <div class="modify-section">
               <div class="modify-section-header">
-                <span>{$LL.docker.modifyEnv()}</span>
+                <span>Environment variables</span>
                 <button class="secondary btn-sm" onclick={addModifyEnv}><Plus size={12} /> Dodaj</button>
               </div>
               {#each modifyEnv as env, i}
                 <div class="modify-row">
                   <input type="text" placeholder="Klucz" bind:value={env.key} class="mono-val" />
                   <span>=</span>
-                  <input type="text" placeholder={$LL.common.value()} bind:value={env.value} class="mono-val" />
+                  <input type="text" placeholder="Value" bind:value={env.value} class="mono-val" />
                   <button class="btn-action danger-text" onclick={() => removeModifyEnv(i)}><X size={14} /></button>
                 </div>
               {/each}
@@ -3108,7 +3107,7 @@ networks:
             <button class="primary" onclick={saveModifiedContainer} disabled={modifyLoading}>
               Zastosuj zmiany
             </button>
-            <button class="secondary" onclick={() => showModifyModal = false}>{$LL.common.cancel()}</button>
+            <button class="secondary" onclick={() => showModifyModal = false}>Cancel</button>
           </div>
         {/if}
       </div>
@@ -3119,15 +3118,15 @@ networks:
   {#if showComposeNetworkModal}
     <div class="modal-overlay">
       <div class="modal-content glass">
-        <h3>{$LL.docker.composeNetworkTitle()}</h3>
+        <h3>Change project network</h3>
         <p class="modal-desc">
           Projekt: <strong>{composeNetworkProject?.Name || composeNetworkProject?.name}</strong><br />
-          {$LL.docker.composeNetworkDesc()}
+          A networks.default section with the selected external network will be added.
         </p>
         <div class="form-group">
-          <label for="compose-net-select">{$LL.docker.composeNetworkSelect()}</label>
+          <label for="compose-net-select">External network</label>
           <select id="compose-net-select" bind:value={composeSelectedNetwork}>
-            <option value="">{$LL.docker.composeNetworkPlaceholder()}</option>
+            <option value="">— select network —</option>
             {#each networks as network}
               <option value={network.Name}>{network.Name} ({network.Driver})</option>
             {/each}
@@ -3136,12 +3135,12 @@ networks:
         <div class="modal-actions">
           <button class="primary" onclick={saveComposeNetwork} disabled={!composeSelectedNetwork || composeNetworkLoading}>
             {#if composeNetworkLoading}
-              <Loader2 size={16} class="spin" /> {$LL.docker.composeSaving()}
+              <Loader2 size={16} class="spin" /> Saving…
             {:else}
               Zastosuj i uruchom
             {/if}
           </button>
-          <button class="secondary" onclick={() => showComposeNetworkModal = false}>{$LL.common.cancel()}</button>
+          <button class="secondary" onclick={() => showComposeNetworkModal = false}>Cancel</button>
         </div>
       </div>
     </div>
@@ -3152,13 +3151,13 @@ networks:
     <div class="modal-overlay logs-overlay">
       <div class="modal-content glass logs-modal">
         <div class="logs-header">
-          <h3>{$LL.docker.composeLogsTitle({ name: composeLogsProjectName })}</h3>
+          <h3>{`Compose logs: ${composeLogsProjectName}`}</h3>
           <button class="secondary btn-sm" onclick={() => showComposeLogsModal = false}>
             <X size={14} /> Zamknij
           </button>
         </div>
         <div class="logs-display" use:stickToBottom>
-          <pre class="log-text">{composeLogs.join('\n') || $LL.common.noData()}</pre>
+          <pre class="log-text">{composeLogs.join('\n') || "(no data)"}</pre>
         </div>
       </div>
     </div>

@@ -7,13 +7,12 @@
   } from 'lucide-svelte';
   import SudoModal from './SudoModal.svelte';
   import { get } from 'svelte/store';
-  import { LL } from '$lib/i18n/i18n-svelte';
-  import { notifications } from '$lib/notifications.svelte';
+    import { notifications } from '$lib/notifications.svelte';
   import {
     formatInvokeError,
     isSudoPasswordRequired,
     parseAppError,
-  } from '$lib/i18n/backendErrors';
+  } from '$lib/backendErrors';
 
   let {
     onDisconnect = () => {},
@@ -108,7 +107,7 @@
         unattendedEnabled = null;
       }
     } catch (err: unknown) {
-      errorMsg = get(LL).maintenance.statusLoadFailed({ error: formatInvokeError(err) });
+      errorMsg = `Failed to load status: ${formatInvokeError(err)}`;
     } finally {
       isLoading = false;
     }
@@ -170,7 +169,7 @@
   }
 
   async function runReboot() {
-    if (!confirm(get(LL).maintenance.confirmReboot())) return;
+    if (!confirm("Are you sure you want to reboot the server? The connection will be lost.")) return;
     isRunningAction = true;
     let disconnectTimer: any = null;
     await withSudo(async () => {
@@ -217,56 +216,56 @@
 
 <div class="maintenance manager-shell scrollable fade-in">
   <header class="manager-header">
-    <h1 class="page-title">{$LL.maintenance.title()}</h1>
+    <h1 class="page-title">System maintenance</h1>
   </header>
 
   <section class="status-grid">
     <div class="status-card glass">
       <div class="card-top">
         <Package size={18} class="accent-amber-text" />
-        <span>{$LL.maintenance.packagesToUpdate()}</span>
+        <span>Packages to update</span>
       </div>
       <div class="big-val mono-val">{upgradableCount}</div>
-      <p class="card-desc">{$LL.maintenance.detectedByApt()}</p>
+      <p class="card-desc">Detected by apt list --upgradable</p>
     </div>
 
     <div class="status-card glass {rebootRequired ? 'warn' : ''}">
       <div class="card-top">
         <Power size={18} class={rebootRequired ? 'accent-red-text' : 'accent-green-text'} />
-        <span>{$LL.maintenance.rebootRequired()}</span>
+        <span>Reboot required</span>
       </div>
-      <div class="big-val">{rebootRequired ? $LL.common.yesUpper() : $LL.common.noUpper()}</div>
+      <div class="big-val">{rebootRequired ? "YES" : "NO"}</div>
       {#if rebootReason}
         <p class="card-desc mono-val">{rebootReason.slice(0, 120)}</p>
       {:else}
-        <p class="card-desc">{$LL.maintenance.noRebootFile()}</p>
+        <p class="card-desc">No /var/run/reboot-required file</p>
       {/if}
     </div>
 
     <div class="status-card glass">
       <div class="card-top">
         <Download size={18} class="accent-green-text" />
-        <span>{$LL.maintenance.autoUpdates()}</span>
+        <span>Automatic updates</span>
       </div>
       <div class="big-val">
         {#if unattendedEnabled === null}
-          {$LL.common.unknownQ()}
+          ?
         {:else if unattendedEnabled}
-          {$LL.common.enabledUpper()}
+          ENABLED
         {:else}
-          {$LL.common.disabledUpper()}
+          DISABLED
         {/if}
       </div>
-      <p class="card-desc">{$LL.maintenance.unattendedPackage()}</p>
+      <p class="card-desc">unattended-upgrades package</p>
     </div>
   </section>
 
   <section class="actions-panel glass">
-    <h3>{$LL.maintenance.actions()}</h3>
+    <h3>Actions</h3>
     <div class="action-buttons">
       <button class="secondary btn-compact" disabled={isRunningAction} onclick={runAptUpdate}>
         {#if isRunningAction}<Loader2 size={14} class="spin" />{:else}<RefreshCw size={14} />{/if}
-        {$LL.maintenance.aptUpdate()}
+        apt update
       </button>
       <button
         class="primary btn-compact"
@@ -274,33 +273,33 @@
         onclick={() => (showConfirmUpgradeModal = true)}
       >
         {#if isRunningAction}<Loader2 size={14} class="spin" />{:else}<Download size={14} />{/if}
-        {$LL.maintenance.aptUpgrade({ count: upgradableCount })}
+        {`apt upgrade (${upgradableCount})`}
       </button>
       <button
         class="danger btn-compact"
         disabled={isRunningAction}
         onclick={runReboot}
       >
-        <RotateCw size={14} /> {$LL.maintenance.rebootServer()}
+        <RotateCw size={14} /> Reboot server
       </button>
     </div>
     {#if rebootRequired}
       <div class="warn-banner">
         <AlertTriangle size={16} />
-        <span>{$LL.maintenance.rebootWarning()}</span>
+        <span>Kernel or key packages require a server reboot.</span>
       </div>
     {/if}
   </section>
 
   {#if upgradableList.length > 0}
     <section class="packages-panel glass">
-      <h3>{$LL.maintenance.pendingPackages({ count: upgradableList.length })}</h3>
+      <h3>{`Pending packages (${upgradableList.length})`}</h3>
       <div class="packages-list mono-val">
         {#each upgradableList.slice(0, 50) as pkg}
           <div class="pkg-line">{pkg.split('/')[0]}</div>
         {/each}
         {#if upgradableList.length > 50}
-          <div class="pkg-more">{$LL.maintenance.andMore({ count: upgradableList.length - 50 })}</div>
+          <div class="pkg-more">{`… and ${upgradableList.length - 50} more`}</div>
         {/if}
       </div>
     </section>
@@ -309,8 +308,8 @@
   {#if showOutput && actionOutput}
     <section class="output-panel glass">
       <div class="output-header">
-        <h3>{$LL.maintenance.operationResult()}</h3>
-        <button class="secondary btn-compact" onclick={() => (showOutput = false)}>{$LL.common.close()}</button>
+        <h3>Operation result</h3>
+        <button class="secondary btn-compact" onclick={() => (showOutput = false)}>Close</button>
       </div>
       <pre class="output-content">{actionOutput}</pre>
     </section>
@@ -322,10 +321,10 @@
     <div class="confirm-modal glass" role="dialog" onclick={(e) => e.stopPropagation()}>
       <div class="modal-header">
         <AlertTriangle size={20} class="accent-amber-text" />
-        <h3>{$LL.docker.confirmTitle()}</h3>
+        <h3>Confirm operation</h3>
       </div>
       <p class="modal-desc">
-        {$LL.maintenance.confirmUpgrade({ count: upgradableCount })}
+        {`Update ${upgradableCount} package(s)? This may take several minutes.`}
       </p>
 
       <div class="modal-pkg-list">
@@ -333,16 +332,16 @@
           <div class="modal-pkg-item">{pkg.split('/')[0]}</div>
         {/each}
         {#if upgradableList.length > 50}
-          <div class="modal-pkg-more">{$LL.maintenance.andMore({ count: upgradableList.length - 50 })}</div>
+          <div class="modal-pkg-more">{`… and ${upgradableList.length - 50} more`}</div>
         {/if}
       </div>
 
       <div class="modal-actions">
         <button class="secondary" onclick={() => { showConfirmUpgradeModal = false; }}>
-          {$LL.common.cancel()}
+          Cancel
         </button>
         <button class="primary" onclick={runAptUpgrade}>
-          {$LL.common.confirm()}
+          Confirm
         </button>
       </div>
     </div>
@@ -353,9 +352,9 @@
   <div class="modal-overlay">
     <div class="confirm-modal glass" role="dialog" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 1.5rem; padding: 2.5rem;">
       <Loader2 size={36} class="spin accent-blue-text" />
-      <h3>{$LL.maintenance.rebootServer()}</h3>
+      <h3>Reboot server</h3>
       <p class="modal-desc" style="max-width: 320px; margin: 0;">
-        {$LL.maintenance.rebooting()}
+        Server is rebooting… Connection will be lost.
       </p>
     </div>
   </div>

@@ -35,9 +35,8 @@
     navigateBack,
   } from '$lib/backNavigation.svelte';
   import { get } from 'svelte/store';
-  import { LL } from '$lib/i18n/i18n-svelte';
-  import { getNavLabel, getNavLabels, TAB_IDS } from '$lib/i18n/nav';
-  import { formatInvokeError } from '$lib/i18n/backendErrors';
+    import { getNavLabel, getNavLabels, TAB_IDS } from '$lib/nav';
+  import { formatInvokeError } from '$lib/backendErrors';
 
   // Komponenty
   import Sidebar from '../components/Sidebar.svelte';
@@ -89,7 +88,7 @@
 
   // ────────────── Sidebar Tab Metadata ──────────────
 
-  const navLabels = $derived(getNavLabels(get(LL)));
+  const navLabels = $derived(getNavLabels());
 
   // ────────────── Connection State ──────────────
 
@@ -731,17 +730,17 @@
   function getBackTooltip(): string {
     if (!isConnected) {
       return showCreateProfile
-        ? get(LL).shell.backToProfileList()
-        : get(LL).shell.backNoAction();
+        ? "Back to profile list (mouse back button also works)"
+        : "Nothing to go back to";
     }
     const handler = getBackDescription();
     if (handler) return handler;
     if (tabHistory.length > 0) {
       const prev = tabHistory[tabHistory.length - 1];
-      const label = getNavLabel(get(LL), prev);
-      return get(LL).shell.backToTab({ label });
+      const label = getNavLabel(prev);
+      return `Back to: ${label} (mouse back button also works)`;
     }
-    return get(LL).shell.backNoAction();
+    return "Nothing to go back to";
   }
 
   function performBack(): boolean {
@@ -808,7 +807,7 @@
     try {
       profiles = await invoke('get_profiles');
     } catch (err) {
-      console.error(get(LL).profile.loadFailed({ error: formatInvokeError(err) }));
+      console.error(`Failed to load profiles: ${formatInvokeError(err)}`);
     }
   }
 
@@ -825,7 +824,7 @@
 
   async function handleSaveProfile() {
     if (!profileLabel || !profileHost || !profileUsername) {
-      alert(get(LL).profile.requiredFields());
+      alert("Fill in required fields (Label, Host, User)");
       return;
     }
 
@@ -859,7 +858,7 @@
 
       await loadProfiles();
     } catch (err: unknown) {
-      alert(get(LL).profile.saveFailed({ error: formatInvokeError(err) }));
+      alert(`Failed to save profile: ${formatInvokeError(err)}`);
     }
   }
 
@@ -932,7 +931,7 @@
 
   async function handleDeleteProfile(id: string, event: Event) {
     event.stopPropagation();
-    if (confirm(get(LL).profile.confirmDelete())) {
+    if (confirm("Are you sure you want to delete this connection profile?")) {
       try {
         await invoke('delete_profile', { id });
         await loadProfiles();
@@ -966,7 +965,7 @@
       type="button"
       disabled={!canGoBackGlobal()}
       onclick={() => performBack()}
-      aria-label={$LL.shell.globalBackAria()}
+      aria-label="Go back"
     >
       <ArrowLeft size={16} />
       <span class="back-tooltip" role="tooltip">{getBackTooltip()}</span>
@@ -1007,16 +1006,16 @@
           {#if panes.length === 1}
             <span class="workspace-label">{navLabels[activeTab] ?? activeTab}</span>
           {:else}
-            <span class="workspace-label">{$LL.shell.workspaceLabel()}</span>
-            <span class="workspace-pane-count">{panes.length} {panes.length === 1 ? $LL.shell.workspacePaneCountOne() : panes.length < 5 ? $LL.shell.workspacePaneCountFew() : $LL.shell.workspacePaneCountMany()}</span>
+            <span class="workspace-label">Workspace</span>
+            <span class="workspace-pane-count">{panes.length} {panes.length === 1 ? "panel" : panes.length < 5 ? "panes" : "panes"}</span>
           {/if}
         </div>
         <div class="workspace-bar-right">
           <button
             class="layout-btn"
             onclick={refreshActiveTab}
-            title={$LL.shell.refresh()}
-            aria-label={$LL.shell.refresh()}
+            title="Refresh"
+            aria-label="Refresh"
           >
             <RefreshCw size={14} />
           </button>
@@ -1027,7 +1026,7 @@
             class="layout-btn"
             class:active={layoutMode === 'single'}
             onclick={() => setLayoutPreset('single')}
-            title={$LL.shell.layoutSingle()}
+            title="Single panel"
           >
             <Maximize2 size={14} />
           </button>
@@ -1035,7 +1034,7 @@
             class="layout-btn"
             class:active={layoutMode === 'split-h'}
             onclick={() => setLayoutPreset('split-h')}
-            title={$LL.shell.layoutSplitHorizontal()}
+            title="Vertical split (side by side)"
           >
             <Columns2 size={14} />
           </button>
@@ -1043,7 +1042,7 @@
             class="layout-btn"
             class:active={layoutMode === 'split-v'}
             onclick={() => setLayoutPreset('split-v')}
-            title={$LL.shell.layoutSplitVertical()}
+            title="Horizontal split (stacked)"
           >
             <Rows2 size={14} />
           </button>
@@ -1051,7 +1050,7 @@
             class="layout-btn"
             class:active={layoutMode === 'grid'}
             onclick={() => setLayoutPreset('grid')}
-            title={$LL.shell.layoutGrid()}
+            title="2×2 grid"
           >
             <Grid2x2 size={14} />
           </button>
@@ -1073,7 +1072,7 @@
             disabled={!canGoBackGlobal()}
             onclick={() => performBack()}
             title={getBackTooltip()}
-            aria-label={$LL.shell.globalBackAria()}
+            aria-label="Go back"
           >
             <ArrowLeft size={14} />
           </button>
@@ -1089,7 +1088,7 @@
           <div class="resizer resizer-v"
                style="position: absolute; left: {((r.c - 1) / 120) * 100}%; top: {((r.minR - 1) / 120) * 100}%; height: {((r.maxR - r.minR) / 120) * 100}%; width: 10px; margin-left: -5px; cursor: col-resize; z-index: 50;"
                onpointerdown={(e) => { e.preventDefault(); e.stopPropagation(); resizeState = { type: 'v', line: r.c, lastLine: r.c, startClientXY: e.clientX }; }}
-               aria-label={$LL.shell.resizeWidth()}
+               aria-label="Resize panel width"
                role="separator"
           ></div>
         {/each}
@@ -1097,7 +1096,7 @@
           <div class="resizer resizer-h"
                style="position: absolute; top: {((r.r - 1) / 120) * 100}%; left: {((r.minC - 1) / 120) * 100}%; width: {((r.maxC - r.minC) / 120) * 100}%; height: 10px; margin-top: -5px; cursor: row-resize; z-index: 50;"
                onpointerdown={(e) => { e.preventDefault(); e.stopPropagation(); resizeState = { type: 'h', line: r.r, lastLine: r.r, startClientXY: e.clientY }; }}
-               aria-label={$LL.shell.resizeHeight()}
+               aria-label="Resize panel height"
                role="separator"
           ></div>
         {/each}
@@ -1209,7 +1208,7 @@
                   <button
                     class="pane-action-btn"
                     onclick={(e: MouseEvent) => { e.stopPropagation(); pane.componentRefs[pane.activeTab]?.refresh?.(); }}
-                    title={$LL.shell.refresh()}
+                    title="Refresh"
                   >
                     <RefreshCw size={13} />
                   </button>
@@ -1217,14 +1216,14 @@
                     <button
                       class="pane-action-btn"
                       onclick={(e: MouseEvent) => { e.stopPropagation(); splitPane(pane.id, 'h'); }}
-                      title={$LL.shell.paneSplitVertical()}
+                      title="Split vertically"
                     >
                       <SplitSquareVertical size={13} />
                     </button>
                     <button
                       class="pane-action-btn"
                       onclick={(e: MouseEvent) => { e.stopPropagation(); splitPane(pane.id, 'v'); }}
-                      title={$LL.shell.paneSplitHorizontal()}
+                      title="Split horizontally"
                     >
                       <SplitSquareHorizontal size={13} />
                     </button>
@@ -1232,7 +1231,7 @@
                   <button
                     class="pane-action-btn pane-close"
                     onclick={(e: MouseEvent) => { e.stopPropagation(); closePane(pane.id); }}
-                    title={$LL.shell.paneClose()}
+                    title="Close panel"
                   >
                     <X size={13} />
                   </button>
@@ -1271,7 +1270,7 @@
                   <Columns2 size={16} />
                 </div>
                 <div class="drop-zone drop-zone-center" class:active={dragOverPaneId === pane.id && dragOverZone === 'center'}>
-                  <span>{customDragState?.type === 'pane' ? $LL.shell.dropSwap() : $LL.shell.dropChangeTab()}</span>
+                  <span>{customDragState?.type === 'pane' ? "Swap" : "Change tab"}</span>
                 </div>
               </div>
             {/if}
@@ -1299,7 +1298,7 @@
           class="custom-drag-ghost"
           style="left: {customDragState.currentX + 15}px; top: {customDragState.currentY + 15}px;"
         >
-          {customDragState.type === 'pane' ? $LL.shell.dragMovePane() : $LL.shell.dragOpenTab()}
+          {customDragState.type === 'pane' ? "Moving panel" : "Opening tab"}
         </div>
       {/if}
     </div>
@@ -1311,8 +1310,8 @@
       <div class="login-container glass fade-in">
         <header class="login-header">
           <div class="logo-box">J</div>
-          <h1>{$LL.shell.appTitle()}</h1>
-          <p class="login-subtitle">{$LL.shell.appSubtitle()}</p>
+          <h1>Jarvis Server Manager</h1>
+          <p class="login-subtitle">Complete, secure Linux server management tool</p>
         </header>
 
         {#if connectError}
@@ -1325,65 +1324,65 @@
         {#if showCreateProfile}
           <!-- Formularz tworzenia/edycji profilu -->
           <div class="profile-form">
-            <h2>{currentProfileId ? $LL.profile.editTitle() : $LL.profile.addTitle()}</h2>
+            <h2>{currentProfileId ? "Edit profile" : "Add new profile"}</h2>
             
             <div class="form-group">
-              <label for="prof-label">{$LL.profile.labelField()}</label>
-              <input id="prof-label" type="text" placeholder={$LL.profile.labelPlaceholder()} bind:value={profileLabel} />
+              <label for="prof-label">Profile name (label)</label>
+              <input id="prof-label" type="text" placeholder="My VPS server" bind:value={profileLabel} />
             </div>
 
             <div class="form-row">
               <div class="form-group flex-3">
-                <label for="prof-host">{$LL.profile.hostField()}</label>
-                <input id="prof-host" type="text" placeholder={$LL.profile.hostPlaceholder()} bind:value={profileHost} />
+                <label for="prof-host">Host address (IP or domain)</label>
+                <input id="prof-host" type="text" placeholder="192.168.1.100" bind:value={profileHost} />
               </div>
               <div class="form-group flex-1">
-                <label for="prof-port">{$LL.profile.portField()}</label>
+                <label for="prof-port">SSH port</label>
                 <input id="prof-port" type="number" bind:value={profilePort} />
               </div>
             </div>
 
             <div class="form-group">
-              <label for="prof-user">{$LL.profile.userField()}</label>
-              <input id="prof-user" type="text" placeholder={$LL.profile.userPlaceholder()} bind:value={profileUsername} />
+              <label for="prof-user">SSH user</label>
+              <input id="prof-user" type="text" placeholder="root" bind:value={profileUsername} />
             </div>
 
             <div class="form-group">
-              <label for="prof-authtype">{$LL.profile.authMethod()}</label>
+              <label for="prof-authtype">Authentication method</label>
               <select id="prof-authtype" bind:value={profileAuthType}>
-                <option value="password">{$LL.profile.authPassword()}</option>
-                <option value="key">{$LL.profile.authKey()}</option>
+                <option value="password">Text password</option>
+                <option value="key">SSH private key</option>
               </select>
             </div>
 
             {#if profileAuthType === 'password'}
               <div class="form-group">
-                <label for="prof-pass">{$LL.profile.passwordField()}</label>
+                <label for="prof-pass">SSH password (will be saved in Windows Credential Manager)</label>
                 <input id="prof-pass" type="password" placeholder="••••••••" bind:value={profilePassword} />
               </div>
             {:else}
               <div class="form-group">
-                <label for="prof-keypath">{$LL.profile.keyPathField()}</label>
-                <input id="prof-keypath" type="text" placeholder={$LL.profile.keyPathPlaceholder()} bind:value={profileKeyPath} />
+                <label for="prof-keypath">{"Private key path (e.g. C:\\Users\\user\\.ssh\\id_rsa)"}</label>
+                <input id="prof-keypath" type="text" placeholder={"C:\\Users\\Name\\.ssh\\id_rsa"} bind:value={profileKeyPath} />
               </div>
               <div class="form-group">
-                <label for="prof-keypass">{$LL.profile.keyPassphraseField()}</label>
+                <label for="prof-keypass">Key passphrase (if required)</label>
                 <input id="prof-keypass" type="password" placeholder="••••••••" bind:value={profileKeyPassphrase} />
               </div>
             {/if}
 
             <div class="profile-form-actions">
-              <button class="primary" onclick={handleSaveProfile}>{$LL.profile.saveProfile()}</button>
-              <button class="secondary" onclick={() => { showCreateProfile = false; currentProfileId = ''; }}>{$LL.common.cancel()}</button>
+              <button class="primary" onclick={handleSaveProfile}>Save profile</button>
+              <button class="secondary" onclick={() => { showCreateProfile = false; currentProfileId = ''; }}>Cancel</button>
             </div>
           </div>
         {:else}
           <!-- Connection profiles list -->
           <div class="profiles-section">
             <div class="section-header">
-              <h2>{$LL.profile.savedProfiles()}</h2>
+              <h2>Saved profiles</h2>
               <button class="secondary btn-sm" onclick={() => showCreateProfile = true}>
-                <Plus size={14} /> {$LL.profile.newProfile()}
+                <Plus size={14} /> New profile
               </button>
             </div>
 
@@ -1404,7 +1403,7 @@
                       <span class="profile-label">
                         {profile.label}
                         {#if profile.id === defaultProfileId}
-                          <span class="default-badge">{$LL.profile.defaultProfile()}</span>
+                          <span class="default-badge">Default</span>
                         {/if}
                       </span>
                       <span class="profile-details">{profile.username}@{profile.host}:{profile.port}</span>
@@ -1414,13 +1413,13 @@
                     {#if isConnecting && currentProfileId === profile.id}
                       <Loader2 class="spin accent-amber-text" size={18} />
                     {:else}
-                      <button class="icon-btn-card" onclick={(e) => handleSetDefault(profile.id, e)} title={profile.id === defaultProfileId ? $LL.profile.defaultProfile() : $LL.profile.setDefault()}>
+                      <button class="icon-btn-card" onclick={(e) => handleSetDefault(profile.id, e)} title={profile.id === defaultProfileId ? "Default" : "Set as default"}>
                         <Star size={14} class={profile.id === defaultProfileId ? 'star-filled' : 'star-outline'} />
                       </button>
-                      <button class="icon-btn-card" onclick={(e) => editProfile(profile, e)} title={$LL.profile.editAction()}>
+                      <button class="icon-btn-card" onclick={(e) => editProfile(profile, e)} title="Edit">
                         <Settings size={14} />
                       </button>
-                      <button class="icon-btn-card hover-red" onclick={(e) => handleDeleteProfile(profile.id, e)} title={$LL.profile.deleteAction()}>
+                      <button class="icon-btn-card hover-red" onclick={(e) => handleDeleteProfile(profile.id, e)} title="Delete">
                         <Trash2 size={14} />
                       </button>
                       <ChevronRight class="chevron-icon" size={18} />
@@ -1432,9 +1431,9 @@
               {#if profiles.length === 0}
                 <div class="no-profiles glass">
                   <Server size={36} class="muted-icon" />
-                  <p>{$LL.profile.noProfiles()}</p>
+                  <p>No saved servers</p>
                   <button class="primary btn-sm" onclick={() => showCreateProfile = true}>
-                    <Plus size={14} /> {$LL.profile.createFirst()}
+                    <Plus size={14} /> Create first profile
                   </button>
                 </div>
               {/if}

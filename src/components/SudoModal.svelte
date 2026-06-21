@@ -1,8 +1,7 @@
 <script lang="ts">
   import { KeyRound } from 'lucide-svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { LL } from '$lib/i18n/i18n-svelte';
-  import { formatInvokeError } from '$lib/i18n/backendErrors';
+    import { formatInvokeError } from '$lib/backendErrors';
 
   let {
     open = $bindable(false),
@@ -44,12 +43,12 @@
     <div class="modal glass" role="dialog" onclick={(e) => e.stopPropagation()}>
       <div class="modal-header">
         <KeyRound size={18} />
-        <h3>{title ?? $LL.sudo.titleRequired()}</h3>
+        <h3>{title ?? "Sudo password required"}</h3>
       </div>
-      <p class="modal-desc">{description ?? $LL.sudo.descRequired()}</p>
+      <p class="modal-desc">{description ?? "Enter your sudo password to perform this operation."}</p>
       <input
         type="password"
-        placeholder={$LL.sudo.passwordPlaceholder()}
+        placeholder="Sudo password"
         bind:value={sudoPassword}
         onkeydown={(e) => e.key === 'Enter' && submit()}
       />
@@ -57,9 +56,9 @@
         <div class="error-msg">{sudoError}</div>
       {/if}
       <div class="modal-actions">
-        <button class="secondary" onclick={close}>{$LL.common.cancel()}</button>
+        <button class="secondary" onclick={close}>Cancel</button>
         <button class="primary" disabled={isSubmitting || !sudoPassword} onclick={submit}>
-          {isSubmitting ? $LL.sudo.verifying() : $LL.common.confirm()}
+          {isSubmitting ? "Verifying…" : "Confirm"}
         </button>
       </div>
     </div>

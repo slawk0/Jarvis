@@ -7,8 +7,7 @@
   import type { ExtendedServerStats, ProfileExtras } from '$lib/admin/types';
   import { DEFAULT_PROFILE_EXTRAS } from '$lib/admin/types';
   import { get } from 'svelte/store';
-  import { LL } from '$lib/i18n/i18n-svelte';
-  import { formatInvokeError } from '$lib/i18n/backendErrors';
+    import { formatInvokeError } from '$lib/backendErrors';
   import { notifications } from '$lib/notifications.svelte';
 
   let {
@@ -25,7 +24,7 @@
     loadAlertConfig();
   }
 
-  const displayProfileLabel = $derived(profileLabel || get(LL).shell.defaultServerLabel());
+  const displayProfileLabel = $derived(profileLabel || "Server");
 
   let stats = $state(initialStats);
   let extended = $state<ExtendedServerStats | null>(null);
@@ -169,7 +168,7 @@
       ramHistory = [...ramHistory.slice(-19), ramUsagePct];
       
     } catch (err: unknown) {
-      errorMsg = get(LL).alerts.statsLoadFailed({ error: formatInvokeError(err) });
+      errorMsg = `Could not fetch stats: ${formatInvokeError(err)}`;
     }
   }
 
@@ -228,14 +227,14 @@
       extras.alert_thresholds = alertConfig;
       await invoke('save_profile_extras', { profileId, extras });
     } catch (err: unknown) {
-      errorMsg = get(LL).alerts.saveFailed({ error: formatInvokeError(err) });
+      errorMsg = `Failed to save alert thresholds: ${formatInvokeError(err)}`;
     }
   }
 </script>
 
 <div class="dashboard manager-shell scrollable fade-in">
   <header class="manager-header">
-    <h1 class="page-title">{$LL.dashboard.title()}</h1>
+    <h1 class="page-title">Main dashboard</h1>
   </header>
 
   <!-- Sekcja informacji systemowych -->
@@ -243,21 +242,21 @@
     <div class="info-item">
       <Info class="info-icon animate-pulse" size={20} />
       <div>
-        <span class="info-label">{$LL.dashboard.os()}</span>
+        <span class="info-label">Operating system</span>
         <span class="info-val">{stats.os}</span>
       </div>
     </div>
     <div class="info-item">
       <Activity class="info-icon" size={20} />
       <div>
-        <span class="info-label">{$LL.dashboard.uptime()}</span>
+        <span class="info-label">Uptime</span>
         <span class="info-val mono-val">{stats.uptime}</span>
       </div>
     </div>
     <div class="info-item">
       <Cpu class="info-icon" size={20} />
       <div>
-        <span class="info-label">{$LL.dashboard.hostname()}</span>
+        <span class="info-label">Hostname</span>
         <span class="info-val">{stats.hostname}</span>
       </div>
     </div>
@@ -268,7 +267,7 @@
     <!-- CPU -->
     <div class="metric-card glass">
       <div class="card-header">
-        <h3>{$LL.dashboard.cpu()}</h3>
+        <h3>Processor (CPU)</h3>
         <Cpu size={18} class="accent-amber-text" />
       </div>
       <div class="gauge-container">
@@ -289,7 +288,7 @@
     <!-- RAM -->
     <div class="metric-card glass">
       <div class="card-header">
-        <h3>{$LL.dashboard.ram()}</h3>
+        <h3>Memory (RAM)</h3>
         <Activity size={18} class="accent-rust-text" />
       </div>
       <div class="gauge-container">
@@ -311,7 +310,7 @@
     <!-- DYSK -->
     <div class="metric-card glass">
       <div class="card-header">
-        <h3>{$LL.dashboard.disk()}</h3>
+        <h3>Disk space</h3>
         <HardDrive size={18} class="accent-green-text" />
       </div>
       <div class="gauge-container">
@@ -335,10 +334,10 @@
   <section class="charts-grid">
     <div class="chart-card glass">
       <div class="chart-header">
-        <h3>{$LL.dashboard.chartTitle()}</h3>
+        <h3>CPU & RAM load history</h3>
         <div class="legend">
-          <span class="legend-item"><span class="color-dot cpu"></span>{$LL.dashboard.cpu()}</span>
-          <span class="legend-item"><span class="color-dot ram"></span>{$LL.dashboard.ram()}</span>
+          <span class="legend-item"><span class="color-dot cpu"></span>Processor (CPU)</span>
+          <span class="legend-item"><span class="color-dot ram"></span>Memory (RAM)</span>
         </div>
       </div>
       <div class="chart-container">
@@ -383,19 +382,19 @@
 
     <!-- Network -->
     <div class="network-card glass">
-      <h3>{$LL.dashboard.networkSpeed()}</h3>
+      <h3>Network speed (I/O)</h3>
       <div class="net-stats">
         <div class="net-dir">
           <ArrowDown size={28} class="net-icon down" />
           <div class="net-info">
-            <span class="label">{$LL.dashboard.download()}</span>
+            <span class="label">DOWNLOAD</span>
             <span class="value down-val mono-val">{downSpeed}</span>
           </div>
         </div>
         <div class="net-dir">
           <ArrowUp size={28} class="net-icon up" />
           <div class="net-info">
-            <span class="label">{$LL.dashboard.upload()}</span>
+            <span class="label">UPLOAD</span>
             <span class="value up-val mono-val">{upSpeed}</span>
           </div>
         </div>
@@ -406,7 +405,7 @@
   {#if extended}
     <section class="extended-grid">
       <div class="ext-card glass">
-        <div class="ext-header"><Gauge size={16} /> {$LL.dashboard.loadAverage()}</div>
+        <div class="ext-header"><Gauge size={16} /> Load average</div>
         <div class="load-vals mono-val">
           <span>{extended.load_1.toFixed(2)}</span>
           <span class="sep">/</span>
@@ -414,31 +413,29 @@
           <span class="sep">/</span>
           <span>{extended.load_15.toFixed(2)}</span>
         </div>
-        <span class="ext-label">{$LL.dashboard.loadPeriods()}</span>
+        <span class="ext-label">1 min / 5 min / 15 min</span>
       </div>
       <div class="ext-card glass">
-        <div class="ext-header"><Layers size={16} /> {$LL.dashboard.swap()}</div>
+        <div class="ext-header"><Layers size={16} /> Swap</div>
         <div class="ext-val mono-val">
           {extended.swap_used_mb} / {extended.swap_total_mb} MB
         </div>
         <span class="ext-label">
-          {$LL.dashboard.swapUsage({
-            pct: String(
+          {`${String(
               extended.swap_total_mb > 0
                 ? Math.round((extended.swap_used_mb / extended.swap_total_mb) * 100)
                 : 0
-            ),
-          })}
+            )}% used`}
         </span>
       </div>
     </section>
 
     {#if extended.disk_mounts.length > 0}
       <section class="mounts-panel glass">
-        <h3>{$LL.dashboard.diskPartitions()}</h3>
+        <h3>Disk partitions</h3>
         <div class="mounts-table">
           <div class="mount-row head">
-            <span>{$LL.dashboard.mount()}</span><span>{$LL.dashboard.usage()}</span><span>{$LL.dashboard.inode()}</span>
+            <span>Mount</span><span>Usage</span><span>Inode</span>
           </div>
           {#each extended.disk_mounts as m}
             <div class="mount-row">
@@ -453,10 +450,10 @@
 
     {#if extended.top_processes.length > 0}
       <section class="procs-panel glass">
-        <h3>{$LL.dashboard.topProcesses()}</h3>
+        <h3>Top processes (RAM)</h3>
         <div class="procs-table">
           <div class="proc-row head">
-            <span>{$LL.dashboard.pid()}</span><span>{$LL.dashboard.user()}</span><span>{$LL.dashboard.cpu()}</span><span>{$LL.dashboard.ram()}</span><span>{$LL.dashboard.command()}</span>
+            <span>PID</span><span>User</span><span>Processor (CPU)</span><span>Memory (RAM)</span><span>Command</span>
           </div>
           {#each extended.top_processes as p}
             <div class="proc-row">
@@ -474,21 +471,21 @@
 
   <section class="alerts-panel glass">
     <div class="alerts-header">
-      <h3>{$LL.alerts.panelTitle()}</h3>
+      <h3>Desktop alerts</h3>
       <label class="toggle-row">
         <input type="checkbox" bind:checked={alertConfig.enabled} onchange={saveAlertConfig} />
-        {$LL.alerts.enabled()}
+        Enabled
       </label>
     </div>
     {#if alertConfig.enabled}
       <div class="alert-thresholds">
-        <label>{$LL.alerts.cpuThreshold()}
+        <label>CPU (%)
           <input type="number" min="50" max="100" bind:value={alertConfig.cpu_pct} onchange={saveAlertConfig} />
         </label>
-        <label>{$LL.alerts.ramThreshold()}
+        <label>RAM (%)
           <input type="number" min="50" max="100" bind:value={alertConfig.ram_pct} onchange={saveAlertConfig} />
         </label>
-        <label>{$LL.alerts.diskThreshold()}
+        <label>Disk (%)
           <input type="number" min="50" max="100" bind:value={alertConfig.disk_pct} onchange={saveAlertConfig} />
         </label>
       </div>
@@ -498,41 +495,41 @@
   <!-- Pangolin Proxy Stats -->
   <section class="proxy-section glass">
     <div class="proxy-header">
-      <h3><Globe size={18} class="accent-amber-text" /> {$LL.dashboard.proxyTitle()}</h3>
+      <h3><Globe size={18} class="accent-amber-text" /> Pangolin Proxy (7 days)</h3>
       {#if proxyStats.configured}
-        <span class="proxy-badge">{$LL.dashboard.proxyConnected()}</span>
+        <span class="proxy-badge">Connected</span>
       {/if}
     </div>
 
     {#if proxyStats.loading}
-      <p class="proxy-muted">{$LL.dashboard.proxyLoading()}</p>
+      <p class="proxy-muted">Loading proxy stats…</p>
     {:else if !proxyStats.configured}
       <p class="proxy-muted">
-        {$LL.dashboard.proxyNotConfigured()}
+        Configure Pangolin in the Pangolin Proxy tab to see traffic stats.
       </p>
     {:else}
       <div class="proxy-grid">
         <div class="proxy-stat">
-          <span class="proxy-label">{$LL.dashboard.requests()}</span>
+          <span class="proxy-label">Requests</span>
           <span class="proxy-val mono-val">{formatCompact(proxyStats.totalRequests)}</span>
         </div>
         <div class="proxy-stat">
-          <span class="proxy-label">{$LL.dashboard.allowed()}</span>
+          <span class="proxy-label">Allowed</span>
           <span class="proxy-val mono-val text-green">{formatCompact(proxyAllowed)}</span>
         </div>
         <div class="proxy-stat">
-          <span class="proxy-label">{$LL.dashboard.blocked()}</span>
+          <span class="proxy-label">Blocked</span>
           <span class="proxy-val mono-val text-red">{formatCompact(proxyStats.totalBlocked)}</span>
         </div>
         <div class="proxy-stat">
-          <span class="proxy-label">{$LL.dashboard.blockRate()}</span>
+          <span class="proxy-label">Block rate</span>
           <span class="proxy-val mono-val">{proxyBlockRate}%</span>
         </div>
       </div>
 
       {#if proxyStats.topCountries.length > 0}
         <div class="proxy-countries">
-          <span class="proxy-label">{$LL.dashboard.topCountries()}</span>
+          <span class="proxy-label">Top countries</span>
           <div class="proxy-country-list">
             {#each proxyStats.topCountries as country}
               <div class="proxy-country-item">

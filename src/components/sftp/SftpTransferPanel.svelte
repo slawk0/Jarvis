@@ -22,8 +22,7 @@
   import type { TransferJob } from '$lib/sftp/types';
   import ListSortBar from '../ui/ListSortBar.svelte';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
-  import { LL } from '$lib/i18n/i18n-svelte';
-
+  
   let jobSort = $state<SortState<string>>({ column: 'name', direction: 'asc' });
 
   const statusOrder: Record<string, number> = {
@@ -66,33 +65,33 @@
   <div class="transfer-panel glass" class:collapsed={transferStore.panelCollapsed}>
     <header class="panel-header">
       <div class="panel-title">
-        <h3>{$LL.sftp.transferTitle()}</h3>
+        <h3>SFTP transfers</h3>
         {#if transferStore.isTransferring}
           <span class="batch-meta mono-val">
-            {$LL.sftp.transferCompleted({ completed: String(transferStore.batchSummary.completed), total: String(transferStore.batchSummary.total) })}
+            {`${String(transferStore.batchSummary.completed)}/${String(transferStore.batchSummary.total)} completed`}
             {#if transferStore.currentSpeedBps > 0}
               · {formatSpeed(transferStore.currentSpeedBps)}
             {/if}
           </span>
         {:else if transferStore.batchSummary.total > 0}
           <span class="batch-meta mono-val">
-            {$LL.sftp.transferCompleted({ completed: String(transferStore.batchSummary.completed), total: String(transferStore.batchSummary.total) })}
+            {`${String(transferStore.batchSummary.completed)}/${String(transferStore.batchSummary.total)} completed`}
             {#if transferStore.batchSummary.failed > 0}
-              · {$LL.sftp.transferFailed({ count: String(transferStore.batchSummary.failed) })}
+              · {`${String(transferStore.batchSummary.failed)} errors`}
             {/if}
           </span>
         {/if}
       </div>
       <div class="panel-actions">
         {#if transferStore.isTransferring}
-          <button class="btn-sm danger" onclick={cancelTransfer} title={$LL.sftp.transferCancel()}>
-            <Ban size={14} /> {$LL.sftp.transferCancel()}
+          <button class="btn-sm danger" onclick={cancelTransfer} title="Cancel">
+            <Ban size={14} /> Cancel
           </button>
         {/if}
-        <button class="btn-sm secondary" onclick={retryFailedJobs} title={$LL.sftp.transferRetry()}>
+        <button class="btn-sm secondary" onclick={retryFailedJobs} title="Retry failed">
           <RotateCcw size={14} />
         </button>
-        <button class="btn-sm secondary" onclick={clearCompletedJobs} title={$LL.sftp.transferClear()}>
+        <button class="btn-sm secondary" onclick={clearCompletedJobs} title="Clear completed">
           <Trash2 size={14} />
         </button>
         <button
@@ -115,10 +114,10 @@
       {#if transferStore.jobs.length > 0}
         <ListSortBar
           columns={[
-            { id: 'name', label: $LL.common.name() },
-            { id: 'status', label: $LL.common.status() },
-            { id: 'size', label: $LL.common.size() },
-            { id: 'kind', label: $LL.common.type() },
+            { id: 'name', label: "Name" },
+            { id: 'status', label: "Status" },
+            { id: 'size', label: "Size" },
+            { id: 'kind', label: "Type" },
           ]}
           activeColumn={jobSort.column}
           direction={jobSort.direction}
@@ -127,7 +126,7 @@
       {/if}
       <div class="job-list">
         {#if transferStore.jobs.length === 0}
-          <p class="empty">{$LL.sftp.transferEmpty()}</p>
+          <p class="empty">No active transfers</p>
         {:else}
           {#each getSortedJobs() as job (job.id)}
             {@const Icon = kindIcon(job.kind)}

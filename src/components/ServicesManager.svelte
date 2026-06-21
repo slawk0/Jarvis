@@ -6,13 +6,12 @@
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
   import { stickToBottom } from '$lib/stickToBottom';
   import { get } from 'svelte/store';
-  import { LL } from '$lib/i18n/i18n-svelte';
-  import { notifications } from '$lib/notifications.svelte';
+    import { notifications } from '$lib/notifications.svelte';
   import {
     formatInvokeError,
     isSudoPasswordIncorrect,
     isSudoPasswordRequired,
-  } from '$lib/i18n/backendErrors';
+  } from '$lib/backendErrors';
 
   let { visible = true } = $props();
 
@@ -85,7 +84,7 @@
           : `journalctl -u ${statusServiceName}.service -n 200 --no-pager`;
       statusContent = await invoke<string>('exec_custom_command', { cmd, useSudo: false });
     } catch (err: unknown) {
-      statusContent = get(LL).common.loadFailed({ error: formatInvokeError(err) });
+      statusContent = `Failed to load: ${formatInvokeError(err)}`;
     } finally {
       statusLoading = false;
     }
@@ -147,7 +146,7 @@
       services = parsed;
       filterServices();
     } catch (err: unknown) {
-      errorMsg = get(LL).services.loadFailed({ error: formatInvokeError(err) });
+      errorMsg = `Failed to load services: ${formatInvokeError(err)}`;
     } finally {
       isLoading = false;
     }
@@ -177,9 +176,9 @@
           pendingAction = run;
           showSudoModal = true;
         } else if (isSudoPasswordIncorrect(err)) {
-          errorMsg = get(LL).common.sudoIncorrect();
+          errorMsg = "Incorrect sudo password. Try again.";
         } else {
-          errorMsg = get(LL).services.actionFailed({ action, error: formatInvokeError(err) });
+          errorMsg = `Action ${action} failed: ${formatInvokeError(err)}`;
         }
       } finally {
         isLoading = false;
@@ -252,7 +251,7 @@ WantedBy=multi-user.target
           pendingAction = run;
           showSudoModal = true;
         } else {
-          errorMsg = get(LL).services.installFailed({ error: formatInvokeError(err) });
+          errorMsg = `Service installation failed: ${formatInvokeError(err)}`;
         }
       } finally {
         isLoading = false;
@@ -270,20 +269,20 @@ WantedBy=multi-user.target
 
 <div class="services-manager manager-shell fade-in">
   <header class="manager-header">
-    <h1 class="page-title">{$LL.services.title()}</h1>
+    <h1 class="page-title">Systemd services</h1>
   </header>
 
   <!-- Pasek operacji -->
   <div class="ops-bar glass">
     <input 
       type="text" 
-      placeholder={$LL.services.searchPlaceholder()} 
+      placeholder="Search services…" 
       class="search-input" 
       bind:value={searchQuery}
       oninput={filterServices}
     />
     <button class="primary" onclick={() => showCreateModal = true}>
-      <Plus size={16} /> {$LL.services.newService()}
+      <Plus size={16} /> New service
     </button>
   </div>
 
@@ -292,17 +291,17 @@ WantedBy=multi-user.target
     {#if isLoading && services.length === 0}
       <div class="loading-state">
         <RefreshCw class="spin" size={32} />
-        <p>{$LL.services.loading()}</p>
+        <p>Loading service list…</p>
       </div>
     {:else}
       <table class="services-table">
         <thead>
           <tr>
-            <SortableTh label={$LL.services.serviceName()} column="name" activeColumn={serviceSort.column} direction={serviceSort.direction} onsort={setServiceSort} width="25%" />
-            <SortableTh label={$LL.services.loadState()} column="load" activeColumn={serviceSort.column} direction={serviceSort.direction} onsort={setServiceSort} width="12%" />
-            <SortableTh label={$LL.services.status()} column="status" activeColumn={serviceSort.column} direction={serviceSort.direction} onsort={setServiceSort} width="12%" />
-            <SortableTh label={$LL.services.description()} column="desc" activeColumn={serviceSort.column} direction={serviceSort.direction} onsort={setServiceSort} width="31%" />
-            <th style="width: 20%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">{$LL.services.control()}</th>
+            <SortableTh label="Service name" column="name" activeColumn={serviceSort.column} direction={serviceSort.direction} onsort={setServiceSort} width="25%" />
+            <SortableTh label="Load state" column="load" activeColumn={serviceSort.column} direction={serviceSort.direction} onsort={setServiceSort} width="12%" />
+            <SortableTh label="Status" column="status" activeColumn={serviceSort.column} direction={serviceSort.direction} onsort={setServiceSort} width="12%" />
+            <SortableTh label="Description" column="desc" activeColumn={serviceSort.column} direction={serviceSort.direction} onsort={setServiceSort} width="31%" />
+            <th style="width: 20%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Control</th>
           </tr>
         </thead>
         <tbody>
@@ -321,21 +320,21 @@ WantedBy=multi-user.target
                   {service.sub}
                 </span>
               </td>
-              <td class="desc-cell" title={service.desc}>{service.desc || $LL.common.noDescription()}</td>
+              <td class="desc-cell" title={service.desc}>{service.desc || "(no description)"}</td>
               <td class="actions-cell">
-                <button class="btn-action" onclick={() => openServiceStatus(service.name)} title={$LL.services.statusAndLogs()}>
+                <button class="btn-action" onclick={() => openServiceStatus(service.name)} title="Status & logs">
                   <Eye size={14} />
                 </button>
                 {#if service.active === 'active'}
-                  <button class="btn-action danger-text" onclick={() => executeServiceAction('stop', service.name)} title={$LL.services.stop()}>
+                  <button class="btn-action danger-text" onclick={() => executeServiceAction('stop', service.name)} title="Stop">
                     <Square size={14} />
                   </button>
                 {:else}
-                  <button class="btn-action success-text" onclick={() => executeServiceAction('start', service.name)} title={$LL.services.start()}>
+                  <button class="btn-action success-text" onclick={() => executeServiceAction('start', service.name)} title="Start">
                     <Play size={14} />
                   </button>
                 {/if}
-                <button class="btn-action" onclick={() => executeServiceAction('restart', service.name)} title={$LL.services.restart()}>
+                <button class="btn-action" onclick={() => executeServiceAction('restart', service.name)} title="Restart">
                   <RotateCw size={14} />
                 </button>
               </td>
@@ -344,7 +343,7 @@ WantedBy=multi-user.target
 
           {#if sortedServices.length === 0 && !isLoading}
             <tr>
-              <td colspan="5" class="empty-state">{$LL.services.empty()}</td>
+              <td colspan="5" class="empty-state">No matching services</td>
             </tr>
           {/if}
         </tbody>
@@ -365,19 +364,19 @@ WantedBy=multi-user.target
                 class:active={statusTab === 'status'}
                 onclick={() => switchStatusTab('status')}
               >
-                {$LL.services.statusTab()}
+                Status
               </button>
               <button
                 class="status-tab"
                 class:active={statusTab === 'logs'}
                 onclick={() => switchStatusTab('logs')}
               >
-                {$LL.services.logsTab()}
+                Logs
               </button>
             </div>
             <div class="search-bar search-bar-sm">
               <span class="search-icon-wrapper"><Search size={14} /></span>
-              <input type="text" placeholder={$LL.services.filter()} bind:value={statusSearch} />
+              <input type="text" placeholder="Filter…" bind:value={statusSearch} />
             </div>
             <button class="secondary btn-sm" onclick={loadStatusContent} disabled={statusLoading}>
               <RefreshCw size={14} class={statusLoading ? 'spin' : ''} />
@@ -391,10 +390,10 @@ WantedBy=multi-user.target
           {#if statusLoading && !statusContent}
             <div class="status-loading">
               <RefreshCw class="spin" size={24} />
-              <span>{$LL.common.loading()}</span>
+              <span>Loading…</span>
             </div>
           {:else}
-            <pre class="status-text">{filteredStatusContent || $LL.common.noData()}</pre>
+            <pre class="status-text">{filteredStatusContent || "(no data)"}</pre>
           {/if}
         </div>
       </div>
@@ -408,11 +407,11 @@ WantedBy=multi-user.target
         <div class="modal-header-icon">
           <KeyRound size={32} class="accent-amber-text" />
         </div>
-        <h3>{$LL.sudo.authTitle()}</h3>
-        <p class="modal-desc">{$LL.sudo.authDesc()}</p>
+        <h3>Sudo authentication required</h3>
+        <p class="modal-desc">This operation requires root privileges. Enter your user password (sudo):</p>
         <input 
           type="password" 
-          placeholder={$LL.sudo.passwordInputPlaceholder()} 
+          placeholder="Enter password…" 
           bind:value={sudoPassword} 
           onkeydown={(e) => e.key === 'Enter' && submitSudoPassword()}
         />
@@ -420,8 +419,8 @@ WantedBy=multi-user.target
           <span class="error-text">{sudoError}</span>
         {/if}
         <div class="modal-actions">
-          <button class="primary" onclick={submitSudoPassword}>{$LL.common.submit()}</button>
-          <button class="secondary" onclick={() => { showSudoModal = false; sudoPassword = ''; pendingAction = null; }}>{$LL.common.cancel()}</button>
+          <button class="primary" onclick={submitSudoPassword}>Submit</button>
+          <button class="secondary" onclick={() => { showSudoModal = false; sudoPassword = ''; pendingAction = null; }}>Cancel</button>
         </div>
       </div>
     </div>
@@ -431,41 +430,41 @@ WantedBy=multi-user.target
   {#if showCreateModal}
     <div class="modal-overlay">
       <div class="modal-content glass creator-modal">
-        <h3>{$LL.services.creatorTitle()}</h3>
+        <h3>Systemd service wizard</h3>
         
         <div class="form-group">
-          <label for="srv-name">{$LL.services.nameLabel()}</label>
-          <input id="srv-name" type="text" placeholder={$LL.services.namePlaceholder()} bind:value={serviceName} />
+          <label for="srv-name">Service name (e.g. myapp)</label>
+          <input id="srv-name" type="text" placeholder="myapp" bind:value={serviceName} />
         </div>
 
         <div class="form-group">
-          <label for="srv-desc">{$LL.services.descLabel()}</label>
-          <input id="srv-desc" type="text" placeholder={$LL.services.descPlaceholder()} bind:value={serviceDesc} />
+          <label for="srv-desc">Service description</label>
+          <input id="srv-desc" type="text" placeholder="Program description…" bind:value={serviceDesc} />
         </div>
 
         <div class="form-group">
-          <label for="srv-exec">{$LL.services.execLabel()}</label>
-          <input id="srv-exec" type="text" placeholder={$LL.services.execPlaceholder()} bind:value={serviceExec} />
+          <label for="srv-exec">Command to run (ExecStart)</label>
+          <input id="srv-exec" type="text" placeholder="/usr/bin/node /var/www/app.js" bind:value={serviceExec} />
         </div>
 
         <div class="form-row">
           <div class="form-group">
-            <label for="srv-user">{$LL.services.runAsUser()}</label>
+            <label for="srv-user">Run as user</label>
             <input id="srv-user" type="text" bind:value={serviceUser} />
           </div>
           <div class="form-group">
-            <label for="srv-restart">{$LL.services.restartPolicy()}</label>
+            <label for="srv-restart">Restart policy</label>
             <select id="srv-restart" bind:value={serviceRestart}>
-              <option value="always">{$LL.services.restartAlways()}</option>
-              <option value="on-failure">{$LL.services.restartOnFailure()}</option>
-              <option value="no">{$LL.services.restartNo()}</option>
+              <option value="always">Always</option>
+              <option value="on-failure">On failure</option>
+              <option value="no">No</option>
             </select>
           </div>
         </div>
 
         <div class="modal-actions">
-          <button class="primary" onclick={createService} disabled={!serviceName || !serviceExec}>{$LL.services.installService()}</button>
-          <button class="secondary" onclick={() => showCreateModal = false}>{$LL.common.cancel()}</button>
+          <button class="primary" onclick={createService} disabled={!serviceName || !serviceExec}>Install service</button>
+          <button class="secondary" onclick={() => showCreateModal = false}>Cancel</button>
         </div>
       </div>
     </div>

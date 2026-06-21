@@ -11,13 +11,12 @@
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
   import yaml from 'js-yaml';
   import { get } from 'svelte/store';
-  import { LL } from '$lib/i18n/i18n-svelte';
-  import {
+    import {
     formatInvokeError,
     isSudoPasswordIncorrect,
     isSudoPasswordRequired,
-  } from '$lib/i18n/backendErrors';
-  import { formatDate } from '$lib/i18n/formatLocale';
+  } from '$lib/backendErrors';
+  import { formatDate } from '$lib/formatLocale';
   import { notifications } from '$lib/notifications.svelte';
 
   // Svelte 5 Props
@@ -77,7 +76,7 @@
   // Form data and generated keys
   let newDecisionIp = $state('');
   let newDecisionDuration = $state('4h');
-  let newDecisionReason = $state(get(LL).crowdsec.banReasonDefault());
+  let newDecisionReason = $state("Manual block");
   let newDecisionScope = $state('ip');
   let newBouncerName = $state('');
   let generatedBouncerKey = $state('');
@@ -169,10 +168,10 @@
           pendingAction = run;
           showSudoModal = true;
         } else if (isSudoPasswordIncorrect(err)) {
-          sudoError = get(LL).common.sudoIncorrect();
+          sudoError = "Incorrect sudo password. Try again.";
           showSudoModal = true;
         } else {
-          errorMsg = get(LL).common.actionFailed({ error: formatInvokeError(err) });
+          errorMsg = `Action failed: ${formatInvokeError(err)}`;
         }
       }
     };
@@ -193,7 +192,7 @@
       }
     } catch (err: unknown) {
       sudoError = isSudoPasswordIncorrect(err)
-        ? get(LL).common.sudoIncorrect()
+        ? "Incorrect sudo password. Try again."
         : formatInvokeError(err);
     }
   }
@@ -283,7 +282,7 @@
         await loadAllData();
       }
     } catch (err: any) {
-      errorMsg = get(LL).crowdsec.detectFailed({ error: formatInvokeError(err) });
+      errorMsg = `Environment detection error: ${formatInvokeError(err)}`;
       isInstalled = false;
     } finally {
       isLoading = false;
@@ -315,10 +314,10 @@
         pendingAction = loadAllData;
         showSudoModal = true;
         if (isSudoPasswordIncorrect(err)) {
-          sudoError = get(LL).common.sudoIncorrect();
+          sudoError = "Incorrect sudo password. Try again.";
         }
       } else {
-        errorMsg = get(LL).crowdsec.loadFailed({ error: formatInvokeError(err) });
+        errorMsg = `Failed to load CrowdSec data: ${formatInvokeError(err)}`;
       }
     } finally {
       isLoading = false;
@@ -357,7 +356,7 @@
       }
       console.error(err);
       isServiceActive = false;
-      lapiVersion = get(LL).common.unknown();
+      lapiVersion = "Unknown";
     }
   }
 
@@ -384,7 +383,7 @@
         if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
           throw err;
         }
-        errorMsg = get(LL).crowdsec.serviceActionFailed({ action, error: formatInvokeError(err) });
+        errorMsg = `Service ${action} failed: ${formatInvokeError(err)}`;
       } finally {
         isLoading = false;
       }
@@ -465,7 +464,7 @@
         if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
           throw err;
         }
-        errorMsg = get(LL).crowdsec.addBanFailed({ error: formatInvokeError(err) });
+        errorMsg = `Failed to add ban: ${formatInvokeError(err)}`;
       } finally {
         isLoading = false;
       }
@@ -475,7 +474,7 @@
 
   // Manual ban removal (Unban)
   async function deleteDecision(ip: string) {
-    if (!confirm(get(LL).crowdsec.confirmUnban({ ip }))) return;
+    if (!confirm(`Are you sure you want to remove the ban (unban) for IP ${ip}?`)) return;
     const run = async () => {
       isLoading = true;
       errorMsg = '';
@@ -486,7 +485,7 @@
         if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
           throw err;
         }
-        errorMsg = get(LL).crowdsec.unbanFailed({ ip, error: formatInvokeError(err) });
+        errorMsg = `Failed to unban ${ip}: ${formatInvokeError(err)}`;
       } finally {
         isLoading = false;
       }
@@ -496,7 +495,7 @@
 
   // Remove all decisions (bans)
   async function deleteAllDecisions() {
-    if (!confirm(get(LL).crowdsec.confirmRemoveAllBans())) return;
+    if (!confirm("Are you sure you want to remove ALL active CrowdSec blocks?")) return;
     const run = async () => {
       isLoading = true;
       errorMsg = '';
@@ -507,7 +506,7 @@
         if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
           throw err;
         }
-        errorMsg = get(LL).crowdsec.removeAllFailed({ error: formatInvokeError(err) });
+        errorMsg = `Failed to remove all bans: ${formatInvokeError(err)}`;
       } finally {
         isLoading = false;
       }
@@ -738,7 +737,7 @@
         if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
           throw err;
         }
-        errorMsg = get(LL).crowdsec.whitelistSaveFailed({ error: formatInvokeError(err) });
+        errorMsg = `Whitelist save error: ${formatInvokeError(err)}`;
       } finally {
         isLoading = false;
       }
@@ -780,7 +779,7 @@
           if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
             throw err;
           }
-          errorMsg = get(LL).crowdsec.lapiAddFailed({ error: formatInvokeError(err) });
+          errorMsg = `LAPI allowlist add error: ${formatInvokeError(err)}`;
         } finally {
           isLoading = false;
         }
@@ -826,7 +825,7 @@
     
     if (item.file.startsWith('LAPI: ')) {
       const allowlistName = item.file.substring(6);
-      if (!confirm(get(LL).common.confirmDelete() + ' ' + item.value)) return;
+      if (!confirm("Confirm delete" + ' ' + item.value)) return;
 
       const run = async () => {
         isLoading = true;
@@ -843,7 +842,7 @@
           if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
             throw err;
           }
-          errorMsg = get(LL).crowdsec.lapiRemoveFailed({ error: formatInvokeError(err) });
+          errorMsg = `LAPI allowlist remove error: ${formatInvokeError(err)}`;
         } finally {
           isLoading = false;
         }
@@ -852,7 +851,7 @@
       return;
     }
 
-    if (!confirm(get(LL).common.confirmDelete() + ' ' + item.value)) return;
+    if (!confirm("Confirm delete" + ' ' + item.value)) return;
     
     const isDocker = connectionMode === 'docker' || (connectionMode === 'auto' && detectedMode === 'docker');
     const path = `/etc/crowdsec/parsers/s02-enrich/${item.file}`;
@@ -914,7 +913,7 @@
         if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
           throw err;
         }
-        errorMsg = get(LL).crowdsec.whitelistRemoveFailed({ error: formatInvokeError(err) });
+        errorMsg = `Whitelist removal error: ${formatInvokeError(err)}`;
       } finally {
         isLoading = false;
       }
@@ -967,7 +966,7 @@
         if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
           throw err;
         }
-        errorMsg = get(LL).crowdsec.addBouncerFailed({ error: formatInvokeError(err) });
+        errorMsg = `Failed to add bouncer: ${formatInvokeError(err)}`;
       } finally {
         isLoading = false;
       }
@@ -978,12 +977,12 @@
   // Copy bouncer key
   function copyBouncerKey() {
     navigator.clipboard.writeText(generatedBouncerKey);
-    alert(get(LL).pangolin.copied());
+    alert("Copied");
   }
 
   // Remove bouncer
   async function deleteBouncer(name: string) {
-    if (!confirm(get(LL).crowdsec.confirmRemoveBouncer() + ' "' + name + '"?')) return;
+    if (!confirm("Remove this bouncer" + ' "' + name + '"?')) return;
     const run = async () => {
       isLoading = true;
       errorMsg = '';
@@ -994,7 +993,7 @@
         if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
           throw err;
         }
-        errorMsg = get(LL).crowdsec.actionFailed({ error: formatInvokeError(err) });
+        errorMsg = `Action failed: ${formatInvokeError(err)}`;
       } finally {
         isLoading = false;
       }
@@ -1004,7 +1003,7 @@
 
   // Pruning bouncers
   async function pruneBouncers() {
-    if (!confirm(get(LL).crowdsec.confirmCleanupBouncers())) return;
+    if (!confirm("Clean up bouncers that have not communicated for over 45 minutes?")) return;
     const run = async () => {
       isLoading = true;
       errorMsg = '';
@@ -1015,7 +1014,7 @@
         if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
           throw err;
         }
-        errorMsg = get(LL).crowdsec.cleanupBouncersFailed({ error: formatInvokeError(err) });
+        errorMsg = `Failed to clean up inactive bouncers: ${formatInvokeError(err)}`;
       } finally {
         isLoading = false;
       }
@@ -1100,7 +1099,7 @@
         if (isSudoPasswordRequired(err) || isSudoPasswordIncorrect(err)) {
           throw err;
         }
-        errorMsg = get(LL).crowdsec.installFailed({ error: formatInvokeError(err) });
+        errorMsg = `CrowdSec installation error: ${formatInvokeError(err)}`;
       } finally {
         isInstalling = false;
       }
@@ -1119,12 +1118,12 @@
     try {
       const verOut = await runCscliCommand('version', true);
       if (verOut.toLowerCase().includes('version') || verOut.includes('db')) {
-        testConnectionResult = { success: true, msg: get(LL).crowdsec.testConnectionSuccess({ version: verOut.split('\n')[0] }) };
+        testConnectionResult = { success: true, msg: `Connection successful. CrowdSec version: ${verOut.split('\n')[0]}` };
       } else {
-        testConnectionResult = { success: false, msg: get(LL).crowdsec.testConnectionUnexpected({ response: verOut.substring(0, 100) }) };
+        testConnectionResult = { success: false, msg: `Unexpected response from CrowdSec: ${verOut.substring(0, 200)}` };
       }
     } catch (err: any) {
-      testConnectionResult = { success: false, msg: get(LL).crowdsec.testConnectionFailed({ error: formatInvokeError(err) }) };
+      testConnectionResult = { success: false, msg: `Connection test failed: ${formatInvokeError(err)}` };
     } finally {
       isTestingConnection = false;
     }
@@ -1201,7 +1200,7 @@
     alertSort = nextSort(alertSort, column as AlertSortCol);
   }
 
-  // Sorting and filtering {$LL.crowdsec.tabHub()}
+  // Sorting and filtering CrowdSec Hub
   const filteredHubItems = $derived(
     hubItems.filter(h => {
       if (!searchHubQuery) return true;
@@ -1235,7 +1234,7 @@
     // CrowdSec versions may return acquisition as an array or map
     if (Array.isArray(metrics.acquisition)) {
       return metrics.acquisition.map((item: any) => ({
-        source: item.source || get(LL).common.unknown() + ' log',
+        source: item.source || "Unknown" + ' log',
         read: parseInt(item.read) || 0,
         parsed: parseInt(item.parsed) || 0,
         unparsed: parseInt(item.unparsed) || 0
@@ -1280,11 +1279,11 @@
   const connectionModeLabel = $derived.by(() => {
     if (connectionMode === 'auto') {
       const modeName = detectedMode === 'docker' ? 'Docker' : 'Systemd';
-      return get(LL).crowdsec.connectionAuto({ mode: modeName });
+      return `Automatic (${modeName})`;
     }
     return connectionMode === 'docker' 
-      ? get(LL).crowdsec.connectionDocker() 
-      : get(LL).crowdsec.connectionBareMetal();
+      ? "Docker container" 
+      : "Bare-metal (Systemd)";
   });
 
   const configuredContainerName = $derived(
@@ -1442,14 +1441,14 @@
 <div class="crowdsec-manager manager-shell fade-in">
   <header class="manager-header">
     <div class="header-title-section">
-      <h1 class="page-title">{$LL.crowdsec.title()}</h1>
+      <h1 class="page-title">Security (CrowdSec)</h1>
       {#if isSudoAuthorized && isInstalled}
         <span class="status-pill {isServiceActive === null ? 'unknown' : (isServiceActive ? 'active' : 'inactive')}">
           <span class="status-dot"></span>
           {#if isServiceActive === null}
-            {$LL.crowdsec.checking()}
+            CHECKING...
           {:else}
-            {isServiceActive ? $LL.crowdsec.active() : $LL.crowdsec.inactive()}
+            {isServiceActive ? "ACTIVE" : "INACTIVE"}
           {/if}
           ({connectionModeLabel})
         </span>
@@ -1458,7 +1457,7 @@
 
     <div class="header-actions">
       <button class="secondary btn-sm" onclick={() => { showSettingsModal = true; testConnectionResult = null; }}>
-        <Settings size={14} /> {$LL.common.settings()}
+        <Settings size={14} /> Settings
       </button>
     </div>
   </header>
@@ -1469,12 +1468,12 @@
         <div class="auth-gate-icon">
           <KeyRound size={40} class="accent-amber-text" />
         </div>
-        <h2>{$LL.crowdsec.authTitle()}</h2>
+        <h2>Sudo authentication required</h2>
         <p>
-          {$LL.crowdsec.authDesc()}
+          The CrowdSec tab requires a sudo password to communicate with the server. No background operations will run until you provide it.
         </p>
         <button class="primary" onclick={requestSudoAuth}>
-          <KeyRound size={16} /> {$LL.crowdsec.provideSudo()}
+          <KeyRound size={16} /> Enter sudo password
         </button>
       </div>
     </div>
@@ -1482,7 +1481,7 @@
     <!-- Loading / detection state -->
     <div class="loading-state">
       <RefreshCw size={36} class="spin muted-icon" />
-      <p>{$LL.crowdsec.detecting()}</p>
+      <p>Detecting CrowdSec environment…</p>
     </div>
   {:else if isInstalled === false}
     <!-- Onboarding screen / Installer -->
@@ -1491,49 +1490,49 @@
         <div class="onboarding-icon-box">
           <ShieldAlert size={42} class="accent-amber-text" />
         </div>
-        <h2>{$LL.crowdsec.onboardingTitle()}</h2>
+        <h2>Secure your server with CrowdSec</h2>
         <p class="onboarding-desc">
-          {$LL.crowdsec.onboardingDesc()}
+          CrowdSec is a modern collaborative IPS. It analyzes server logs for intrusion attempts, port scans and malicious activity, blocks attackers and shares their addresses with a global threat database.
         </p>
 
         <div class="features-grid">
           <div class="feat-card">
             <Activity size={20} class="accent-amber-text" />
-            <h4>{$LL.crowdsec.featLogsTitle()}</h4>
-            <p>{$LL.crowdsec.featLogsDesc()}</p>
+            <h4>Log analysis</h4>
+            <p>Monitors system and service logs (SSH, Web, Mail) in real time.</p>
           </div>
           <div class="feat-card">
             <Users size={20} class="accent-green-text" />
-            <h4>{$LL.crowdsec.featReputationTitle()}</h4>
-            <p>{$LL.crowdsec.featReputationDesc()}</p>
+            <h4>IP reputation network</h4>
+            <p>Downloads and updates a database of malicious IPs verified by the CrowdSec community.</p>
           </div>
           <div class="feat-card">
             <Shield size={20} class="accent-red-text" />
-            <h4>{$LL.crowdsec.featBouncersTitle()}</h4>
-            <p>{$LL.crowdsec.featBouncersDesc()}</p>
+            <h4>Bouncers (blocks)</h4>
+            <p>Automatically integrates with the server firewall (e.g. UFW/iptables), rejecting attacks.</p>
           </div>
         </div>
 
         <div class="divider"></div>
 
-        <h3>{$LL.crowdsec.setupQuestion()}</h3>
+        <h3>How do you want to configure CrowdSec?</h3>
 
         <div class="install-options">
           <div class="install-box">
-            <h4>{$LL.crowdsec.methodBareMetal()}</h4>
-            <p>{$LL.crowdsec.methodBareMetalDesc()}</p>
+            <h4>Method 1: Direct installation (Bare-metal)</h4>
+            <p>Installs CrowdSec and an associated firewall bouncer (iptables) directly on the server (requires APT-based distro, e.g. Debian/Ubuntu).</p>
             <button class="primary" onclick={installCrowdSec} disabled={isInstalling}>
               {#if isInstalling}
-                <RefreshCw size={16} class="spin" /> {$LL.crowdsec.installing()}
+                <RefreshCw size={16} class="spin" /> Installing…
               {:else}
-                <Plus size={16} /> {$LL.crowdsec.installDirect()}
+                <Plus size={16} /> Install directly
               {/if}
             </button>
           </div>
 
           <div class="install-box">
-            <h4>{$LL.crowdsec.methodDocker()}</h4>
-            <p>{$LL.crowdsec.methodDockerDesc()}</p>
+            <h4>Method 2: Run in Docker</h4>
+            <p>If you prefer Docker, run CrowdSec in a container. Ensure the container is named crowdsec or open settings to specify another name.</p>
             <div class="code-preview">
               <pre><code>version: "3"
 services:
@@ -1552,7 +1551,7 @@ services:
 
         <div class="onboarding-actions">
           <button class="secondary" onclick={() => { showSettingsModal = true; testConnectionResult = null; }}>
-            {$LL.crowdsec.configureManual()}
+            Configure connection manually
           </button>
         </div>
       </div>
@@ -1561,25 +1560,25 @@ services:
     <!-- Main panel with sub-tabs -->
     <div class="tabs-bar glass">
       <button class="tab-btn {activeSubTab === 'dashboard' ? 'active' : ''}" onclick={() => activeSubTab = 'dashboard'}>
-        <Activity size={16} /> {$LL.crowdsec.tabDashboard()}
+        <Activity size={16} /> Overview
       </button>
       <button class="tab-btn {activeSubTab === 'decisions' ? 'active' : ''}" onclick={() => activeSubTab = 'decisions'}>
-        <Shield size={16} /> {$LL.crowdsec.tabDecisions()}
+        <Shield size={16} /> Decisions (Bans)
       </button>
       <button class="tab-btn {activeSubTab === 'whitelist' ? 'active' : ''}" onclick={() => activeSubTab = 'whitelist'}>
-        <Check size={16} /> {$LL.crowdsec.tabWhitelist()}
+        <Check size={16} /> Whitelist
       </button>
       <button class="tab-btn {activeSubTab === 'alerts' ? 'active' : ''}" onclick={() => activeSubTab = 'alerts'}>
-        <ShieldAlert size={16} /> {$LL.crowdsec.tabAlerts()}
+        <ShieldAlert size={16} /> Alerts
       </button>
       <button class="tab-btn {activeSubTab === 'bouncers' ? 'active' : ''}" onclick={() => activeSubTab = 'bouncers'}>
-        <Box size={16} /> {$LL.crowdsec.tabBouncers()}
+        <Box size={16} /> Bouncers
       </button>
       <button class="tab-btn {activeSubTab === 'metrics' ? 'active' : ''}" onclick={() => activeSubTab = 'metrics'}>
-        <FileText size={16} /> {$LL.crowdsec.tabMetrics()}
+        <FileText size={16} /> Log metrics
       </button>
       <button class="tab-btn {activeSubTab === 'hub' ? 'active' : ''}" onclick={() => activeSubTab = 'hub'}>
-        <Cpu size={16} /> {$LL.crowdsec.tabHub()}
+        <Cpu size={16} /> CrowdSec Hub
       </button>
     </div>
 
@@ -1589,22 +1588,22 @@ services:
         <div class="dashboard-grid fade-in">
           <!-- Service status widget -->
           <div class="dash-card glass service-status-card">
-            <h3>{$LL.crowdsec.serviceStatus()}</h3>
+            <h3>Service status</h3>
             <div class="status-indicator-box">
               <div class="status-dot-large {isServiceActive === null ? 'unknown' : (isServiceActive ? 'active' : 'inactive')}"></div>
               <div class="status-details">
                 <span class="status-text">
                   {#if isServiceActive === null}
-                    {$LL.crowdsec.checkingStatus()}
+                    Checking status…
                   {:else}
-                    {isServiceActive ? $LL.crowdsec.online() : $LL.crowdsec.offline()}
+                    {isServiceActive ? "Running (Online)" : "Stopped (Offline)"}
                   {/if}
                 </span>
                 <span class="ver-text">
                   {#if lapiVersion}
-                    {$LL.crowdsec.lapiVersion({ version: lapiVersion })}
+                    {`LAPI version: ${lapiVersion}`}
                   {:else}
-                    {$LL.crowdsec.checkingStatus()}
+                    Checking status…
                   {/if}
                 </span>
               </div>
@@ -1612,57 +1611,57 @@ services:
             <div class="service-actions">
               {#if isServiceActive}
                 <button class="danger btn-sm" onclick={() => controlService('stop')} disabled={isLoading}>
-                  <Square size={14} /> {$LL.crowdsec.serviceStop()}
+                  <Square size={14} /> Stop
                 </button>
               {:else}
                 <button class="primary btn-sm" onclick={() => controlService('start')} disabled={isLoading || isServiceActive === null}>
-                  <Play size={14} /> {$LL.crowdsec.serviceStart()}
+                  <Play size={14} /> Start
                 </button>
               {/if}
               <button class="secondary btn-sm" onclick={() => controlService('restart')} disabled={isLoading || isServiceActive === null}>
-                <RotateCw size={14} /> {$LL.crowdsec.serviceRestart()}
+                <RotateCw size={14} /> Restart
               </button>
             </div>
           </div>
 
           <!-- Widget Statystyk telemetrycznych -->
           <div class="dash-card glass stats-overview-card">
-            <h3>{$LL.crowdsec.dbSummary()}</h3>
+            <h3>Database summary</h3>
             <div class="stats-grid">
               <button class="stat-item clickable" onclick={() => activeSubTab = 'decisions'} style="background: transparent; border: 1px solid var(--border-color); text-align: center; width: 100%;">
                 <span class="stat-num mono-stats">{decisions.length}</span>
-                <span class="stat-label">{$LL.crowdsec.activeBans()}</span>
+                <span class="stat-label">Active bans</span>
               </button>
               <button class="stat-item clickable" onclick={() => activeSubTab = 'bouncers'} style="background: transparent; border: 1px solid var(--border-color); text-align: center; width: 100%;">
                 <span class="stat-num mono-stats">{bouncers.length}</span>
-                <span class="stat-label">{$LL.crowdsec.tabBouncers()}</span>
+                <span class="stat-label">Bouncers</span>
               </button>
               <button class="stat-item clickable" onclick={() => activeSubTab = 'alerts'} style="background: transparent; border: 1px solid var(--border-color); text-align: center; width: 100%;">
                 <span class="stat-num mono-stats">{alerts.length}</span>
-                <span class="stat-label">{$LL.crowdsec.alertHistory()}</span>
+                <span class="stat-label">Alert history</span>
               </button>
               <button class="stat-item clickable" onclick={() => activeSubTab = 'whitelist'} style="background: transparent; border: 1px solid var(--border-color); text-align: center; width: 100%;">
                 <span class="stat-num mono-stats">{whitelistData.ip.length + whitelistData.cidr.length}</span>
-                <span class="stat-label">{$LL.crowdsec.tabWhitelist()}</span>
+                <span class="stat-label">Whitelist</span>
               </button>
             </div>
           </div>
 
           <!-- Log processing statistics widget -->
           <div class="dash-card glass log-metrics-card">
-            <h3>{$LL.crowdsec.logProcessing()}</h3>
+            <h3>Log processing</h3>
             <div class="log-progress-section">
               <div class="progress-details">
-                <span class="progress-label">{$LL.crowdsec.parseSuccess()}</span>
+                <span class="progress-label">Parsing success rate</span>
                 <span class="progress-percentage mono-stats">{logStats.successRate}%</span>
               </div>
               <div class="progress-bar-container">
                 <div class="progress-bar-fill" style="width: {logStats.successRate}%"></div>
               </div>
               <div class="progress-legend">
-                <span class="leg-item"><span class="dot success"></span> {$LL.crowdsec.parsedLabel()} <strong class="mono-stats">{logStats.parsed}</strong></span>
-                <span class="leg-item"><span class="dot danger"></span> {$LL.crowdsec.skipped()} <strong class="mono-stats">{logStats.unparsed}</strong></span>
-                <span class="leg-item">{$LL.crowdsec.totalRead()} <strong class="mono-stats">{logStats.read}</strong></span>
+                <span class="leg-item"><span class="dot success"></span> Parsed: <strong class="mono-stats">{logStats.parsed}</strong></span>
+                <span class="leg-item"><span class="dot danger"></span> Skipped: <strong class="mono-stats">{logStats.unparsed}</strong></span>
+                <span class="leg-item">Total: <strong class="mono-stats">{logStats.read}</strong></span>
               </div>
             </div>
           </div>
@@ -1777,14 +1776,14 @@ services:
         <div class="sub-tab-panel fade-in">
           <div class="panel-header">
             <div class="search-box">
-              <input type="text" placeholder={$LL.crowdsec.searchDecisionsPlaceholder()} bind:value={searchDecisionQuery} />
+              <input type="text" placeholder="Search by IP or reason…" bind:value={searchDecisionQuery} />
             </div>
             <div class="panel-actions">
               <button class="primary" onclick={() => showAddDecisionModal = true}>
-                <Plus size={16} /> {$LL.crowdsec.addBan()}
+                <Plus size={16} /> Add ban
               </button>
               <button class="danger" onclick={deleteAllDecisions} disabled={decisions.length === 0}>
-                <Trash2 size={16} /> {$LL.crowdsec.removeAllBans()}
+                <Trash2 size={16} /> Remove all bans
               </button>
             </div>
           </div>
@@ -1793,14 +1792,14 @@ services:
             <table>
               <thead>
                 <tr>
-                  <SortableTh label={$LL.crowdsec.colValue()} column="value" activeColumn={decisionSort.column} direction={decisionSort.direction} onsort={setDecisionSort} width="15%" />
-                  <SortableTh label={$LL.crowdsec.colType()} column="type" activeColumn={decisionSort.column} direction={decisionSort.direction} onsort={setDecisionSort} width="10%" />
+                  <SortableTh label="IP / range" column="value" activeColumn={decisionSort.column} direction={decisionSort.direction} onsort={setDecisionSort} width="15%" />
+                  <SortableTh label="Type" column="type" activeColumn={decisionSort.column} direction={decisionSort.direction} onsort={setDecisionSort} width="10%" />
                   <SortableTh label="Origin" column="origin" activeColumn={decisionSort.column} direction={decisionSort.direction} onsort={setDecisionSort} width="10%" />
-                  <SortableTh label={$LL.crowdsec.colReason()} column="reason" activeColumn={decisionSort.column} direction={decisionSort.direction} onsort={setDecisionSort} width="25%" />
+                  <SortableTh label="Reason" column="reason" activeColumn={decisionSort.column} direction={decisionSort.direction} onsort={setDecisionSort} width="25%" />
                   <SortableTh label="Country / AS" column="cn" activeColumn={decisionSort.column} direction={decisionSort.direction} onsort={setDecisionSort} width="20%" />
-                  <SortableTh label={$LL.crowdsec.colDuration()} column="duration" activeColumn={decisionSort.column} direction={decisionSort.direction} onsort={setDecisionSort} width="10%" />
-                  <SortableTh label={$LL.crowdsec.colUntil()} column="until" activeColumn={decisionSort.column} direction={decisionSort.direction} onsort={setDecisionSort} width="10%" />
-                  <th style="width: 5%; text-align: right;">{$LL.crowdsec.unban()}</th>
+                  <SortableTh label="Duration" column="duration" activeColumn={decisionSort.column} direction={decisionSort.direction} onsort={setDecisionSort} width="10%" />
+                  <SortableTh label="Until" column="until" activeColumn={decisionSort.column} direction={decisionSort.direction} onsort={setDecisionSort} width="10%" />
+                  <th style="width: 5%; text-align: right;">Unban</th>
                 </tr>
               </thead>
               <tbody>
@@ -1824,9 +1823,9 @@ services:
                       {/if}
                     </td>
                     <td class="mono-stats">{dec.duration}</td>
-                    <td class="mono-stats text-muted" title={dec.until}>{dec.until ? formatDate(dec.until) : $LL.common.noData()}</td>
+                    <td class="mono-stats text-muted" title={dec.until}>{dec.until ? formatDate(dec.until) : "(no data)"}</td>
                     <td style="text-align: right;">
-                      <button class="btn-table danger-text" onclick={() => deleteDecision(dec.value)} title={$LL.crowdsec.unban()}>
+                      <button class="btn-table danger-text" onclick={() => deleteDecision(dec.value)} title="Unban">
                         <Trash2 size={14} />
                       </button>
                     </td>
@@ -1835,7 +1834,7 @@ services:
 
                 {#if sortedDecisions.length === 0}
                   <tr>
-                    <td colspan="8" class="empty-state">{$LL.crowdsec.emptyDecisions()}</td>
+                    <td colspan="8" class="empty-state">No active blocks (bans). Your server is safe.</td>
                   </tr>
                 {/if}
               </tbody>
@@ -1848,48 +1847,48 @@ services:
         <div class="sub-tab-panel fade-in">
           <div class="whitelist-container">
             <div class="whitelist-form-box glass">
-              <h3>{$LL.crowdsec.whitelistAddTitle()}</h3>
-              <p class="form-desc">{$LL.crowdsec.whitelistAddDesc()}</p>
+              <h3>Add to whitelist</h3>
+              <p class="form-desc">Adding an IP or CIDR subnet will make CrowdSec ignore all their activity. Saves to selected YAML file or LAPI allowlist. Active bans for that IP are removed automatically.</p>
               
               <div class="form-group">
-                <label for="wl-target">{$LL.crowdsec.saveLocation()}</label>
+                <label for="wl-target">Save location</label>
                 <select id="wl-target" bind:value={whitelistTarget}>
-                  <option value="yaml">{$LL.crowdsec.yamlFile()}</option>
+                  <option value="yaml">Local file (jarvis-whitelist.yaml)</option>
                   {#each lapiAllowlists as name}
-                    <option value="lapi:{name}">{$LL.crowdsec.lapiAllowlist({ name })}</option>
+                    <option value="lapi:{name}">{`LAPI Allowlist: ${name}`}</option>
                   {/each}
                 </select>
               </div>
 
               <div class="form-group">
-                <label for="wl-type">{$LL.crowdsec.entryType()}</label>
+                <label for="wl-type">Entry type</label>
                 <select id="wl-type" bind:value={newWhitelistType}>
-                  <option value="ip">{$LL.crowdsec.entryIp()}</option>
-                  <option value="cidr">{$LL.crowdsec.entryCidr()}</option>
+                  <option value="ip">Single IP (e.g. 192.168.1.50)</option>
+                  <option value="cidr">CIDR subnet (e.g. 192.168.1.0/24)</option>
                 </select>
               </div>
 
               <div class="form-group">
-                <label for="wl-ip">{$LL.crowdsec.ipOrCidr()}</label>
+                <label for="wl-ip">IP address or subnet</label>
                 <input id="wl-ip" type="text" placeholder={newWhitelistType === 'ip' ? '8.8.8.8' : '10.0.0.0/24'} bind:value={newWhitelistIp} />
               </div>
 
               <button class="primary" onclick={addWhitelistItem} disabled={!newWhitelistIp || isLoading}>
-                <Plus size={16} /> {$LL.crowdsec.addToWhitelist()}
+                <Plus size={16} /> Add to whitelist
               </button>
             </div>
 
             <div class="whitelist-list-box glass" style="display: flex; flex-direction: column;">
-              <h3>{$LL.crowdsec.activeWhitelist()}</h3>
+              <h3>Active exclusions (whitelist)</h3>
               
               <div class="table-container" style="border: none; box-shadow: none; padding: 0; overflow-y: auto; max-height: 400px; margin-top: 10px;">
                 <table>
                   <thead>
                     <tr>
-                      <th>{$LL.crowdsec.colAddress()}</th>
-                      <th>{$LL.crowdsec.colType()}</th>
-                      <th>{$LL.crowdsec.colSource()}</th>
-                      <th style="width: 5%; text-align: right;">{$LL.crowdsec.removeEntry()}</th>
+                      <th>IP address / subnet</th>
+                      <th>Type</th>
+                      <th>Source</th>
+                      <th style="width: 5%; text-align: right;">Remove</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1905,13 +1904,13 @@ services:
                           <span class="file-source" title={item.file.startsWith('LAPI: ') ? 'LAPI Allowlist' : `/etc/crowdsec/parsers/s02-enrich/${item.file}`}>
                             {item.file}
                             {#if item.isSystem}
-                              <span class="tag-system">{$LL.crowdsec.tagSystem()}</span>
+                              <span class="tag-system">System</span>
                             {:else if item.file === 'jarvis-whitelist.yaml'}
-                              <span class="tag-managed">{$LL.crowdsec.tagManaged()}</span>
+                              <span class="tag-managed">Jarvis</span>
                             {:else if item.file.startsWith('LAPI: ')}
-                              <span class="tag-lapi">{$LL.crowdsec.tagLapi()}</span>
+                              <span class="tag-lapi">LAPI</span>
                             {:else}
-                              <span class="tag-custom">{$LL.crowdsec.tagCustom()}</span>
+                              <span class="tag-custom">Custom</span>
                             {/if}
                           </span>
                         </td>
@@ -1921,7 +1920,7 @@ services:
                               <Trash2 size={14} />
                             </button>
                           {:else}
-                            <button class="btn-table danger-text" onclick={() => removeWhitelistItem(item)} title={$LL.crowdsec.removeEntry()}>
+                            <button class="btn-table danger-text" onclick={() => removeWhitelistItem(item)} title="Remove">
                               <Trash2 size={14} />
                             </button>
                           {/if}
@@ -1931,7 +1930,7 @@ services:
 
                     {#if whitelistItems.length === 0}
                       <tr>
-                        <td colspan="4" class="empty-state">{$LL.crowdsec.emptyWhitelist()}</td>
+                        <td colspan="4" class="empty-state">No active whitelist exclusions.</td>
                       </tr>
                     {/if}
                   </tbody>
@@ -1946,7 +1945,7 @@ services:
         <div class="sub-tab-panel fade-in">
           <div class="panel-header">
             <div class="search-box">
-              <input type="text" placeholder={$LL.crowdsec.searchAlertsPlaceholder()} bind:value={searchAlertQuery} />
+              <input type="text" placeholder="Search alerts by IP or scenario…" bind:value={searchAlertQuery} />
             </div>
           </div>
 
@@ -1954,12 +1953,12 @@ services:
             <table>
               <thead>
                 <tr>
-                  <SortableTh label={$LL.crowdsec.colId()} column="id" activeColumn={alertSort.column} direction={alertSort.direction} onsort={setAlertSort} width="10%" />
-                  <SortableTh label={$LL.crowdsec.colSource()} column="source" activeColumn={alertSort.column} direction={alertSort.direction} onsort={setAlertSort} width="20%" />
-                  <SortableTh label={$LL.crowdsec.colScenario()} column="scenario" activeColumn={alertSort.column} direction={alertSort.direction} onsort={setAlertSort} width="35%" />
-                  <SortableTh label={$LL.crowdsec.colEvents()} column="events_count" activeColumn={alertSort.column} direction={alertSort.direction} onsort={setAlertSort} width="15%" />
-                  <SortableTh label={$LL.crowdsec.colCreated()} column="created_at" activeColumn={alertSort.column} direction={alertSort.direction} onsort={setAlertSort} width="15%" />
-                  <th style="width: 5%; text-align: right;">{$LL.crowdsec.alertDetails()}</th>
+                  <SortableTh label="ID" column="id" activeColumn={alertSort.column} direction={alertSort.direction} onsort={setAlertSort} width="10%" />
+                  <SortableTh label="Source" column="source" activeColumn={alertSort.column} direction={alertSort.direction} onsort={setAlertSort} width="20%" />
+                  <SortableTh label="Scenario" column="scenario" activeColumn={alertSort.column} direction={alertSort.direction} onsort={setAlertSort} width="35%" />
+                  <SortableTh label="Events" column="events_count" activeColumn={alertSort.column} direction={alertSort.direction} onsort={setAlertSort} width="15%" />
+                  <SortableTh label="Created" column="created_at" activeColumn={alertSort.column} direction={alertSort.direction} onsort={setAlertSort} width="15%" />
+                  <th style="width: 5%; text-align: right;">Details</th>
                 </tr>
               </thead>
               <tbody>
@@ -1971,7 +1970,7 @@ services:
                     <td class="mono-stats">{alert.events_count}</td>
                     <td class="mono-stats text-muted">{formatDate(alert.created_at)}</td>
                     <td style="text-align: right;">
-                      <button class="btn-table" onclick={() => selectedAlert = alert} title={$LL.crowdsec.alertShowDetails()}>
+                      <button class="btn-table" onclick={() => selectedAlert = alert} title="Show alert details">
                         <Info size={14} />
                       </button>
                     </td>
@@ -1980,7 +1979,7 @@ services:
 
                 {#if sortedAlerts.length === 0}
                   <tr>
-                    <td colspan="6" class="empty-state">{$LL.crowdsec.emptyAlerts()}</td>
+                    <td colspan="6" class="empty-state">No alert history. Server logs are clean.</td>
                   </tr>
                 {/if}
               </tbody>
@@ -1993,14 +1992,14 @@ services:
         <div class="sub-tab-panel fade-in">
           <div class="panel-header">
             <div class="search-box">
-              <span class="text-secondary text-sm">{$LL.crowdsec.bouncersDesc()}</span>
+              <span class="text-secondary text-sm">List of bouncers (agents receiving decisions and applying firewall blocks).</span>
             </div>
             <div class="panel-actions">
               <button class="primary" onclick={() => showAddBouncerModal = true}>
-                <Plus size={16} /> {$LL.crowdsec.registerBouncer()}
+                <Plus size={16} /> Register bouncer
               </button>
               <button class="secondary" onclick={pruneBouncers} disabled={bouncers.length === 0}>
-                {$LL.crowdsec.cleanupInactive()}
+                Clean up inactive
               </button>
             </div>
           </div>
@@ -2009,12 +2008,12 @@ services:
             <table>
               <thead>
                 <tr>
-                  <th>{$LL.crowdsec.colBouncerName()}</th>
-                  <th>{$LL.crowdsec.colBouncerIp()}</th>
-                  <th>{$LL.crowdsec.colBouncerType()}</th>
-                  <th>{$LL.crowdsec.colBouncerVersion()}</th>
-                  <th>{$LL.crowdsec.colLastSeen()}</th>
-                  <th style="text-align: right;">{$LL.common.actions()}</th>
+                  <th>Name</th>
+                  <th>IP address</th>
+                  <th>Type (engine)</th>
+                  <th>Version</th>
+                  <th>Last activity</th>
+                  <th style="text-align: right;">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -2022,13 +2021,13 @@ services:
                   <tr>
                     <td class="font-bold">{bouncer.name}</td>
                     <td class="mono-stats"><code>{bouncer.ip_address || 'Lokalny / Unix socket'}</code></td>
-                    <td><span class="badge warning">{bouncer.type || $LL.common.none()}</span></td>
-                    <td class="mono-stats">{bouncer.version || $LL.common.none()}</td>
+                    <td><span class="badge warning">{bouncer.type || "(none)"}</span></td>
+                    <td class="mono-stats">{bouncer.version || "(none)"}</td>
                     <td class="mono-stats text-muted">
-                      {bouncer.last_pull ? formatDate(bouncer.last_pull) : $LL.crowdsec.never()}
+                      {bouncer.last_pull ? formatDate(bouncer.last_pull) : "Never"}
                     </td>
                     <td style="text-align: right;">
-                      <button class="btn-table danger-text" onclick={() => deleteBouncer(bouncer.name)} title={$LL.crowdsec.confirmRemoveBouncer()}>
+                      <button class="btn-table danger-text" onclick={() => deleteBouncer(bouncer.name)} title="Remove this bouncer">
                         <Trash2 size={14} />
                       </button>
                     </td>
@@ -2037,7 +2036,7 @@ services:
 
                 {#if bouncers.length === 0}
                   <tr>
-                    <td colspan="6" class="empty-state">{$LL.crowdsec.emptyBouncers()}</td>
+                    <td colspan="6" class="empty-state">No registered bouncers. Without a bouncer, CrowdSec blocks are not physically applied to the firewall.</td>
                   </tr>
                 {/if}
               </tbody>
@@ -2050,15 +2049,15 @@ services:
         <div class="sub-tab-panel fade-in">
           <div class="metrics-panel">
             <div class="table-container glass">
-              <h3>{$LL.crowdsec.metricsTitle()}</h3>
+              <h3>Monitored log files (acquisition)</h3>
               <table style="margin-top: 10px;">
                 <thead>
                   <tr>
-                    <th>{$LL.crowdsec.colFilePath()}</th>
-                    <th style="text-align: right;">{$LL.crowdsec.colLinesRead()}</th>
-                    <th style="text-align: right;">{$LL.crowdsec.colLinesParsed()}</th>
-                    <th style="text-align: right;">{$LL.crowdsec.colUnparsed()}</th>
-                    <th style="text-align: right; width: 200px;">{$LL.crowdsec.colSuccessRate()}</th>
+                    <th>File location</th>
+                    <th style="text-align: right;">Lines read</th>
+                    <th style="text-align: right;">Lines parsed</th>
+                    <th style="text-align: right;">Unparsed</th>
+                    <th style="text-align: right; width: 200px;">Success rate</th>
                     <th style="text-align: right; width: 80px;">Logs</th>
                   </tr>
                 </thead>
@@ -2088,7 +2087,7 @@ services:
 
                   {#if acquisitionList.length === 0}
                     <tr>
-                      <td colspan="6" class="empty-state">{$LL.crowdsec.emptyMetrics()}</td>
+                      <td colspan="6" class="empty-state">No metrics. No active log streams.</td>
                     </tr>
                   {/if}
                 </tbody>
@@ -2102,7 +2101,7 @@ services:
         <div class="sub-tab-panel fade-in">
           <div class="panel-header">
             <div class="search-box">
-              <input type="text" placeholder={$LL.crowdsec.searchHubPlaceholder()} bind:value={searchHubQuery} />
+              <input type="text" placeholder="Search parsers or scenarios…" bind:value={searchHubQuery} />
             </div>
           </div>
 
@@ -2110,10 +2109,10 @@ services:
             <table>
               <thead>
                 <tr>
-                  <SortableTh label={$LL.crowdsec.colHubType()} column="type" activeColumn={hubSort.column} direction={hubSort.direction} onsort={setHubSort} width="20%" />
-                  <SortableTh label={$LL.crowdsec.colHubName()} column="name" activeColumn={hubSort.column} direction={hubSort.direction} onsort={setHubSort} width="40%" />
-                  <SortableTh label={$LL.crowdsec.colHubStatus()} column="status" activeColumn={hubSort.column} direction={hubSort.direction} onsort={setHubSort} width="20%" />
-                  <SortableTh label={$LL.crowdsec.colHubVersion()} column="version" activeColumn={hubSort.column} direction={hubSort.direction} onsort={setHubSort} width="20%" />
+                  <SortableTh label="Type" column="type" activeColumn={hubSort.column} direction={hubSort.direction} onsort={setHubSort} width="20%" />
+                  <SortableTh label="Name" column="name" activeColumn={hubSort.column} direction={hubSort.direction} onsort={setHubSort} width="40%" />
+                  <SortableTh label="Status" column="status" activeColumn={hubSort.column} direction={hubSort.direction} onsort={setHubSort} width="20%" />
+                  <SortableTh label="Version" column="version" activeColumn={hubSort.column} direction={hubSort.direction} onsort={setHubSort} width="20%" />
                 </tr>
               </thead>
               <tbody>
@@ -2123,16 +2122,16 @@ services:
                     <td class="font-bold">{item.name}</td>
                     <td>
                       <span class="badge {item.status === 'enabled' ? 'success-glow' : 'muted'}">
-                        {item.status === 'enabled' ? $LL.crowdsec.enabledUpper() : $LL.crowdsec.disabledUpper()}
+                        {item.status === 'enabled' ? "ENABLED" : "DISABLED"}
                       </span>
                     </td>
-                    <td class="mono-stats">{item.local_version || $LL.common.none()}</td>
+                    <td class="mono-stats">{item.local_version || "(none)"}</td>
                   </tr>
                 {/each}
 
                 {#if sortedHubItems.length === 0}
                   <tr>
-                    <td colspan="4" class="empty-state">{$LL.crowdsec.emptyHub()}</td>
+                    <td colspan="4" class="empty-state">No items fetched from CrowdSec Hub.</td>
                   </tr>
                 {/if}
               </tbody>
@@ -2150,36 +2149,36 @@ services:
 {#if showSettingsModal}
   <div class="modal-overlay">
     <div class="modal-content glass settings-modal fade-in">
-      <h3>{$LL.crowdsec.settingsTitle()}</h3>
-      <p class="modal-desc">{$LL.crowdsec.settingsDesc()}</p>
+      <h3>CrowdSec connection settings</h3>
+      <p class="modal-desc">Configure how CrowdSec commands are invoked on this server. Settings are saved in this connection profile.</p>
       
       <div class="form-group">
-        <label>{$LL.crowdsec.connectionMode()}</label>
+        <label>Connection mode</label>
         <div class="radio-group">
           <label class="radio-label">
             <input type="radio" name="conn-mode" value="auto" bind:group={connectionMode} />
-            <span>{$LL.crowdsec.modeAuto()}</span>
+            <span>Auto-detect</span>
           </label>
           <label class="radio-label">
             <input type="radio" name="conn-mode" value="baremetal" bind:group={connectionMode} />
-            <span>{$LL.crowdsec.modeBareMetal()}</span>
+            <span>Native (Systemd / Bare-metal)</span>
           </label>
           <label class="radio-label">
             <input type="radio" name="conn-mode" value="docker" bind:group={connectionMode} />
-            <span>{$LL.crowdsec.modeDocker()}</span>
+            <span>Docker (inside container)</span>
           </label>
         </div>
       </div>
 
       {#if connectionMode === 'docker'}
         <div class="form-group">
-          <label for="docker-name">{$LL.crowdsec.dockerContainerName()}</label>
+          <label for="docker-name">Docker container name</label>
           <input id="docker-name" type="text" placeholder="crowdsec" bind:value={containerName} />
         </div>
       {/if}
 
       <div class="form-group">
-        <label for="custom-prefix">{$LL.crowdsec.customPrefix()}</label>
+        <label for="custom-prefix">Custom command prefix (optional — e.g. for K8s, Podman)</label>
         <input id="custom-prefix" type="text" placeholder="e.g. podman exec -i crowdsec" bind:value={customPrefix} />
       </div>
 
@@ -2194,13 +2193,13 @@ services:
       <div class="modal-actions">
         <button class="secondary" onclick={testConnection} disabled={isTestingConnection}>
           {#if isTestingConnection}
-            <RefreshCw size={14} class="spin" /> {$LL.crowdsec.testing()}
+            <RefreshCw size={14} class="spin" /> Testing…
           {:else}
-            {$LL.crowdsec.testConnection()}
+            Test connection
           {/if}
         </button>
-        <button class="primary" onclick={handleSaveSettings}>{$LL.crowdsec.saveSettings()}</button>
-        <button class="secondary" onclick={() => { showSettingsModal = false; testConnectionResult = null; }}>{$LL.common.cancel()}</button>
+        <button class="primary" onclick={handleSaveSettings}>Save settings</button>
+        <button class="secondary" onclick={() => { showSettingsModal = false; testConnectionResult = null; }}>Cancel</button>
       </div>
     </div>
   </div>
@@ -2210,41 +2209,41 @@ services:
 {#if showAddDecisionModal}
   <div class="modal-overlay">
     <div class="modal-content glass fade-in">
-      <h3>{$LL.crowdsec.banModalTitle()}</h3>
-      <p class="modal-desc">{$LL.crowdsec.banModalDesc()}</p>
+      <h3>Apply manual ban</h3>
+      <p class="modal-desc">Enter details to manually block an IP or subnet in CrowdSec.</p>
       
       <div class="form-group">
-        <label for="dec-scope">{$LL.crowdsec.banScope()}</label>
+        <label for="dec-scope">Block scope</label>
         <select id="dec-scope" bind:value={newDecisionScope}>
-          <option value="ip">{$LL.crowdsec.banScopeIp()}</option>
-          <option value="range">{$LL.crowdsec.banScopeRange()}</option>
+          <option value="ip">Single IP (e.g. 185.220.101.5)</option>
+          <option value="range">CIDR subnet (e.g. 185.220.101.0/24)</option>
         </select>
       </div>
 
       <div class="form-group">
-        <label for="dec-ip">{$LL.crowdsec.banAddress()}</label>
+        <label for="dec-ip">IP address / range</label>
         <input id="dec-ip" type="text" placeholder="1.2.3.4" bind:value={newDecisionIp} />
       </div>
 
       <div class="form-group">
-        <label for="dec-dur">{$LL.crowdsec.banDuration()}</label>
+        <label for="dec-dur">Block duration</label>
         <select id="dec-dur" bind:value={newDecisionDuration}>
-          <option value="4h">{$LL.crowdsec.banDuration4h()}</option>
-          <option value="24h">{$LL.crowdsec.banDuration24h()}</option>
-          <option value="48h">{$LL.crowdsec.banDuration48h()}</option>
-          <option value="7d">{$LL.crowdsec.banDuration7d()}</option>
-          <option value="1h">{$LL.crowdsec.banDuration1h()}</option>
+          <option value="4h">4 hours (default)</option>
+          <option value="24h">24 hours</option>
+          <option value="48h">48 hours</option>
+          <option value="7d">7 days</option>
+          <option value="1h">1 hour</option>
         </select>
       </div>
 
       <div class="form-group">
-        <label for="dec-reason">{$LL.crowdsec.banReason()}</label>
-        <input id="dec-reason" type="text" placeholder={$LL.crowdsec.manualBanReason()} bind:value={newDecisionReason} />
+        <label for="dec-reason">Block reason</label>
+        <input id="dec-reason" type="text" placeholder="Manual block by administrator" bind:value={newDecisionReason} />
       </div>
 
       <div class="modal-actions">
-        <button class="primary" onclick={addDecision} disabled={!newDecisionIp || isLoading}>{$LL.crowdsec.addBanBtn()}</button>
-        <button class="secondary" onclick={() => { showAddDecisionModal = false; newDecisionIp = ''; }}>{$LL.common.cancel()}</button>
+        <button class="primary" onclick={addDecision} disabled={!newDecisionIp || isLoading}>Add block</button>
+        <button class="secondary" onclick={() => { showAddDecisionModal = false; newDecisionIp = ''; }}>Cancel</button>
       </div>
     </div>
   </div>
@@ -2254,17 +2253,17 @@ services:
 {#if showAddBouncerModal}
   <div class="modal-overlay">
     <div class="modal-content glass fade-in">
-      <h3>{$LL.crowdsec.bouncerModalTitle()}</h3>
-      <p class="modal-desc">{$LL.crowdsec.bouncerModalDesc()}</p>
+      <h3>Register new bouncer</h3>
+      <p class="modal-desc">Name the new agent to generate a unique API key for bouncer authorization (e.g. crowdsec-nginx-bouncer).</p>
       
       <div class="form-group">
-        <label for="bouncer-name">{$LL.crowdsec.bouncerName()}</label>
+        <label for="bouncer-name">Bouncer name</label>
         <input id="bouncer-name" type="text" placeholder="e.g. nginx-bouncer-local" bind:value={newBouncerName} />
       </div>
 
       <div class="modal-actions">
-        <button class="primary" onclick={addBouncer} disabled={!newBouncerName || isLoading}>{$LL.crowdsec.generateKey()}</button>
-        <button class="secondary" onclick={() => { showAddBouncerModal = false; newBouncerName = ''; }}>{$LL.common.cancel()}</button>
+        <button class="primary" onclick={addBouncer} disabled={!newBouncerName || isLoading}>Generate key</button>
+        <button class="secondary" onclick={() => { showAddBouncerModal = false; newBouncerName = ''; }}>Cancel</button>
       </div>
     </div>
   </div>
@@ -2277,18 +2276,18 @@ services:
       <div class="modal-header-icon">
         <KeyRound size={32} class="accent-amber-text" />
       </div>
-      <h3>{$LL.crowdsec.keyModalTitle()}</h3>
-      <p class="modal-desc">{$LL.crowdsec.keyModalDesc()}</p>
+      <h3>Bouncer API key generated!</h3>
+      <p class="modal-desc">Copy and save the API key below. It will be shown only once. You will need it in the bouncer configuration file.</p>
       
       <div class="key-display-box">
         <code class="key-code">{generatedBouncerKey}</code>
-        <button class="copy-btn" onclick={copyBouncerKey} title={$LL.pangolin.copied()}>
+        <button class="copy-btn" onclick={copyBouncerKey} title="Copied">
           <Clipboard size={16} />
         </button>
       </div>
 
       <div class="modal-actions">
-        <button class="primary" onclick={() => { showBouncerKeyModal = false; generatedBouncerKey = ''; }}>{$LL.crowdsec.keyModalClose()}</button>
+        <button class="primary" onclick={() => { showBouncerKeyModal = false; generatedBouncerKey = ''; }}>Close and done</button>
       </div>
     </div>
   </div>
@@ -2301,11 +2300,11 @@ services:
       <div class="modal-header-icon">
         <KeyRound size={32} class="accent-amber-text" />
       </div>
-      <h3>{$LL.crowdsec.authTitle()}</h3>
-      <p class="modal-desc">{$LL.crowdsec.authDesc()}</p>
+      <h3>Sudo authentication required</h3>
+      <p class="modal-desc">The CrowdSec tab requires a sudo password to communicate with the server. No background operations will run until you provide it.</p>
       <input 
         type="password" 
-        placeholder={$LL.crowdsec.provideSudo()} 
+        placeholder="Enter sudo password" 
         bind:value={sudoPassword} 
         onkeydown={(e) => e.key === 'Enter' && submitSudoPassword()}
       />
@@ -2313,8 +2312,8 @@ services:
         <span class="error-text">{sudoError}</span>
       {/if}
       <div class="modal-actions">
-        <button class="primary" onclick={submitSudoPassword}>{$LL.common.submit()}</button>
-        <button class="secondary" onclick={cancelSudoModal}>{$LL.common.cancel()}</button>
+        <button class="primary" onclick={submitSudoPassword}>Submit</button>
+        <button class="secondary" onclick={cancelSudoModal}>Cancel</button>
       </div>
     </div>
   </div>
@@ -2325,48 +2324,48 @@ services:
   <div class="drawer-overlay" onclick={() => selectedAlert = null} onkeydown={(e) => e.key === 'Escape' && (selectedAlert = null)} role="button" tabindex="0">
     <div class="drawer-content glass fade-in-right" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()} role="button" tabindex="-1">
       <div class="drawer-header">
-        <h3>{$LL.crowdsec.alertDetailTitle({ id: selectedAlert.id })}</h3>
+        <h3>{`Alert details #${selectedAlert.id}`}</h3>
         <button class="close-drawer-btn" onclick={() => selectedAlert = null}>&times;</button>
       </div>
       
       <div class="drawer-body">
         <div class="detail-row">
-          <span class="detail-label">{$LL.crowdsec.alertScenario()}</span>
+          <span class="detail-label">Scenario</span>
           <span class="detail-val font-bold">{selectedAlert.scenario}</span>
         </div>
         <div class="detail-row">
-          <span class="detail-label">{$LL.crowdsec.alertAttackerIp()}</span>
+          <span class="detail-label">Attacker IP</span>
           <span class="detail-val font-bold text-red"><code>{selectedAlert.source?.value}</code></span>
         </div>
         <div class="detail-row">
-          <span class="detail-label">{$LL.crowdsec.alertMessage()}</span>
-          <span class="detail-val text-secondary">{selectedAlert.message || $LL.crowdsec.maliciousBehavior()}</span>
+          <span class="detail-label">Description / message</span>
+          <span class="detail-val text-secondary">{selectedAlert.message || "Malicious behavior detected"}</span>
         </div>
         <div class="detail-row">
-          <span class="detail-label">{$LL.crowdsec.alertEvents()}</span>
+          <span class="detail-label">Event count</span>
           <span class="detail-val mono-stats">{selectedAlert.events_count}</span>
         </div>
         <div class="detail-row">
-          <span class="detail-label">{$LL.crowdsec.createdAt()}</span>
+          <span class="detail-label">Created at</span>
           <span class="detail-val mono-stats">{formatDate(selectedAlert.created_at)}</span>
         </div>
 
         <div class="divider" style="margin: 20px 0;"></div>
         
-        <h4>{$LL.crowdsec.alertDecisions()}</h4>
+        <h4>Decisions linked to alert</h4>
         <div class="alert-decisions">
           {#if selectedAlert.decisions && selectedAlert.decisions.length > 0}
             {#each selectedAlert.decisions as dec}
               <div class="alert-dec-card">
                 <div>
                   <span class="badge danger">{dec.type.toUpperCase()}</span>
-                  <span class="text-sm text-secondary" style="margin-left: 8px;">{$LL.crowdsec.colDuration()}: <strong class="mono-stats">{dec.duration}</strong></span>
+                  <span class="text-sm text-secondary" style="margin-left: 8px;">Duration: <strong class="mono-stats">{dec.duration}</strong></span>
                 </div>
-                <div class="text-xs text-muted" style="margin-top: 4px;">{$LL.crowdsec.origin()}: {dec.origin}</div>
+                <div class="text-xs text-muted" style="margin-top: 4px;">Origin: {dec.origin}</div>
               </div>
             {/each}
           {:else}
-            <span class="text-muted text-sm">{$LL.crowdsec.noInstantDecisions()}</span>
+            <span class="text-muted text-sm">No immediate decisions applied.</span>
           {/if}
         </div>
         

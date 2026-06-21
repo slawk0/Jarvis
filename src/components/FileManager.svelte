@@ -9,12 +9,11 @@
   import SudoModal from './SudoModal.svelte';
   import { registerBackHandler } from '$lib/backNavigation.svelte';
   import { get } from 'svelte/store';
-  import { LL } from '$lib/i18n/i18n-svelte';
-  import { notifications } from '$lib/notifications.svelte';
+    import { notifications } from '$lib/notifications.svelte';
   import {
     formatInvokeError,
     isSudoPasswordRequired,
-  } from '$lib/i18n/backendErrors';
+  } from '$lib/backendErrors';
   import { validateContent } from '$lib/syntaxValidator';
 
   let { profileId = '', visible = true } = $props();
@@ -107,7 +106,7 @@
   async function handleEdit(filePath: string, file: FileInfo) {
     if (!filePath) return;
     if (file.size > MAX_EDIT_BYTES) {
-      errorMsg = get(LL).files.fileTooLarge({ size: String(Math.round(file.size / 1024 / 1024)) });
+      errorMsg = `File is too large to edit (${String(Math.round(file.size / 1024 / 1024))} MB). Use download instead.`;
       return;
     }
 
@@ -170,7 +169,7 @@
                   editorSaveStatus = 'saved';
                 } catch (err: unknown) {
                   editorSaveStatus = 'error';
-                  errorMsg = get(LL).files.autoSaveError({ error: formatInvokeError(err) });
+                  errorMsg = `Auto-save error: ${formatInvokeError(err)}`;
                 }
               }, 1500);
             });
@@ -187,13 +186,13 @@
           }
         } catch {}
         
-        sudoModalTitle = get(LL).files.sudoRequired();
+        sudoModalTitle = "Sudo password required to change permissions:";
         sudoModalDesc = undefined;
         pendingSudoAction = async () => { await openFileSudo(filePath, file); };
         showSudoModal = true;
         return;
       }
-      errorMsg = get(LL).files.readError({ error: formatInvokeError(err) });
+      errorMsg = `File read error: ${formatInvokeError(err)}`;
     } finally {
       isLoading = false;
     }
@@ -256,7 +255,7 @@
                   editorSaveStatus = 'saved';
                 } catch (err: unknown) {
                   editorSaveStatus = 'error';
-                  errorMsg = get(LL).files.autoSaveError({ error: formatInvokeError(err) });
+                  errorMsg = `Auto-save error: ${formatInvokeError(err)}`;
                 }
               }, 1500);
             });
@@ -264,7 +263,7 @@
         }
       }, 100);
     } catch (err: unknown) {
-      errorMsg = get(LL).files.readError({ error: formatInvokeError(err) });
+      errorMsg = `File read error: ${formatInvokeError(err)}`;
     } finally {
       isLoading = false;
     }
@@ -285,7 +284,7 @@
       }
       editorSaveStatus = 'saved';
     } catch (err: unknown) {
-      errorMsg = get(LL).files.writeError({ error: formatInvokeError(err) });
+      errorMsg = `File write error: ${formatInvokeError(err)}`;
       editorSaveStatus = 'error';
     } finally {
       isLoading = false;
@@ -311,7 +310,7 @@
       newItemName = '';
       await browserRef?.refresh();
     } catch (err: unknown) {
-      errorMsg = get(LL).files.createFileError({ error: formatInvokeError(err) });
+      errorMsg = `File creation error: ${formatInvokeError(err)}`;
     }
   }
 
@@ -324,7 +323,7 @@
       newItemName = '';
       await browserRef?.refresh();
     } catch (err: unknown) {
-      errorMsg = get(LL).files.createDirError({ error: formatInvokeError(err) });
+      errorMsg = `Folder creation error: ${formatInvokeError(err)}`;
     }
   }
 
@@ -339,7 +338,7 @@
       selectedFile = null;
       await browserRef?.refresh();
     } catch (err: unknown) {
-      errorMsg = get(LL).files.renameError({ error: formatInvokeError(err) });
+      errorMsg = `Rename error: ${formatInvokeError(err)}`;
     }
   }
 
@@ -411,7 +410,7 @@
         } catch {
           /* ignore */
         }
-        sudoModalTitle = get(LL).files.sudoRequired();
+        sudoModalTitle = "Sudo password required to change permissions:";
         sudoModalDesc = undefined;
         pendingSudoAction = async () => {
           try {
@@ -419,7 +418,7 @@
             showPermModal = false;
             await browserRef?.refresh();
           } catch (sudoErr: unknown) {
-            errorMsg = get(LL).files.sudoError({ error: formatInvokeError(sudoErr) });
+            errorMsg = `Sudo password or execution error: ${formatInvokeError(sudoErr)}`;
           } finally {
             isLoading = false;
           }
@@ -427,7 +426,7 @@
         showSudoModal = true;
         return;
       } else {
-        errorMsg = get(LL).files.chmodError({ error: formatInvokeError(err) });
+        errorMsg = `Permission change error: ${formatInvokeError(err)}`;
       }
     } finally {
       isLoading = false;
@@ -468,13 +467,12 @@
         if (editingFile) closeEditor();
       },
       label: () => {
-        const ll = get(LL).backNav.fileManager;
-        if (showPermModal) return ll.closePermModal();
-        if (showRenameModal) return ll.cancelRename();
-        if (showNewFileModal) return ll.cancelNewFile();
-        if (showNewDirModal) return ll.cancelNewDir();
-        if (editingFile) return ll.closeEditor();
-        return ll.default();
+        if (showPermModal) return "Close permissions dialog";
+        if (showRenameModal) return "Cancel rename";
+        if (showNewFileModal) return "Cancel file creation";
+        if (showNewDirModal) return "Cancel folder creation";
+        if (editingFile) return "Close file editor";
+        return "Back in file manager";
       },
     });
   });
@@ -518,31 +516,31 @@
       <header class="editor-header">
         <div class="editor-title">
           <FileCode size={18} class="accent-amber-text" />
-          <span>{$LL.files.editing()} <strong>{editingFile.split('/').pop()}</strong></span>
+          <span>Editing: <strong>{editingFile.split('/').pop()}</strong></span>
           <span class="path-badge mono-val">{editingFile}</span>
           {#if editorSaveStatus === 'saved'}
-            <span class="save-status-badge saved">{$LL.files.savedBadge()}</span>
+            <span class="save-status-badge saved">● Saved</span>
           {:else if editorSaveStatus === 'saving'}
-            <span class="save-status-badge saving">{$LL.files.savingBadge()}</span>
+            <span class="save-status-badge saving">● Saving…</span>
           {:else if editorSaveStatus === 'dirty'}
-            <span class="save-status-badge dirty">{$LL.files.dirtyBadge()}</span>
+            <span class="save-status-badge dirty">● Unsaved changes</span>
           {:else if editorSaveStatus === 'error'}
-            <span class="save-status-badge error">{$LL.files.errorBadge()}</span>
+            <span class="save-status-badge error">● Save error</span>
           {/if}
           {#if syntaxError}
-            <span class="save-status-badge error" title={syntaxError}>{$LL.files.syntaxErrorBadge()}</span>
+            <span class="save-status-badge error" title={syntaxError}>● Syntax error</span>
           {/if}
         </div>
         <div class="editor-actions">
           <label class="auto-save-toggle">
             <input type="checkbox" bind:checked={autoSaveEnabled} />
-            <span>{$LL.files.autoSave()}</span>
+            <span>Auto-save</span>
           </label>
           <button class="primary" onclick={saveFile} disabled={isLoading || editorSaveStatus === 'saving'}>
-            <Save size={16} /> {$LL.files.save()}
+            <Save size={16} /> Save
           </button>
           <button class="secondary" onclick={closeEditor}>
-            <X size={16} /> {$LL.files.close()}
+            <X size={16} /> Close
           </button>
         </div>
       </header>
@@ -556,29 +554,29 @@
 {#if showPermModal && permFile}
   <div class="modal-overlay">
     <div class="modal-content glass perm-modal">
-      <h3>{$LL.files.permTitle()} <span class="mono-val accent-name">{permFile.name}</span></h3>
+      <h3>Permissions for: <span class="mono-val accent-name">{permFile.name}</span></h3>
       <div class="perm-grid">
         <div class="perm-col">
-          <h4>{$LL.common.owner()}</h4>
-          <label><input type="checkbox" bind:checked={permOwnerRead} onchange={updateOctalFromCheckboxes} /> {$LL.common.read()}</label>
-          <label><input type="checkbox" bind:checked={permOwnerWrite} onchange={updateOctalFromCheckboxes} /> {$LL.common.write()}</label>
-          <label><input type="checkbox" bind:checked={permOwnerExec} onchange={updateOctalFromCheckboxes} /> {$LL.common.execute()}</label>
+          <h4>Owner</h4>
+          <label><input type="checkbox" bind:checked={permOwnerRead} onchange={updateOctalFromCheckboxes} /> Read (r)</label>
+          <label><input type="checkbox" bind:checked={permOwnerWrite} onchange={updateOctalFromCheckboxes} /> Write (w)</label>
+          <label><input type="checkbox" bind:checked={permOwnerExec} onchange={updateOctalFromCheckboxes} /> Execute (x)</label>
         </div>
         <div class="perm-col">
-          <h4>{$LL.common.group()}</h4>
-          <label><input type="checkbox" bind:checked={permGroupRead} onchange={updateOctalFromCheckboxes} /> {$LL.common.read()}</label>
-          <label><input type="checkbox" bind:checked={permGroupWrite} onchange={updateOctalFromCheckboxes} /> {$LL.common.write()}</label>
-          <label><input type="checkbox" bind:checked={permGroupExec} onchange={updateOctalFromCheckboxes} /> {$LL.common.execute()}</label>
+          <h4>Group</h4>
+          <label><input type="checkbox" bind:checked={permGroupRead} onchange={updateOctalFromCheckboxes} /> Read (r)</label>
+          <label><input type="checkbox" bind:checked={permGroupWrite} onchange={updateOctalFromCheckboxes} /> Write (w)</label>
+          <label><input type="checkbox" bind:checked={permGroupExec} onchange={updateOctalFromCheckboxes} /> Execute (x)</label>
         </div>
         <div class="perm-col">
-          <h4>{$LL.common.others()}</h4>
-          <label><input type="checkbox" bind:checked={permOthersRead} onchange={updateOctalFromCheckboxes} /> {$LL.common.read()}</label>
-          <label><input type="checkbox" bind:checked={permOthersWrite} onchange={updateOctalFromCheckboxes} /> {$LL.common.write()}</label>
-          <label><input type="checkbox" bind:checked={permOthersExec} onchange={updateOctalFromCheckboxes} /> {$LL.common.execute()}</label>
+          <h4>Others</h4>
+          <label><input type="checkbox" bind:checked={permOthersRead} onchange={updateOctalFromCheckboxes} /> Read (r)</label>
+          <label><input type="checkbox" bind:checked={permOthersWrite} onchange={updateOctalFromCheckboxes} /> Write (w)</label>
+          <label><input type="checkbox" bind:checked={permOthersExec} onchange={updateOctalFromCheckboxes} /> Execute (x)</label>
         </div>
       </div>
       <div class="form-group octal-group">
-        <label for="octal-input">{$LL.files.octalValue()}</label>
+        <label for="octal-input">Octal value</label>
         <input
           id="octal-input"
           type="text"
@@ -591,14 +589,14 @@
       {#if permFile.is_dir}
         <label class="recursive-label">
           <input type="checkbox" bind:checked={permRecursive} />
-          <span>{$LL.files.recursiveChmod()}</span>
+          <span>Apply recursively (chmod -R)</span>
         </label>
       {/if}
       <div class="modal-actions">
         <button class="primary" onclick={savePermissions} disabled={isLoading}>
-          {#if isLoading}<RefreshCw size={14} class="spin" /> {$LL.files.savingPerm()}{:else}{$LL.common.save()}{/if}
+          {#if isLoading}<RefreshCw size={14} class="spin" /> Saving…{:else}Save{/if}
         </button>
-        <button class="secondary" onclick={() => (showPermModal = false)}>{$LL.common.cancel()}</button>
+        <button class="secondary" onclick={() => (showPermModal = false)}>Cancel</button>
       </div>
     </div>
   </div>
@@ -607,11 +605,11 @@
 {#if showNewFileModal}
   <div class="modal-overlay">
     <div class="modal-content glass">
-      <h3>{$LL.files.createFileTitle()}</h3>
-      <input type="text" placeholder={$LL.files.createFilePlaceholder()} bind:value={newItemName} />
+      <h3>Create new file</h3>
+      <input type="text" placeholder="File name (e.g. config.json)" bind:value={newItemName} />
       <div class="modal-actions">
-        <button class="primary" onclick={createFile}>{$LL.common.create()}</button>
-        <button class="secondary" onclick={() => { showNewFileModal = false; newItemName = ''; }}>{$LL.common.cancel()}</button>
+        <button class="primary" onclick={createFile}>Create</button>
+        <button class="secondary" onclick={() => { showNewFileModal = false; newItemName = ''; }}>Cancel</button>
       </div>
     </div>
   </div>
@@ -620,11 +618,11 @@
 {#if showNewDirModal}
   <div class="modal-overlay">
     <div class="modal-content glass">
-      <h3>{$LL.files.createDirTitle()}</h3>
-      <input type="text" placeholder={$LL.files.createDirPlaceholder()} bind:value={newItemName} />
+      <h3>Create new folder</h3>
+      <input type="text" placeholder="Folder name" bind:value={newItemName} />
       <div class="modal-actions">
-        <button class="primary" onclick={createDirectory}>{$LL.common.create()}</button>
-        <button class="secondary" onclick={() => { showNewDirModal = false; newItemName = ''; }}>{$LL.common.cancel()}</button>
+        <button class="primary" onclick={createDirectory}>Create</button>
+        <button class="secondary" onclick={() => { showNewDirModal = false; newItemName = ''; }}>Cancel</button>
       </div>
     </div>
   </div>
@@ -633,11 +631,11 @@
 {#if showRenameModal}
   <div class="modal-overlay">
     <div class="modal-content glass">
-      <h3>{$LL.files.renameTitle()}</h3>
-      <input type="text" placeholder={$LL.files.renamePlaceholder()} bind:value={newItemName} />
+      <h3>Rename / move</h3>
+      <input type="text" placeholder="New name" bind:value={newItemName} />
       <div class="modal-actions">
-        <button class="primary" onclick={renameItem}>{$LL.files.renameBtn()}</button>
-        <button class="secondary" onclick={() => { showRenameModal = false; newItemName = ''; selectedFile = null; }}>{$LL.common.cancel()}</button>
+        <button class="primary" onclick={renameItem}>Rename</button>
+        <button class="secondary" onclick={() => { showRenameModal = false; newItemName = ''; selectedFile = null; }}>Cancel</button>
       </div>
     </div>
   </div>

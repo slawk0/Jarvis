@@ -1,5 +1,3 @@
-import { get } from 'svelte/store';
-import LL from './i18n/i18n-svelte';
 
 export type BackHandler = {
   id: string;
@@ -42,7 +40,7 @@ export function navigateBack(): boolean {
 }
 
 export function getBackDescription(fallback?: string): string {
-  const defaultFallback = fallback ?? get(LL).backNav.default();
+  const defaultFallback = fallback ?? "Undo last action";
   const active = getActiveBackHandler();
   if (!active?.label) return defaultFallback;
   return typeof active.label === 'function' ? active.label() : active.label;

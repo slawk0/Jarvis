@@ -18,14 +18,13 @@
     type CountryTraffic
   } from '$lib/geo/countryUtils';
   import { get } from 'svelte/store';
-  import { LL } from '$lib/i18n/i18n-svelte';
-  import {
+    import {
     formatInvokeError,
     isSudoPasswordIncorrect,
     isSudoPasswordRequired,
     parseAppError,
-  } from '$lib/i18n/backendErrors';
-  import { formatDate } from '$lib/i18n/formatLocale';
+  } from '$lib/backendErrors';
+  import { formatDate } from '$lib/formatLocale';
 
   let { visible = true } = $props();
 
@@ -42,7 +41,7 @@
   let isConnectedPangolin = $state(false);
 
   // Dashboard / Analytics State
-  let timeRange = $state('7d'); // '{$LL.pangolin.range24h()}', '7d', '30d'
+  let timeRange = $state('7d'); // '{"24h"}', '7d', '30d'
   let isDashboardLoading = $state(false);
   let dashboardStats = $state({
     totalRequests: 0,
@@ -438,7 +437,7 @@
           });
         }
         isConnectedPangolin = true;
-        configMsg = { text: get(LL).pangolin.connectionSuccess(), type: 'success' };
+        configMsg = { text: "Connection successful! Organizations detected and loaded.", type: 'success' };
         return true;
       }
     } catch (err: any) {
@@ -467,12 +466,12 @@
           try {
             await apiCall('GET', `/org/${config.org_id}/sites`);
             isConnectedPangolin = true;
-            configMsg = { text: get(LL).pangolin.connectionSuccessOrg({ org: config.org_id }), type: 'success' };
+            configMsg = { text: `Connection successful for organization: ${config.org_id}`, type: 'success' };
             return true;
           } catch (orgErr: any) {
             isConnectedPangolin = false;
             configMsg = { 
-              text: get(LL).pangolin.invalidKeyError(), 
+              text: "Invalid API key or organization ID (access denied). Ensure the data is correct.", 
               type: 'error' 
             };
             return false;
@@ -480,14 +479,14 @@
         } else {
           isConnectedPangolin = false;
           configMsg = { 
-            text: get(LL).pangolin.limitedKeyWarning(), 
+            text: "Limited-scope key detected (no root admin access). Enter organization ID manually below.", 
             type: 'warning' 
           };
           return false;
         }
       } else {
         isConnectedPangolin = false;
-        configMsg = { text: get(LL).pangolin.connectionError({ error: errMsg }), type: 'error' };
+        configMsg = { text: `Connection error: ${errMsg}`, type: 'error' };
         return false;
       }
     }
@@ -517,11 +516,11 @@
       } else {
         activeSubTab = 'settings';
         isConnectedPangolin = false;
-        configMsg = { text: get(LL).pangolin.noApiKey(), type: 'warning' };
+        configMsg = { text: "No API key. Configure connection.", type: 'warning' };
       }
     } catch (err: any) {
       isConnectedPangolin = false;
-      configMsg = { text: get(LL).pangolin.configLoadFailed({ error: formatInvokeError(err) }), type: 'error' };
+      configMsg = { text: `Failed to load configuration: ${formatInvokeError(err)}`, type: 'error' };
     } finally {
       isConfigLoading = false;
     }
@@ -529,7 +528,7 @@
 
   async function handleSaveConfig() {
     isSavingConfig = true;
-    configMsg = { text: get(LL).pangolin.saveVerify(), type: 'info' };
+    configMsg = { text: "Save and verify connection…", type: 'info' };
     try {
       await invoke('save_pangolin_config', {
         apiUrl: config.api_url,
@@ -546,7 +545,7 @@
       }
     } catch (err: any) {
       isConnectedPangolin = false;
-      configMsg = { text: get(LL).pangolin.configSaveFailed({ error: formatInvokeError(err) }), type: 'error' };
+      configMsg = { text: `Failed to save: ${formatInvokeError(err)}`, type: 'error' };
     } finally {
       isSavingConfig = false;
     }
@@ -690,7 +689,7 @@
       : '0';
     const allowed = geo.allowedCount ?? (total - (geo.blockedCount || 0));
     const blocked = geo.blockedCount ?? 0;
-    return get(LL).pangolin.mapHint() + ' ' + `${getCountryName(geo)}: ${formatCompact(total)} (${pct}%)`;
+    return "Hover a country for details" + ' ' + `${getCountryName(geo)}: ${formatCompact(total)} (${pct}%)`;
   }
 
   async function fetchCountryStats(countryCode: string) {
@@ -857,17 +856,17 @@
       newSiteData = { name: '', type: 'wireguard', subnet: '', niceId: '' };
       await loadSitesList();
     } catch (err: any) {
-      alert(get(LL).pangolin.tunnelCreateFailed({ error: formatInvokeError(err) }));
+      alert(`Failed to create tunnel: ${formatInvokeError(err)}`);
     }
   }
 
   async function handleDeleteSite(siteId: number) {
-    if (!confirm(get(LL).pangolin.confirmDeleteTunnel())) return;
+    if (!confirm("Are you sure you want to delete this tunnel? All linked resources will be disconnected.")) return;
     try {
       await apiCall('DELETE', `/site/${siteId}`);
       await loadSitesList();
     } catch (err: any) {
-      alert(get(LL).pangolin.deleteTunnelFailed({ error: formatInvokeError(err) }));
+      alert(`Failed to delete tunnel: ${formatInvokeError(err)}`);
     }
   }
 
@@ -917,7 +916,7 @@
       resetPrivResForm();
       await loadPrivResources();
     } catch (err: any) {
-      alert(get(LL).pangolin.saveResourceFailed({ error: formatInvokeError(err) }));
+      alert(`Failed to save resource: ${formatInvokeError(err)}`);
     }
   }
 
@@ -944,12 +943,12 @@
   }
 
   async function handleDeletePrivRes(resId: number) {
-    if (!confirm(get(LL).pangolin.confirmDeletePriv())) return;
+    if (!confirm("Are you sure you want to delete this private resource?")) return;
     try {
       await apiCall('DELETE', `/site-resource/${resId}`);
       await loadPrivResources();
     } catch (err: any) {
-      alert(get(LL).pangolin.deleteResourceFailed({ error: formatInvokeError(err) }));
+      alert(`Failed to delete resource: ${formatInvokeError(err)}`);
     }
   }
 
@@ -1042,7 +1041,7 @@
       resetPubResForm();
       await loadPubResources();
     } catch (err: any) {
-      alert(get(LL).pangolin.savePubResourceFailed({ error: formatInvokeError(err) }));
+      alert(`Failed to save public resource: ${formatInvokeError(err)}`);
     }
   }
 
@@ -1083,12 +1082,12 @@
   }
 
   async function handleDeletePubRes(resId: string) {
-    if (!confirm(get(LL).pangolin.confirmDeletePub())) return;
+    if (!confirm("Are you sure you want to delete this public resource?")) return;
     try {
       await apiCall('DELETE', `/resource/${resId}`);
       await loadPubResources();
     } catch (err: any) {
-      alert(get(LL).pangolin.deleteFailed({ error: formatInvokeError(err) }));
+      alert(`Failed to delete: ${formatInvokeError(err)}`);
     }
   }
 
@@ -1143,17 +1142,17 @@
       inviteForm = { email: '', roleIds: [] };
       if (activeAccessSubTab === 'invitations') await loadAccessData();
     } catch (err: any) {
-      alert(get(LL).pangolin.inviteFailed({ error: formatInvokeError(err) }));
+      alert(`Failed to send invitation: ${formatInvokeError(err)}`);
     }
   }
 
   async function handleCancelInvite(inviteId: string) {
-    if (!config.org_id || !confirm(get(LL).pangolin.confirmCancelInvite())) return;
+    if (!config.org_id || !confirm("Cancel this invitation?")) return;
     try {
       await apiCall('DELETE', `/org/${config.org_id}/invitations/${inviteId}`);
       await loadAccessData();
     } catch (err: any) {
-      alert(get(LL).pangolin.cancelFailed({ error: formatInvokeError(err) }));
+      alert(`Cancel error: ${formatInvokeError(err)}`);
     }
   }
 
@@ -1180,7 +1179,7 @@
       resetRoleForm();
       await loadAccessData();
     } catch (err: any) {
-      alert(get(LL).pangolin.roleSaveFailed({ error: formatInvokeError(err) }));
+      alert(`Failed to save role: ${formatInvokeError(err)}`);
     }
   }
 
@@ -1201,12 +1200,12 @@
   }
 
   async function handleDeleteRole(roleId: number) {
-    if (!confirm(get(LL).pangolin.confirmDeleteRole())) return;
+    if (!confirm("Are you sure you want to delete this role?")) return;
     try {
       await apiCall('DELETE', `/role/${roleId}`);
       await loadAccessData();
     } catch (err: any) {
-      alert(get(LL).pangolin.roleDeleteFailed({ error: formatInvokeError(err) }));
+      alert(`Failed to delete role: ${formatInvokeError(err)}`);
     }
   }
 
@@ -1269,44 +1268,44 @@
   async function toggleBlockClient(client: any) {
     const isBlocked = client.blocked;
     const action = isBlocked ? 'unblock' : 'block';
-    if (!confirm(isBlocked ? get(LL).pangolin.confirmUnblockIp() : get(LL).pangolin.confirmBlockIp())) return;
+    if (!confirm(isBlocked ? "Unblock this IP?" : "Block this IP?")) return;
     try {
       await apiCall('POST', `/client/${client.clientId}/${action}`);
       await loadClientsData();
     } catch (err: any) {
-      alert(get(LL).pangolin.archiveFailed({ error: formatInvokeError(err) }));
+      alert(`Archive error: ${formatInvokeError(err)}`);
     }
   }
 
   async function toggleArchiveClient(client: any) {
     const isArchived = client.archived;
     const action = isArchived ? 'unarchive' : 'archive';
-    if (!confirm(isArchived ? get(LL).pangolin.restore() : get(LL).pangolin.confirmArchiveDevice())) return;
+    if (!confirm(isArchived ? "Restore" : "Archive this device?")) return;
     try {
       await apiCall('POST', `/client/${client.clientId}/${action}`);
       await loadClientsData();
     } catch (err: any) {
-      alert(get(LL).pangolin.archiveFailed({ error: formatInvokeError(err) }));
+      alert(`Archive error: ${formatInvokeError(err)}`);
     }
   }
 
   async function handleDeleteClient(clientId: number) {
-    if (!confirm(get(LL).pangolin.confirmDeleteDevice())) return;
+    if (!confirm("Are you sure you want to permanently delete this device?")) return;
     try {
       await apiCall('DELETE', `/client/${clientId}`);
       await loadClientsData();
     } catch (err: any) {
-      alert(get(LL).pangolin.deviceDeleteFailed({ error: formatInvokeError(err) }));
+      alert(`Failed to delete device: ${formatInvokeError(err)}`);
     }
   }
 
   async function handleDeleteToken(tokenId: string) {
-    if (!confirm(get(LL).pangolin.confirmRevokeToken())) return;
+    if (!confirm("Remove and revoke this access token?")) return;
     try {
       await apiCall('DELETE', `/access-token/${tokenId}`);
       await loadClientsData();
     } catch (err: any) {
-      alert(get(LL).pangolin.tokenDeleteFailed({ error: formatInvokeError(err) }));
+      alert(`Failed to delete token: ${formatInvokeError(err)}`);
     }
   }
 
@@ -1324,8 +1323,8 @@
     <div class="header-left">
       <Globe class="header-icon" />
       <div class="title-block">
-        <h2>{$LL.pangolin.title()}</h2>
-        <span class="subtitle">{$LL.pangolin.subtitle()}</span>
+        <h2>{"Pangolin Zero-Trust Proxy"}</h2>
+        <span class="subtitle">{"Identity gateway and secure remote tunnel"}</span>
       </div>
     </div>
     <div class="tab-navbar">
@@ -1334,48 +1333,48 @@
         class:active={activeSubTab === 'dashboard'} 
         onclick={() => activeSubTab = 'dashboard'}
         disabled={!isConnectedPangolin}
-        title={!isConnectedPangolin ? $LL.pangolin.tabLockedHint() : ""}
+        title={!isConnectedPangolin ? "Configure and verify Pangolin connection to unlock this tab" : ""}
       >
-        <Activity size={16} /> {$LL.pangolin.tabStats()}
+        <Activity size={16} /> {"Statistics"}
       </button>
       <button 
         class="nav-btn" 
         class:active={activeSubTab === 'logs'} 
         onclick={() => activeSubTab = 'logs'}
         disabled={!isConnectedPangolin}
-        title={!isConnectedPangolin ? $LL.pangolin.tabLockedHint() : ""}
+        title={!isConnectedPangolin ? "Configure and verify Pangolin connection to unlock this tab" : ""}
       >
-        <RefreshCw size={16} /> {$LL.pangolin.tabAudit()}
+        <RefreshCw size={16} /> {"Audit"}
       </button>
       <button 
         class="nav-btn" 
         class:active={activeSubTab === 'resources'} 
         onclick={() => activeSubTab = 'resources'}
         disabled={!isConnectedPangolin}
-        title={!isConnectedPangolin ? $LL.pangolin.tabLockedHint() : ""}
+        title={!isConnectedPangolin ? "Configure and verify Pangolin connection to unlock this tab" : ""}
       >
-        <Radio size={16} /> {$LL.pangolin.tabResources()}
+        <Radio size={16} /> {"Tunnels / resources"}
       </button>
       <button 
         class="nav-btn" 
         class:active={activeSubTab === 'access'} 
         onclick={() => activeSubTab = 'access'}
         disabled={!isConnectedPangolin}
-        title={!isConnectedPangolin ? $LL.pangolin.tabLockedHint() : ""}
+        title={!isConnectedPangolin ? "Configure and verify Pangolin connection to unlock this tab" : ""}
       >
-        <Shield size={16} /> {$LL.pangolin.tabAccess()}
+        <Shield size={16} /> {"Access control"}
       </button>
       <button 
         class="nav-btn" 
         class:active={activeSubTab === 'clients'} 
         onclick={() => activeSubTab = 'clients'}
         disabled={!isConnectedPangolin}
-        title={!isConnectedPangolin ? $LL.pangolin.tabLockedHint() : ""}
+        title={!isConnectedPangolin ? "Configure and verify Pangolin connection to unlock this tab" : ""}
       >
-        <Laptop size={16} /> {$LL.pangolin.tabDevices()}
+        <Laptop size={16} /> {"Devices"}
       </button>
       <button class="nav-btn" class:active={activeSubTab === 'settings'} onclick={() => activeSubTab = 'settings'}>
-        <Settings size={16} /> {$LL.pangolin.tabSettings()}
+        <Settings size={16} /> {"API settings"}
       </button>
     </div>
   </header>
@@ -1384,7 +1383,7 @@
     {#if isConfigLoading}
       <div class="loading-state">
         <RefreshCw class="spin" size={32} />
-        <p>{$LL.pangolin.loadingConfig()}</p>
+        <p>{"Loading Pangolin configuration…"}</p>
       </div>
     {:else}
       <!-- 1. DASHBOARD VIEW -->
@@ -1392,19 +1391,19 @@
         <div class="dashboard-view">
           <div class="stats-row">
             <div class="stat-card glass glow-amber">
-              <span class="card-label">{$LL.pangolin.statTotal()}</span>
+              <span class="card-label">{"Total"}</span>
               <span class="card-val tabular-nums">{formatCompact(dashboardStats.totalRequests)}</span>
             </div>
             <div class="stat-card glass glow-red">
-              <span class="card-label">{$LL.pangolin.statBlocked()}</span>
+              <span class="card-label">{"Blocked"}</span>
               <span class="card-val tabular-nums text-red">{formatCompact(dashboardStats.totalBlocked)}</span>
             </div>
             <div class="stat-card glass glow-green">
-              <span class="card-label">{$LL.pangolin.statAllowed()}</span>
+              <span class="card-label">{"Allowed"}</span>
               <span class="card-val tabular-nums text-green">{formatCompact(dashboardStats.totalRequests - dashboardStats.totalBlocked)}</span>
             </div>
             <div class="stat-card glass glow-orange">
-              <span class="card-label">{$LL.pangolin.statBlockRate()}</span>
+              <span class="card-label">{"Blocks"}</span>
               <span class="card-val tabular-nums text-orange">
                 {dashboardStats.totalRequests > 0 
                   ? ((dashboardStats.totalBlocked / dashboardStats.totalRequests) * 100).toFixed(1) + '%' 
@@ -1416,14 +1415,14 @@
           <!-- Chart Area -->
           <div class="chart-section glass">
             <div class="chart-section-header">
-              <h3>{$LL.pangolin.trafficOverTime()}</h3>
+              <h3>{"Traffic over time"}</h3>
               <div class="filter-controls">
-                <select id="time-range-select" bind:value={timeRange} onchange={loadDashboardData} aria-label={$LL.pangolin.timeRange()}>
-                  <option value="24h">{$LL.pangolin.range24h()}</option>
-                  <option value="7d">{$LL.pangolin.range7d()}</option>
-                  <option value="30d">{$LL.pangolin.range30d()}</option>
+                <select id="time-range-select" bind:value={timeRange} onchange={loadDashboardData} aria-label={"Time range"}>
+                  <option value="24h">{"24h"}</option>
+                  <option value="7d">{"7 days"}</option>
+                  <option value="30d">{"30 days"}</option>
                 </select>
-                <button class="secondary btn-icon-compact" onclick={loadDashboardData} disabled={isDashboardLoading} aria-label="{$LL.common.refresh()} wykres">
+                <button class="secondary btn-icon-compact" onclick={loadDashboardData} disabled={isDashboardLoading} aria-label="{"Refresh"} wykres">
                   <RefreshCw class={isDashboardLoading ? 'spin' : ''} size={14} />
                 </button>
               </div>
@@ -1435,7 +1434,7 @@
             {:else if dashboardStats.requestsPerDay.length === 0}
               <div class="empty-state">
                 <Info size={24} />
-                <p>{$LL.pangolin.noAnalytics()}</p>
+                <p>{"No analytics data for the selected period."}</p>
               </div>
             {:else}
               <div
@@ -1567,15 +1566,15 @@
                 </div>
               </div>
               <div class="chart-legend">
-                <span class="legend-item"><span class="legend-dot green"></span> {$LL.pangolin.filterAllowed()}</span>
-                <span class="legend-item"><span class="legend-dot pink"></span> {$LL.pangolin.filterBlocked()}</span>
+                <span class="legend-item"><span class="legend-dot green"></span> {"Allowed"}</span>
+                <span class="legend-item"><span class="legend-dot pink"></span> {"Blocked"}</span>
               </div>
             {/if}
           </div>
 
           <div class="stats-grids">
             <div class="stats-panel glass geo-map-panel">
-              <h3>{$LL.pangolin.requestsByCountry()}</h3>
+              <h3>{"Requests by country"}</h3>
               {#if isDashboardLoading}
                 <div class="loading-state"><RefreshCw class="spin" size={20} /></div>
               {:else}
@@ -1588,15 +1587,15 @@
             </div>
 
             <div class="stats-panel glass top-countries-panel">
-              <h3>{$LL.pangolin.topCountries()}</h3>
+              <h3>{"Top countries"}</h3>
               {#if isDashboardLoading}
                 <div class="loading-state"><RefreshCw class="spin" size={20} /></div>
               {:else if sortedCountries.length === 0}
-                <p class="empty-msg">{$LL.pangolin.noGeoData()}</p>
+                <p class="empty-msg">{"No geographic data."}</p>
               {:else}
                 <div class="top-countries-header">
-                  <span>{$LL.pangolin.country()}</span>
-                  <span>{$LL.pangolin.totalLabel()}</span>
+                  <span>{"Country"}</span>
+                  <span>{"Total:"}</span>
                   <span>%</span>
                 </div>
                 <div class="top-countries-list">
@@ -1649,24 +1648,24 @@
               "
             >
               <strong>{getCountryName(activeTooltip.geo)}</strong>
-              <span>{$LL.pangolin.tooltipRequestsTraffic({ count: formatCompact(activeTooltip.geo.count || 0), pct: activeTooltip.pct })}</span>
+              <span>{`${formatCompact(activeTooltip.geo.count || 0)} requests · ${activeTooltip.pct}% of traffic`}</span>
               {#if stats}
                 {#if stats.loading}
                   <span class="tooltip-detail text-muted">
-                    {$LL.pangolin.filterAllowed()}: ... · {$LL.pangolin.filterBlocked()}: ...
+                    {"Allowed"}: ... · {"Blocked"}: ...
                   </span>
                 {:else}
                   {@const blocked = stats.blockedCount}
                   {@const total = activeTooltip.geo.count || 0}
                   {@const allowed = Math.max(total - blocked, 0)}
                   <span class="tooltip-detail">
-                    {$LL.pangolin.filterAllowed()}: {formatCompact(allowed)}
-                    · {$LL.pangolin.filterBlocked()}: {formatCompact(blocked)}
+                    {"Allowed"}: {formatCompact(allowed)}
+                    · {"Blocked"}: {formatCompact(blocked)}
                   </span>
                 {/if}
               {:else}
                 <span class="tooltip-detail text-muted">
-                  {$LL.pangolin.filterAllowed()}: ... · {$LL.pangolin.filterBlocked()}: ...
+                  {"Allowed"}: ... · {"Blocked"}: ...
                 </span>
               {/if}
             </div>
@@ -1688,17 +1687,17 @@
               <div class="tooltip-body">
                 <div class="tooltip-row">
                   <span class="dot total"></span>
-                  <span class="label">{$LL.pangolin.totalLabel()}</span>
+                  <span class="label">{"Total:"}</span>
                   <span class="val">{formatCompact(total)}</span>
                 </div>
                 <div class="tooltip-row">
                   <span class="dot green"></span>
-                  <span class="label">{$LL.pangolin.filterAllowed()}:</span>
+                  <span class="label">{"Allowed"}:</span>
                   <span class="val">{formatCompact(activeChartTooltip.day.allowedCount || 0)}</span>
                 </div>
                 <div class="tooltip-row">
                   <span class="dot pink"></span>
-                  <span class="label">{$LL.pangolin.filterBlocked()}:</span>
+                  <span class="label">{"Blocked"}:</span>
                   <span class="val text-pink">{formatCompact(activeChartTooltip.day.blockedCount || 0)} ({blockedPct}%)</span>
                 </div>
               </div>
@@ -1711,11 +1710,11 @@
       {#if activeSubTab === 'logs'}
         <div class="logs-view">
           <div class="filters-bar-simple">
-            <span class="view-title">{$LL.pangolin.auditTitle()}</span>
+            <span class="view-title">{"Audit logs (Pangolin Proxy)"}</span>
             <div class="bar-actions">
-              <div class="audit-date-range" aria-label={$LL.pangolin.timeRange()}>
+              <div class="audit-date-range" aria-label={"Time range"}>
                 <Calendar size={14} />
-                <label for="audit-date-start">{$LL.pangolin.filterDateFrom()}</label>
+                <label for="audit-date-start">{"From"}</label>
                 <input
                   id="audit-date-start"
                   type="date"
@@ -1723,7 +1722,7 @@
                   max={auditDateRange.end || undefined}
                   onchange={handleAuditDateRangeChange}
                 />
-                <label for="audit-date-end">{$LL.pangolin.filterDateTo()}</label>
+                <label for="audit-date-end">{"To"}</label>
                 <input
                   id="audit-date-end"
                   type="date"
@@ -1734,7 +1733,7 @@
               </div>
               {#if hasActiveAuditFilters()}
                 <button class="secondary btn-sm text-orange" onclick={resetAuditFilters}>
-                  {$LL.pangolin.resetFilters()}
+                  {"Reset filters"}
                 </button>
               {/if}
               <button class="secondary btn-icon-compact" onclick={loadLogsData}>
@@ -1747,31 +1746,31 @@
             <table class="telemetry-table">
               <thead>
                 <tr>
-                  <th>{$LL.pangolin.colTimestamp()}</th>
+                  <th>{"Timestamp"}</th>
                   
                   <th class="filterable-th">
                     <div class="th-content">
-                      <span>{$LL.pangolin.colAction()}</span>
+                      <span>{"Action"}</span>
                       <button class="filter-btn {logFilters.action.length > 0 ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('action'); }}>
                         <Filter size={12} />
                       </button>
                     </div>
                     {#if activeFilterField === 'action'}
                       <div class="filter-dropdown glass" onclick={(e) => e.stopPropagation()}>
-                        <div class="dropdown-title">{$LL.pangolin.filterAction()}</div>
+                        <div class="dropdown-title">{"Filter Action"}</div>
                         <div class="options-list">
                           <label class="option-row-checkbox">
                             <input type="checkbox" checked={filterInputs.action.includes('allowed')} onchange={() => filterInputs.action = toggleArrayItem(filterInputs.action, 'allowed')} />
-                            <span>{$LL.pangolin.filterAllowed()}</span>
+                            <span>{"Allowed"}</span>
                           </label>
                           <label class="option-row-checkbox">
                             <input type="checkbox" checked={filterInputs.action.includes('blocked')} onchange={() => filterInputs.action = toggleArrayItem(filterInputs.action, 'blocked')} />
-                            <span>{$LL.pangolin.filterBlocked()}</span>
+                            <span>{"Blocked"}</span>
                           </label>
                         </div>
                         <div class="dropdown-actions">
-                          <button class="btn-clear" onclick={() => clearFilter('action')}>{$LL.common.clear()}</button>
-                          <button class="btn-apply" onclick={() => applyFilter('action')}>{$LL.common.apply()}</button>
+                          <button class="btn-clear" onclick={() => clearFilter('action')}>{"Clear"}</button>
+                          <button class="btn-apply" onclick={() => applyFilter('action')}>{"Apply"}</button>
                         </div>
                       </div>
                     {/if}
@@ -1781,16 +1780,16 @@
 
                   <th class="filterable-th">
                     <div class="th-content">
-                      <span>{$LL.pangolin.colLocation()}</span>
+                      <span>{"Location"}</span>
                       <button class="filter-btn {logFilters.location.length > 0 ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('location'); }}>
                         <Filter size={12} />
                       </button>
                     </div>
                     {#if activeFilterField === 'location'}
                       <div class="filter-dropdown glass" onclick={(e) => e.stopPropagation()}>
-                        <div class="dropdown-title">{$LL.pangolin.filterLocation()}</div>
+                        <div class="dropdown-title">{"Filter Location"}</div>
                         <div class="input-wrapper">
-                          <input type="text" placeholder="{$LL.pangolin.country()}..." bind:value={locationSearchQuery} />
+                          <input type="text" placeholder="{"Country"}..." bind:value={locationSearchQuery} />
                         </div>
                         {#if uniqueFilters.locations.length > 0}
                           <div class="suggestions-list" style="max-height: 180px;">
@@ -1803,27 +1802,27 @@
                           </div>
                         {/if}
                         <div class="dropdown-actions">
-                          <button class="btn-clear" onclick={() => clearFilter('location')}>{$LL.common.clear()}</button>
-                          <button class="btn-apply" onclick={() => applyFilter('location')}>{$LL.common.apply()}</button>
+                          <button class="btn-clear" onclick={() => clearFilter('location')}>{"Clear"}</button>
+                          <button class="btn-apply" onclick={() => applyFilter('location')}>{"Apply"}</button>
                         </div>
                       </div>
                     {/if}
                   </th>                  <th class="filterable-th">
                     <div class="th-content">
-                      <span>{$LL.pangolin.colResource()}</span>
+                      <span>{"Resource"}</span>
                       <button class="filter-btn {logFilters.resource.length > 0 ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('resource'); }}>
                         <Filter size={12} />
                       </button>
                     </div>
                     {#if activeFilterField === 'resource'}
                       <div class="filter-dropdown glass" onclick={(e) => e.stopPropagation()}>
-                        <div class="dropdown-title">{$LL.pangolin.filterResource()}</div>
+                        <div class="dropdown-title">{"Filter Resource"}</div>
                         <div class="input-wrapper">
-                          <input type="text" placeholder="{$LL.pangolin.colResource()}..." bind:value={resourceSearchQuery} />
+                          <input type="text" placeholder="{"Resource"}..." bind:value={resourceSearchQuery} />
                         </div>
                         
                         {#if isLoadingResourcesForFilter}
-                          <div class="text-center py-2 text-muted font-xs">{$LL.pangolin.loadingResources()}</div>
+                          <div class="text-center py-2 text-muted font-xs">{"Loading resources…"}</div>
                         {:else}
                           <div class="suggestions-list" style="max-height: 200px;">
                             <!-- Public Resources -->
@@ -1847,8 +1846,8 @@
                         {/if}
                         
                         <div class="dropdown-actions">
-                          <button class="btn-clear" onclick={() => clearFilter('resource')}>{$LL.common.clear()}</button>
-                          <button class="btn-apply" onclick={() => applyFilter('resource')}>{$LL.common.apply()}</button>
+                          <button class="btn-clear" onclick={() => clearFilter('resource')}>{"Clear"}</button>
+                          <button class="btn-apply" onclick={() => applyFilter('resource')}>{"Apply"}</button>
                         </div>
                       </div>
                     {/if}
@@ -1856,16 +1855,16 @@
 
                   <th class="filterable-th">
                     <div class="th-content">
-                      <span>{$LL.pangolin.colHost()}</span>
+                      <span>{"Host"}</span>
                       <button class="filter-btn {logFilters.host.length > 0 ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('host'); }}>
                         <Filter size={12} />
                       </button>
                     </div>
                     {#if activeFilterField === 'host'}
                       <div class="filter-dropdown glass" onclick={(e) => e.stopPropagation()}>
-                        <div class="dropdown-title">{$LL.pangolin.filterHost()}</div>
+                        <div class="dropdown-title">{"Filter Host"}</div>
                         <div class="input-wrapper">
-                          <input type="text" placeholder="{$LL.pangolin.colHost()}..." bind:value={hostSearchQuery} />
+                          <input type="text" placeholder="{"Host"}..." bind:value={hostSearchQuery} />
                         </div>
                         {#if uniqueFilters.hosts.length > 0}
                           <div class="suggestions-list" style="max-height: 180px;">
@@ -1878,8 +1877,8 @@
                           </div>
                         {/if}
                         <div class="dropdown-actions">
-                          <button class="btn-clear" onclick={() => clearFilter('host')}>{$LL.common.clear()}</button>
-                          <button class="btn-apply" onclick={() => applyFilter('host')}>{$LL.common.apply()}</button>
+                          <button class="btn-clear" onclick={() => clearFilter('host')}>{"Clear"}</button>
+                          <button class="btn-apply" onclick={() => applyFilter('host')}>{"Apply"}</button>
                         </div>
                       </div>
                     {/if}
@@ -1887,16 +1886,16 @@
 
                   <th class="filterable-th">
                     <div class="th-content">
-                      <span>{$LL.pangolin.colPath()}</span>
+                      <span>{"Path"}</span>
                       <button class="filter-btn {logFilters.path ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('path'); }}>
                         <Filter size={12} />
                       </button>
                     </div>
                     {#if activeFilterField === 'path'}
                       <div class="filter-dropdown glass" onclick={(e) => e.stopPropagation()}>
-                        <div class="dropdown-title">{$LL.pangolin.filterPath()}</div>
+                        <div class="dropdown-title">{"Filter Path"}</div>
                         <div class="input-wrapper">
-                          <input type="text" placeholder={$LL.pangolin.pathExample()} bind:value={filterInputs.path} onkeydown={(e) => e.key === 'Enter' && applyFilter('path')} />
+                          <input type="text" placeholder={"Path (e.g. /v1/...)"} bind:value={filterInputs.path} onkeydown={(e) => e.key === 'Enter' && applyFilter('path')} />
                         </div>
                         {#if uniqueFilters.paths.length > 0}
                           <div class="suggestions-list">
@@ -1908,8 +1907,8 @@
                           </div>
                         {/if}
                         <div class="dropdown-actions">
-                          <button class="btn-clear" onclick={() => clearFilter('path')}>{$LL.common.clear()}</button>
-                          <button class="btn-apply" onclick={() => applyFilter('path')}>{$LL.common.apply()}</button>
+                          <button class="btn-clear" onclick={() => clearFilter('path')}>{"Clear"}</button>
+                          <button class="btn-apply" onclick={() => applyFilter('path')}>{"Apply"}</button>
                         </div>
                       </div>
                     {/if}
@@ -1924,7 +1923,7 @@
                     </div>
                     {#if activeFilterField === 'method'}
                       <div class="filter-dropdown glass" onclick={(e) => e.stopPropagation()}>
-                        <div class="dropdown-title">{$LL.pangolin.filterMethod()}</div>
+                        <div class="dropdown-title">{"Filter Method"}</div>
                         <div class="options-list">
                           {#each ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'] as m}
                             <label class="option-row-checkbox">
@@ -1934,8 +1933,8 @@
                           {/each}
                         </div>
                         <div class="dropdown-actions">
-                          <button class="btn-clear" onclick={() => clearFilter('method')}>{$LL.common.clear()}</button>
-                          <button class="btn-apply" onclick={() => applyFilter('method')}>{$LL.common.apply()}</button>
+                          <button class="btn-clear" onclick={() => clearFilter('method')}>{"Clear"}</button>
+                          <button class="btn-apply" onclick={() => applyFilter('method')}>{"Apply"}</button>
                         </div>
                       </div>
                     {/if}
@@ -1943,20 +1942,20 @@
 
                   <th class="filterable-th">
                     <div class="th-content">
-                      <span>{$LL.pangolin.colReason()}</span>
+                      <span>{"Reason"}</span>
                       <button class="filter-btn {logFilters.reason ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('reason'); }}>
                         <Filter size={12} />
                       </button>
                     </div>
                     {#if activeFilterField === 'reason'}
                       <div class="filter-dropdown glass align-right" onclick={(e) => e.stopPropagation()}>
-                        <div class="dropdown-title">{$LL.pangolin.filterReason()}</div>
+                        <div class="dropdown-title">{"Filter Reason"}</div>
                         <div class="input-wrapper">
-                          <input type="text" placeholder={$LL.pangolin.filterReasonPlaceholder()} bind:value={filterInputs.reason} onkeydown={(e) => e.key === 'Enter' && applyFilter('reason')} />
+                          <input type="text" placeholder={"Decision reason…"} bind:value={filterInputs.reason} onkeydown={(e) => e.key === 'Enter' && applyFilter('reason')} />
                         </div>
                         <div class="dropdown-actions">
-                          <button class="btn-clear" onclick={() => clearFilter('reason')}>{$LL.common.clear()}</button>
-                          <button class="btn-apply" onclick={() => applyFilter('reason')}>{$LL.common.apply()}</button>
+                          <button class="btn-clear" onclick={() => clearFilter('reason')}>{"Clear"}</button>
+                          <button class="btn-apply" onclick={() => applyFilter('reason')}>{"Apply"}</button>
                         </div>
                       </div>
                     {/if}
@@ -1964,16 +1963,16 @@
 
                   <th class="filterable-th">
                     <div class="th-content">
-                      <span>{$LL.pangolin.colActor()}</span>
+                      <span>{"Actor"}</span>
                       <button class="filter-btn {logFilters.actor ? 'active' : ''}" onclick={(e) => { e.stopPropagation(); toggleFilterDropdown('actor'); }}>
                         <Filter size={12} />
                       </button>
                     </div>
                     {#if activeFilterField === 'actor'}
                       <div class="filter-dropdown glass align-right" onclick={(e) => e.stopPropagation()}>
-                        <div class="dropdown-title">{$LL.pangolin.filterActor()}</div>
+                        <div class="dropdown-title">{"Filter Actor"}</div>
                         <div class="input-wrapper">
-                          <input type="text" placeholder="{$LL.pangolin.colActor()}..." bind:value={filterInputs.actor} onkeydown={(e) => e.key === 'Enter' && applyFilter('actor')} />
+                          <input type="text" placeholder="{"Actor"}..." bind:value={filterInputs.actor} onkeydown={(e) => e.key === 'Enter' && applyFilter('actor')} />
                         </div>
                         {#if uniqueFilters.actors.length > 0}
                           <div class="suggestions-list">
@@ -1985,8 +1984,8 @@
                           </div>
                         {/if}
                         <div class="dropdown-actions">
-                          <button class="btn-clear" onclick={() => clearFilter('actor')}>{$LL.common.clear()}</button>
-                          <button class="btn-apply" onclick={() => applyFilter('actor')}>{$LL.common.apply()}</button>
+                          <button class="btn-clear" onclick={() => clearFilter('actor')}>{"Clear"}</button>
+                          <button class="btn-apply" onclick={() => applyFilter('actor')}>{"Apply"}</button>
                         </div>
                       </div>
                     {/if}
@@ -2000,12 +1999,12 @@
                   <tr>
                     <td colspan="11" class="text-center py-6">
                       <RefreshCw class="spin" size={24} />
-                      <p>{$LL.pangolin.loadingAudit()}</p>
+                      <p>{"Loading audit logs…"}</p>
                     </td>
                   </tr>
                 {:else if filteredLogs.length === 0}
                   <tr>
-                    <td colspan="11" class="text-center py-6 text-muted">{$LL.pangolin.emptyAudit()}</td>
+                    <td colspan="11" class="text-center py-6 text-muted">{"No log entries match the filters."}</td>
                   </tr>
                 {:else}
                   {#each filteredLogs as log}
@@ -2054,7 +2053,7 @@
 
           <!-- Pagination -->
           <div class="pagination-bar">
-            <span class="total-count">{$LL.pangolin.totalLogs({ count: String(logsPagination.total) })}</span>
+            <span class="total-count">{`Total: ${String(logsPagination.total)} logs`}</span>
             <div class="pagination-controls">
               <button class="secondary btn-icon-compact" disabled={logFilters.offset === 0} onclick={() => {
                 logFilters.offset = Math.max(0, logFilters.offset - logFilters.limit);
@@ -2062,7 +2061,7 @@
               }}>
                 <ChevronLeft size={16} />
               </button>
-              <span class="page-indicator">{$LL.pangolin.pageOffset({ start: getLogsCurrentPage(), end: getLogsTotalPages() })}</span>
+              <span class="page-indicator">{`Page ${getLogsCurrentPage()} of ${getLogsTotalPages()}`}</span>
               <button class="secondary btn-icon-compact" disabled={logFilters.offset + logFilters.limit >= logsPagination.total} onclick={() => {
                 logFilters.offset += logFilters.limit;
                 loadLogsData();
@@ -2078,72 +2077,69 @@
           <div class="modal-backdrop" onclick={() => selectedLogDetail = null}>
             <div class="modal-content log-details glass" onclick={(e) => e.stopPropagation()}>
               <header class="modal-header">
-                <h3>{$LL.pangolin.auditDetailTitle()}</h3>
+                <h3>{"Audit request details"}</h3>
                 <button class="btn-icon-compact secondary" onclick={() => selectedLogDetail = null}><X size={16} /></button>
               </header>
               <div class="modal-body scrollable">
                 <div class="grid-details">
                   <div class="detail-row">
-                    <span class="lbl">{$LL.pangolin.detailTime()}</span>
+                    <span class="lbl">{"Request time:"}</span>
                     <span class="val mono-stats">{formatTime(selectedLogDetail.timestamp)}</span>
                   </div>
                   <div class="detail-row">
-                    <span class="lbl">{$LL.pangolin.detailTxId()}</span>
+                    <span class="lbl">{"Transaction ID:"}</span>
                     <span class="val mono-stats">{selectedLogDetail.id}</span>
                   </div>
                   <div class="detail-row">
-                    <span class="lbl">{$LL.pangolin.detailUrl()}</span>
+                    <span class="lbl">{"Full URL:"}</span>
                     <span class="val text-orange truncate-text">{selectedLogDetail.scheme}://{selectedLogDetail.host}{selectedLogDetail.path}{selectedLogDetail.query || ''}</span>
                   </div>
                   <div class="detail-row">
-                    <span class="lbl">{$LL.pangolin.detailMethod()}</span>
+                    <span class="lbl">{"Method:"}</span>
                     <span class="val"><span class="method-tag {selectedLogDetail.method?.toLowerCase()}">{selectedLogDetail.method}</span></span>
                   </div>
                   <div class="detail-row">
-                    <span class="lbl">{$LL.pangolin.detailAuth()}</span>
+                    <span class="lbl">{"Authorization:"}</span>
                     <span class="val">
                       <span class="status-badge {selectedLogDetail.action ? 'allowed' : 'blocked'}">
-                        {selectedLogDetail.action ? $LL.pangolin.filterAllowed().toUpperCase() : $LL.pangolin.filterBlocked().toUpperCase()}
+                        {selectedLogDetail.action ? "Allowed".toUpperCase() : "Blocked".toUpperCase()}
                       </span>
                     </span>
                   </div>
                   <div class="detail-row">
-                    <span class="lbl">{$LL.pangolin.detailReason()}</span>
-                    <span class="val text-orange">{selectedLogDetail.reason || $LL.pangolin.noAdditionalReason()}</span>
+                    <span class="lbl">{"Decision reason:"}</span>
+                    <span class="val text-orange">{selectedLogDetail.reason || "No additional details"}</span>
                   </div>
                   <div class="detail-row">
-                    <span class="lbl">{$LL.pangolin.detailActor()}</span>
-                    <span class="val">{selectedLogDetail.actor || $LL.pangolin.anonymousGuest()} (Typ: {selectedLogDetail.actorType || 'N/A'}, ID: {selectedLogDetail.actorId || 'N/A'})</span>
+                    <span class="lbl">{"Actor / user:"}</span>
+                    <span class="val">{selectedLogDetail.actor || "Anonymous guest"} (Typ: {selectedLogDetail.actorType || 'N/A'}, ID: {selectedLogDetail.actorId || 'N/A'})</span>
                   </div>
                   <div class="detail-row">
-                    <span class="lbl">{$LL.pangolin.detailSourceIp()}</span>
-                    <span class="val mono-stats">{selectedLogDetail.ip} ({$LL.pangolin.countryPrefix()} {selectedLogDetail.location || $LL.common.unknown()})</span>
+                    <span class="lbl">{"Source IP:"}</span>
+                    <span class="val mono-stats">{selectedLogDetail.ip} ({"Country:"} {selectedLogDetail.location || "Unknown"})</span>
                   </div>
                   <div class="detail-row">
-                    <span class="lbl">{$LL.pangolin.detailResource()}</span>
+                    <span class="lbl">{"Linked resource:"}</span>
                     <span class="val">
-                      {$LL.pangolin.detailResourceIds({
-                        pub: selectedLogDetail.resourceId || $LL.pangolin.detailNone(),
-                        priv: selectedLogDetail.siteResourceId || $LL.pangolin.detailNone()
-                      })}
+                      {`Public resource ID: ${selectedLogDetail.resourceId || "None"} | Private resource ID: ${selectedLogDetail.siteResourceId || "None"}`}
                     </span>
                   </div>
                   <div class="detail-row">
-                    <span class="lbl">{$LL.pangolin.detailUserAgent()}</span>
+                    <span class="lbl">{"User Agent:"}</span>
                     <span class="val font-xs">{selectedLogDetail.userAgent || '-'}</span>
                   </div>
                 </div>
 
                 {#if selectedLogDetail.headers}
                   <div class="json-section">
-                    <h4>{$LL.pangolin.detailHeaders()}</h4>
+                    <h4>{"HTTP headers"}</h4>
                     <pre class="json-block font-xs">{typeof selectedLogDetail.headers === 'string' ? selectedLogDetail.headers : JSON.stringify(selectedLogDetail.headers, null, 2)}</pre>
                   </div>
                 {/if}
 
                 {#if selectedLogDetail.tls}
                   <div class="json-section">
-                    <h4>{$LL.pangolin.detailTls()}</h4>
+                    <h4>{"TLS session info"}</h4>
                     <pre class="json-block font-xs">{typeof selectedLogDetail.tls === 'string' ? selectedLogDetail.tls : JSON.stringify(selectedLogDetail.tls, null, 2)}</pre>
                   </div>
                 {/if}
@@ -2158,7 +2154,7 @@
         <div class="resources-view">
           <!-- Sub-tabs header -->
           <div class="section-tabs">
-            <h3 class="section-title">{$LL.pangolin.resourcesTitle()}</h3>
+            <h3 class="section-title">{"Tunnel and resource configuration"}</h3>
           </div>
 
           <!-- Section 1: Sites (WireGuard Tunnels) -->
@@ -2166,30 +2162,30 @@
             <header class="section-header">
               <div class="sec-title">
                 <Radio class="text-orange" size={18} />
-                <h3>{$LL.pangolin.tunnelsTitle()}</h3>
+                <h3>{"WireGuard tunnels / exit nodes (Sites)"}</h3>
               </div>
               <button class="primary btn-sm" onclick={() => showCreateSiteModal = true}>
-                <Plus size={16} /> {$LL.pangolin.newTunnel()}
+                <Plus size={16} /> {"New tunnel"}
               </button>
             </header>
 
             <table class="telemetry-table">
               <thead>
                 <tr>
-                  <th>{$LL.pangolin.colLabel()}</th>
-                  <th>{$LL.pangolin.colNiceId()}</th>
-                  <th>{$LL.pangolin.colTunnelType()}</th>
-                  <th>{$LL.pangolin.colSubnet()}</th>
-                  <th>{$LL.pangolin.colTunnelAddress()}</th>
-                  <th>{$LL.pangolin.colPublicKey()}</th>
-                  <th>{$LL.common.operations()}</th>
+                  <th>{"Label (name)"}</th>
+                  <th>{"Nice ID"}</th>
+                  <th>{"Type"}</th>
+                  <th>{"Subnet"}</th>
+                  <th>{"Tunnel address"}</th>
+                  <th>{"Public key"}</th>
+                  <th>{"Actions"}</th>
                 </tr>
               </thead>
               <tbody>
                 {#if isSitesLoading}
-                  <tr><td colspan="7" class="text-center py-4"><RefreshCw class="spin" size={16} /> {$LL.common.loadingEllipsis()}</td></tr>
+                  <tr><td colspan="7" class="text-center py-4"><RefreshCw class="spin" size={16} /> {"Loading…"}</td></tr>
                 {:else if sitesList.length === 0}
-                  <tr><td colspan="7" class="text-center py-4 text-muted">{$LL.pangolin.emptyTunnels()}</td></tr>
+                  <tr><td colspan="7" class="text-center py-4 text-muted">{"No tunnels configured."}</td></tr>
                 {:else}
                   {#each sitesList as site}
                     <tr>
@@ -2219,28 +2215,28 @@
                 <h3>Zasoby Prywatne (Site Resources)</h3>
               </div>
               <button class="primary btn-sm" onclick={() => { resetPrivResForm(); showCreatePrivResModal = true; }}>
-                <Plus size={16} /> {$LL.pangolin.newPrivResource()}
+                <Plus size={16} /> {"New private resource"}
               </button>
             </header>
 
             <table class="telemetry-table">
               <thead>
                 <tr>
-                  <th>{$LL.common.name()}</th>
-                  <th>{$LL.pangolin.colNiceId()}</th>
-                  <th>{$LL.pangolin.colMode()}</th>
-                  <th>{$LL.pangolin.colDestination()}</th>
-                  <th>{$LL.pangolin.colTcpPorts()}</th>
-                  <th>{$LL.pangolin.colUdpPorts()}</th>
-                  <th>{$LL.pangolin.status()}</th>
-                  <th>{$LL.common.operations()}</th>
+                  <th>{"Name"}</th>
+                  <th>{"Nice ID"}</th>
+                  <th>{"Mode"}</th>
+                  <th>{"Destination"}</th>
+                  <th>{"TCP ports"}</th>
+                  <th>{"UDP ports"}</th>
+                  <th>{"Status"}</th>
+                  <th>{"Actions"}</th>
                 </tr>
               </thead>
               <tbody>
                 {#if isPrivResourcesLoading}
-                  <tr><td colspan="8" class="text-center py-4"><RefreshCw class="spin" size={16} /> {$LL.common.loadingEllipsis()}</td></tr>
+                  <tr><td colspan="8" class="text-center py-4"><RefreshCw class="spin" size={16} /> {"Loading…"}</td></tr>
                 {:else if privResourcesList.length === 0}
-                  <tr><td colspan="8" class="text-center py-4 text-muted">{$LL.pangolin.emptyPrivResources()}</td></tr>
+                  <tr><td colspan="8" class="text-center py-4 text-muted">{"No private resources configured."}</td></tr>
                 {:else}
                   {#each privResourcesList as res}
                     <tr>
@@ -2252,7 +2248,7 @@
                       <td class="mono-stats">{res.udpPortRangeString || '*'}</td>
                       <td>
                         <span class="status-dot {res.enabled ? 'nominal' : 'inactive'}"></span>
-                        {res.enabled ? $LL.pangolin.active() : $LL.pangolin.disabled()}
+                        {res.enabled ? "Active" : "Disabled"}
                       </td>
                       <td>
                         <div class="flex-actions">
@@ -2279,26 +2275,26 @@
                 <h3>Zasoby Publiczne (Chronione Domeny HTTP / TCP / UDP)</h3>
               </div>
               <button class="primary btn-sm" onclick={() => { resetPubResForm(); showCreatePubResModal = true; }}>
-                <Plus size={16} /> {$LL.pangolin.newPubResource()}
+                <Plus size={16} /> {"New public resource"}
               </button>
             </header>
 
             <table class="telemetry-table">
               <thead>
                 <tr>
-                  <th>{$LL.pangolin.colResourceName()}</th>
-                  <th>{$LL.pangolin.colMethodMode()}</th>
-                  <th>{$LL.pangolin.colDomains()}</th>
-                  <th>{$LL.pangolin.colProxyPort()}</th>
-                  <th>{$LL.pangolin.colSticky()}</th>
-                  <th>{$LL.common.operations()}</th>
+                  <th>{"Resource name"}</th>
+                  <th>{"Method / mode"}</th>
+                  <th>{"Domains / subdomain"}</th>
+                  <th>{"Proxy port"}</th>
+                  <th>{"Sticky session"}</th>
+                  <th>{"Actions"}</th>
                 </tr>
               </thead>
               <tbody>
                 {#if isPubResourcesLoading}
-                  <tr><td colspan="6" class="text-center py-4"><RefreshCw class="spin" size={16} /> {$LL.common.loadingEllipsis()}</td></tr>
+                  <tr><td colspan="6" class="text-center py-4"><RefreshCw class="spin" size={16} /> {"Loading…"}</td></tr>
                 {:else if pubResourcesList.length === 0}
-                  <tr><td colspan="6" class="text-center py-4 text-muted">{$LL.pangolin.emptyPubResources()}</td></tr>
+                  <tr><td colspan="6" class="text-center py-4 text-muted">{"No public resources configured."}</td></tr>
                 {:else}
                   {#each pubResourcesList as res}
                     <tr>
@@ -2309,7 +2305,7 @@
                           <button 
                             class="link-btn text-orange hover-underline" 
                             onclick={() => handleOpenUrl((res.ssl ? 'https://' : 'http://') + res.fullDomain)}
-                            title={$LL.pangolin.openInBrowser()}
+                            title={"Click to open in browser"}
                           >
                             {res.fullDomain}
                           </button>
@@ -2318,7 +2314,7 @@
                         {/if}
                       </td>
                       <td class="mono-stats">{res.proxyPort || '-'}</td>
-                      <td>{res.stickySession ? $LL.common.yes() : $LL.common.no()}</td>
+                      <td>{res.stickySession ? "Yes" : "No"}</td>
                       <td>
                         <div class="flex-actions">
                           <button class="secondary btn-icon-compact" onclick={() => editPubRes(res)}>
@@ -2342,7 +2338,7 @@
           <div class="modal-backdrop" onclick={() => showCreateSiteModal = false}>
             <div class="modal-content glass dialog-sm" onclick={(e) => e.stopPropagation()}>
               <header class="modal-header">
-                <h3>{$LL.pangolin.newTunnelBtn()}</h3>
+                <h3>{"Create tunnel"}</h3>
                 <button class="btn-icon-compact secondary" onclick={() => showCreateSiteModal = false}><X size={16} /></button>
               </header>
               <div class="modal-body">
@@ -2351,7 +2347,7 @@
                   <input id="site-name" type="text" placeholder="Np. Serwer-Produkcja" bind:value={newSiteData.name} />
                 </div>
                 <div class="form-group">
-                  <label for="site-type">{$LL.pangolin.connectionType()}</label>
+                  <label for="site-type">{"Connection type *"}</label>
                   <select id="site-type" bind:value={newSiteData.type}>
                     <option value="wireguard">WireGuard Standard</option>
                     <option value="newt">Newt Zero-Config</option>
@@ -2363,13 +2359,13 @@
                   <input id="site-nice" type="text" placeholder="serwer-prod" bind:value={newSiteData.niceId} />
                 </div>
                 <div class="form-group">
-                  <label for="site-subnet">{$LL.pangolin.ipSubnet()}</label>
+                  <label for="site-subnet">{"IP addressing / subnet"}</label>
                   <input id="site-subnet" type="text" placeholder="10.8.0.0/24" bind:value={newSiteData.subnet} />
                 </div>
               </div>
               <footer class="modal-footer">
-                <button class="secondary" onclick={() => showCreateSiteModal = false}>{$LL.common.cancel()}</button>
-                <button class="primary" onclick={handleCreateSite} disabled={!newSiteData.name}>{$LL.pangolin.newTunnelBtn()}</button>
+                <button class="secondary" onclick={() => showCreateSiteModal = false}>{"Cancel"}</button>
+                <button class="primary" onclick={handleCreateSite} disabled={!newSiteData.name}>{"Create tunnel"}</button>
               </footer>
             </div>
           </div>
@@ -2380,30 +2376,30 @@
           <div class="modal-backdrop" onclick={() => showCreatePrivResModal = false}>
             <div class="modal-content glass dialog-md" onclick={(e) => e.stopPropagation()}>
               <header class="modal-header">
-                <h3>{isEditingPrivRes ? $LL.pangolin.editResource() : $LL.pangolin.newPrivBtn()}</h3>
+                <h3>{isEditingPrivRes ? "Edit resource" : "Create private resource"}</h3>
                 <button class="btn-icon-compact secondary" onclick={() => showCreatePrivResModal = false}><X size={16} /></button>
               </header>
               <div class="modal-body scrollable max-h-400">
                 <div class="form-grid-2">
                   <div class="form-group">
-                    <label for="priv-res-name">{$LL.pangolin.resourceNameLabel()}</label>
-                    <input id="priv-res-name" type="text" placeholder={$LL.pangolin.resourceNamePlaceholder()} bind:value={privResForm.name} />
+                    <label for="priv-res-name">{"Resource name *"}</label>
+                    <input id="priv-res-name" type="text" placeholder={"e.g. PG Database"} bind:value={privResForm.name} />
                   </div>
                   <div class="form-group">
-                    <label for="priv-res-nice">{$LL.pangolin.colNiceId()}</label>
+                    <label for="priv-res-nice">{"Nice ID"}</label>
                     <input id="priv-res-nice" type="text" placeholder="nice-db-id" bind:value={privResForm.niceId} />
                   </div>
                   <div class="form-group">
-                    <label for="priv-res-mode">{$LL.pangolin.resourceModeLabel()}</label>
+                    <label for="priv-res-mode">{"Resource mode *"}</label>
                     <select id="priv-res-mode" bind:value={privResForm.mode}>
-                      <option value="host">{$LL.pangolin.modeSingleHostDesc()}</option>
-                      <option value="cidr">{$LL.pangolin.modeCidrDesc()}</option>
-                      <option value="http">{$LL.pangolin.modeWebServerDesc()}</option>
-                      <option value="ssh">{$LL.pangolin.modeConsoleDesc()}</option>
+                      <option value="host">{"Single Host (TCP/UDP)"}</option>
+                      <option value="cidr">{"CIDR Subnet (TCP/UDP)"}</option>
+                      <option value="http">{"Web Server (HTTP/HTTPS)"}</option>
+                      <option value="ssh">{"Console Connection (SSH)"}</option>
                     </select>
                   </div>
                   <div class="form-group">
-                    <label for="priv-res-dest">{$LL.pangolin.destAddressLabel()}</label>
+                    <label for="priv-res-dest">{"Destination address (IP / Domain) *"}</label>
                     <input id="priv-res-dest" type="text" placeholder="192.168.1.50" bind:value={privResForm.destination} />
                   </div>
                 </div>
@@ -2411,12 +2407,12 @@
                 {#if privResForm.mode === 'http' || privResForm.mode === 'ssh'}
                   <div class="form-grid-2 mt-4">
                     <div class="form-group">
-                      <label for="priv-res-port">{$LL.pangolin.destPortLabel()}</label>
+                      <label for="priv-res-port">{"Destination port *"}</label>
                       <input id="priv-res-port" type="number" bind:value={privResForm.destinationPort} />
                     </div>
                     {#if privResForm.mode === 'http'}
                       <div class="form-group">
-                        <label for="priv-res-scheme">{$LL.pangolin.scheme()}</label>
+                        <label for="priv-res-scheme">{"Protocol (scheme)"}</label>
                         <select id="priv-res-scheme" bind:value={privResForm.scheme}>
                           <option value="http">HTTP</option>
                           <option value="https">HTTPS</option>
@@ -2424,32 +2420,32 @@
                       </div>
                       <div class="checkbox-group">
                         <input id="priv-res-ssl" type="checkbox" bind:checked={privResForm.ssl} />
-                        <label for="priv-res-ssl">{$LL.pangolin.ignoreSsl()}</label>
+                        <label for="priv-res-ssl">{"Ignore backend SSL errors"}</label>
                       </div>
                     {/if}
                   </div>
                 {:else}
                   <div class="form-grid-2 mt-4">
                     <div class="form-group">
-                      <label for="priv-res-tcp">{$LL.pangolin.tcpPortsLabel()}</label>
+                      <label for="priv-res-tcp">{"TCP Ports (e.g. 80,443,8000-9000)"}</label>
                       <input id="priv-res-tcp" type="text" placeholder="*" bind:value={privResForm.tcpPortRangeString} />
                     </div>
                     <div class="form-group">
-                      <label for="priv-res-udp">{$LL.pangolin.udpPortsLabel()}</label>
+                      <label for="priv-res-udp">{"UDP Ports"}</label>
                       <input id="priv-res-udp" type="text" placeholder="*" bind:value={privResForm.udpPortRangeString} />
                     </div>
                   </div>
                   {#if privResForm.mode === 'cidr'}
                     <div class="checkbox-group mt-2">
                       <input id="priv-res-icmp" type="checkbox" bind:checked={privResForm.disableIcmp} />
-                      <label for="priv-res-icmp">{$LL.pangolin.blockIcmpLabel()}</label>
+                      <label for="priv-res-icmp">{"Block ICMP traffic (Ping)"}</label>
                     </div>
                   {/if}
                 {/if}
 
                 <!-- Associations (Tunnels) -->
                 <div class="form-group mt-4">
-                  <span class="group-label">{$LL.pangolin.assignToTunnels()}</span>
+                  <span class="group-label">{"Assign to tunnels (Exit Nodes) *"}</span>
                   <div class="checkbox-list">
                     {#each sitesList as site}
                       <label class="check-item">
@@ -2468,9 +2464,9 @@
                 </div>
               </div>
               <footer class="modal-footer">
-                <button class="secondary" onclick={() => showCreatePrivResModal = false}>{$LL.common.cancel()}</button>
+                <button class="secondary" onclick={() => showCreatePrivResModal = false}>{"Cancel"}</button>
                 <button class="primary" onclick={handleSavePrivRes} disabled={!privResForm.name || !privResForm.destination}>
-                  {$LL.pangolin.saveResource()}
+                  {"Save Resource"}
                 </button>
               </footer>
             </div>
@@ -2482,46 +2478,46 @@
           <div class="modal-backdrop" onclick={() => showCreatePubResModal = false}>
             <div class="modal-content glass dialog-md" onclick={(e) => e.stopPropagation()}>
               <header class="modal-header">
-                <h3>{isEditingPubRes ? $LL.pangolin.editResource() : $LL.pangolin.newPubBtn()}</h3>
+                <h3>{isEditingPubRes ? "Edit resource" : "Create public resource"}</h3>
                 <button class="btn-icon-compact secondary" onclick={() => showCreatePubResModal = false}><X size={16} /></button>
               </header>
               <div class="modal-body scrollable max-h-400">
                 <div class="form-grid-2">
                   <div class="form-group">
-                    <label for="pub-res-name">{$LL.pangolin.resourceNameLabel()}</label>
-                    <input id="pub-res-name" type="text" placeholder={$LL.pangolin.pubResNamePlaceholder()} bind:value={pubResForm.name} />
+                    <label for="pub-res-name">{"Resource name *"}</label>
+                    <input id="pub-res-name" type="text" placeholder={"e.g. Admin HTTP Panel"} bind:value={pubResForm.name} />
                   </div>
                   <div class="form-group">
-                    <label for="pub-res-mode">{$LL.pangolin.resourceModeLabel()}</label>
+                    <label for="pub-res-mode">{"Resource mode *"}</label>
                     <select id="pub-res-mode" bind:value={pubResForm.mode}>
-                      <option value="http">{$LL.pangolin.pubResModeHttp()}</option>
-                      <option value="ssh">{$LL.pangolin.pubResModeSsh()}</option>
-                      <option value="rdp">{$LL.pangolin.pubResModeRdp()}</option>
-                      <option value="vnc">{$LL.pangolin.pubResModeVnc()}</option>
-                      <option value="tcp">{$LL.pangolin.pubResModeTcp()}</option>
-                      <option value="udp">{$LL.pangolin.pubResModeUdp()}</option>
+                      <option value="http">{"HTTP Web App"}</option>
+                      <option value="ssh">{"Remote SSH Terminal"}</option>
+                      <option value="rdp">{"Remote Desktop RDP"}</option>
+                      <option value="vnc">{"Remote Desktop VNC"}</option>
+                      <option value="tcp">{"Raw TCP Tunnel"}</option>
+                      <option value="udp">{"Raw UDP Tunnel"}</option>
                     </select>
                   </div>
                 </div>
 
                 {#if pubResForm.mode === 'tcp' || pubResForm.mode === 'udp'}
                   <div class="form-group mt-4">
-                    <label for="pub-res-proxyport">{$LL.pangolin.proxyPortLabel()}</label>
+                    <label for="pub-res-proxyport">{"Pangolin Proxy Port *"}</label>
                     <input id="pub-res-proxyport" type="number" placeholder="8080" bind:value={pubResForm.proxyPort} />
                   </div>
                 {:else}
                   <div class="form-grid-2 mt-4">
                     <div class="form-group">
-                      <label for="pub-res-domain">{$LL.pangolin.mainDomain()}</label>
+                      <label for="pub-res-domain">{"Primary domain *"}</label>
                       <select id="pub-res-domain" bind:value={pubResForm.domainId}>
-                        <option value="">{$LL.pangolin.selectDomain()}</option>
+                        <option value="">{"Select domain…"}</option>
                         {#each domainsList as dom}
                           <option value={dom.domainId}>{dom.baseDomain}</option>
                         {/each}
                       </select>
                     </div>
                     <div class="form-group">
-                      <label for="pub-res-sub">{$LL.pangolin.subdomainLabel()}</label>
+                      <label for="pub-res-sub">{"Subdomain"}</label>
                       <input id="pub-res-sub" type="text" placeholder="admin" bind:value={pubResForm.subdomain} />
                     </div>
                   </div>
@@ -2529,41 +2525,41 @@
                   <div class="form-grid-2 mt-4">
                     <div class="checkbox-group">
                       <input id="pub-res-sticky" type="checkbox" bind:checked={pubResForm.stickySession} />
-                      <label for="pub-res-sticky">{$LL.pangolin.colSticky()}</label>
+                      <label for="pub-res-sticky">{"Sticky session"}</label>
                     </div>
                     <div class="form-group">
-                      <label for="pub-res-postauth">{$LL.pangolin.postAuthPathRedirect()}</label>
+                      <label for="pub-res-postauth">{"Post-Auth Path Redirect"}</label>
                       <input id="pub-res-postauth" type="text" placeholder="/dashboard" bind:value={pubResForm.postAuthPath} />
                     </div>
                   </div>
                 {/if}
 
                 <!-- Forward Target Configuration -->
-                <h4 class="mt-4 border-bottom pb-2 font-semibold text-orange" style="font-size: 0.95rem;">{$LL.pangolin.forwardTarget()}</h4>
+                <h4 class="mt-4 border-bottom pb-2 font-semibold text-orange" style="font-size: 0.95rem;">{"Forward Target"}</h4>
                 <div class="form-grid-3 mt-2">
                   <div class="form-group">
-                    <label for="pub-res-target-site">{$LL.pangolin.exitSite()}</label>
+                    <label for="pub-res-target-site">{"Exit tunnel (Site) *"}</label>
                     <select id="pub-res-target-site" bind:value={pubResForm.targetSiteId}>
-                      <option value="">{$LL.pangolin.selectTunnel()}</option>
+                      <option value="">{"Select tunnel…"}</option>
                       {#each sitesList as site}
                         <option value={site.siteId}>{site.name} ({site.type})</option>
                       {/each}
                     </select>
                   </div>
                   <div class="form-group">
-                    <label for="pub-res-target-ip">{$LL.pangolin.targetIpLabel()}</label>
-                    <input id="pub-res-target-ip" type="text" placeholder={$LL.pangolin.targetIpPlaceholder()} bind:value={pubResForm.targetIp} />
+                    <label for="pub-res-target-ip">{"Destination IP / Host *"}</label>
+                    <input id="pub-res-target-ip" type="text" placeholder={"e.g. 192.168.1.100 or hostname"} bind:value={pubResForm.targetIp} />
                   </div>
                   <div class="form-group">
-                    <label for="pub-res-target-port">{$LL.pangolin.destPortLabel()}</label>
+                    <label for="pub-res-target-port">{"Destination port *"}</label>
                     <input id="pub-res-target-port" type="number" placeholder="80" bind:value={pubResForm.targetPort} min="1" max="65535" />
                   </div>
                 </div>
               </div>
               <footer class="modal-footer">
-                <button class="secondary" onclick={() => showCreatePubResModal = false}>{$LL.common.cancel()}</button>
+                <button class="secondary" onclick={() => showCreatePubResModal = false}>{"Cancel"}</button>
                 <button class="primary" onclick={handleSavePubRes} disabled={isPubResFormInvalid}>
-                  {$LL.pangolin.saveResource()}
+                  {"Save Resource"}
                 </button>
               </footer>
             </div>
@@ -2576,16 +2572,16 @@
         <div class="access-view">
           <div class="access-tab-nav">
             <button class="tab-btn" class:active={activeAccessSubTab === 'users'} onclick={() => activeAccessSubTab = 'users'}>
-              <Users size={14} /> {$LL.pangolin.tabUsers()}
+              <Users size={14} /> {"Users"}
             </button>
             <button class="tab-btn" class:active={activeAccessSubTab === 'roles'} onclick={() => activeAccessSubTab = 'roles'}>
-              <Shield size={14} /> {$LL.pangolin.tabRoles()}
+              <Shield size={14} /> {"Roles"}
             </button>
             <button class="tab-btn" class:active={activeAccessSubTab === 'idps'} onclick={() => activeAccessSubTab = 'idps'}>
               <Key size={14} /> Identity Providers
             </button>
             <button class="tab-btn" class:active={activeAccessSubTab === 'invitations'} onclick={() => activeAccessSubTab = 'invitations'}>
-              <UserPlus size={14} /> {$LL.pangolin.tabInvitations()}
+              <UserPlus size={14} /> {"Invitations"}
             </button>
           </div>
 
@@ -2593,23 +2589,23 @@
             <!-- 4A. Users Sub-tab -->
             {#if activeAccessSubTab === 'users'}
               <header class="section-header">
-                <h3>{$LL.pangolin.orgUsers()}</h3>
+                <h3>{"Active organization users"}</h3>
               </header>
               <table class="telemetry-table">
                 <thead>
                   <tr>
-                    <th>{$LL.pangolin.usernameEmailLabel()}</th>
-                    <th>{$LL.pangolin.userId()}</th>
-                    <th>{$LL.pangolin.fullNameLabel()}</th>
-                    <th>{$LL.pangolin.auth2faLabel()}</th>
-                    <th>{$LL.pangolin.tabRoles()}</th>
+                    <th>{"Email (Username)"}</th>
+                    <th>{"User ID"}</th>
+                    <th>{"Name / Surname"}</th>
+                    <th>{"2FA Authentication"}</th>
+                    <th>{"Roles"}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {#if isAccessLoading}
                     <tr><td colspan="5" class="text-center py-4"><RefreshCw class="spin" size={16} /></td></tr>
                   {:else if usersList.length === 0}
-                    <tr><td colspan="5" class="text-center py-4 text-muted">{$LL.pangolin.emptyUsers()}</td></tr>
+                    <tr><td colspan="5" class="text-center py-4 text-muted">{"No users."}</td></tr>
                   {:else}
                     {#each usersList as u}
                       <tr>
@@ -2618,7 +2614,7 @@
                         <td>{u.name || '-'}</td>
                         <td>
                           <span class="status-badge {u.twoFaEnabled ? 'allowed' : 'blocked'}">
-                            {u.twoFaEnabled ? $LL.pangolin.enabledFem() : $LL.pangolin.disabledFem()}
+                            {u.twoFaEnabled ? "Enabled" : "Disabled"}
                           </span>
                         </td>
                         <td>
@@ -2638,34 +2634,34 @@
             <!-- 4B. Roles Sub-tab -->
             {#if activeAccessSubTab === 'roles'}
               <header class="section-header">
-                <h3>{$LL.pangolin.accessRoles()}</h3>
+                <h3>{"Security roles"}</h3>
                 <button class="primary btn-sm" onclick={() => { resetRoleForm(); showCreateRoleModal = true; }}>
-                  <Plus size={16} /> {$LL.pangolin.newRole()}
+                  <Plus size={16} /> {"New role"}
                 </button>
               </header>
               <table class="telemetry-table">
                 <thead>
                   <tr>
-                    <th>{$LL.pangolin.roleName()}</th>
-                    <th>{$LL.pangolin.roleDesc()}</th>
-                    <th>{$LL.pangolin.deviceVerification()}</th>
-                    <th>{$LL.pangolin.sshAccess()}</th>
-                    <th>{$LL.pangolin.sshSudoPermsLabel()}</th>
-                    <th>{$LL.common.operations()}</th>
+                    <th>{"Role name"}</th>
+                    <th>{"Description"}</th>
+                    <th>{"Device verification"}</th>
+                    <th>{"Allow SSH access"}</th>
+                    <th>{"SSH Sudo Permissions"}</th>
+                    <th>{"Actions"}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {#if isAccessLoading}
                     <tr><td colspan="6" class="text-center py-4"><RefreshCw class="spin" size={16} /></td></tr>
                   {:else if rolesList.length === 0}
-                    <tr><td colspan="6" class="text-center py-4 text-muted">{$LL.pangolin.emptyRoles()}</td></tr>
+                    <tr><td colspan="6" class="text-center py-4 text-muted">{"No roles."}</td></tr>
                   {:else}
                     {#each rolesList as r}
                       <tr>
                         <td class="font-semibold text-orange">{r.name}</td>
                         <td>{r.description || '-'}</td>
-                        <td>{r.requireDeviceApproval ? $LL.pangolin.deviceApprovalRequired() : $LL.pangolin.deviceApprovalDisabled()}</td>
-                        <td>{r.allowSsh ? $LL.pangolin.allow() : $LL.pangolin.block()}</td>
+                        <td>{r.requireDeviceApproval ? "Required" : "Not required"}</td>
+                        <td>{r.allowSsh ? "Allow" : "Block"}</td>
                         <td><span class="mode-tag">{r.sshSudoMode}</span></td>
                         <td>
                           <div class="flex-actions">
@@ -2692,8 +2688,8 @@
               <table class="telemetry-table">
                 <thead>
                   <tr>
-                    <th>{$LL.pangolin.providerIdLabel()}</th>
-                    <th>{$LL.common.name()}</th>
+                    <th>{"Provider ID"}</th>
+                    <th>{"Name"}</th>
                     <th>OIDC Issuer</th>
                     <th>Client ID</th>
                   </tr>
@@ -2702,7 +2698,7 @@
                   {#if isAccessLoading}
                     <tr><td colspan="4" class="text-center py-4"><RefreshCw class="spin" size={16} /></td></tr>
                   {:else if idpsList.length === 0}
-                    <tr><td colspan="4" class="text-center py-4 text-muted">{$LL.pangolin.emptyIdps()}</td></tr>
+                    <tr><td colspan="4" class="text-center py-4 text-muted">{"No OIDC identity providers. Local accounts only."}</td></tr>
                   {:else}
                     {#each idpsList as idp}
                       <tr>
@@ -2720,25 +2716,25 @@
              <!-- 4D. Invitations Sub-tab -->
             {#if activeAccessSubTab === 'invitations'}
               <header class="section-header">
-                <h3>{$LL.pangolin.sentInvitations()}</h3>
+                <h3>{"Sent user invitations"}</h3>
                 <button class="primary btn-sm" onclick={() => showInviteModal = true}>
-                  <Plus size={16} /> {$LL.pangolin.inviteUser()}
+                  <Plus size={16} /> {"Invite user"}
                 </button>
               </header>
               <table class="telemetry-table">
                 <thead>
                   <tr>
-                    <th>{$LL.pangolin.inviteeEmailLabel()}</th>
-                    <th>{$LL.pangolin.invitationCodeLabel()}</th>
-                    <th>{$LL.pangolin.expires()}</th>
-                    <th>{$LL.common.operations()}</th>
+                    <th>{"Invitee email"}</th>
+                    <th>{"Invitation code / link"}</th>
+                    <th>{"Expires"}</th>
+                    <th>{"Actions"}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {#if isAccessLoading}
                     <tr><td colspan="4" class="text-center py-4"><RefreshCw class="spin" size={16} /></td></tr>
                   {:else if invitationsList.length === 0}
-                    <tr><td colspan="4" class="text-center py-4 text-muted">{$LL.pangolin.emptyInvitations()}</td></tr>
+                    <tr><td colspan="4" class="text-center py-4 text-muted">{"No open invitations."}</td></tr>
                   {:else}
                     {#each invitationsList as inv}
                       <tr>
@@ -2764,16 +2760,16 @@
           <div class="modal-backdrop" onclick={() => showInviteModal = false}>
             <div class="modal-content glass dialog-sm" onclick={(e) => e.stopPropagation()}>
               <header class="modal-header">
-                <h3>{$LL.pangolin.inviteUserTitle()}</h3>
+                <h3>{"Invite user to organization"}</h3>
                 <button class="btn-icon-compact secondary" onclick={() => showInviteModal = false}><X size={16} /></button>
               </header>
               <div class="modal-body">
                 <div class="form-group">
-                  <label for="invite-email">{$LL.pangolin.inviteEmailLabel()}</label>
+                  <label for="invite-email">{"Email address *"}</label>
                   <input id="invite-email" type="email" placeholder="user@company.com" bind:value={inviteForm.email} />
                 </div>
                 <div class="form-group">
-                  <span class="group-label">{$LL.pangolin.assignInitialRoles()}</span>
+                  <span class="group-label">{"Assign initial roles:"}</span>
                   <div class="checkbox-list">
                     {#each rolesList as role}
                       <label class="check-item">
@@ -2792,8 +2788,8 @@
                 </div>
               </div>
               <footer class="modal-footer">
-                <button class="secondary" onclick={() => showInviteModal = false}>{$LL.common.cancel()}</button>
-                <button class="primary" onclick={handleSendInvite} disabled={!inviteForm.email}>{$LL.pangolin.sendInvitation()}</button>
+                <button class="secondary" onclick={() => showInviteModal = false}>{"Cancel"}</button>
+                <button class="primary" onclick={handleSendInvite} disabled={!inviteForm.email}>{"Send invitation"}</button>
               </footer>
             </div>
           </div>
@@ -2804,27 +2800,27 @@
           <div class="modal-backdrop" onclick={() => showCreateRoleModal = false}>
             <div class="modal-content glass dialog-md" onclick={(e) => e.stopPropagation()}>
               <header class="modal-header">
-                <h3>{isEditingRole ? $LL.common.edit() : $LL.pangolin.newRole()}</h3>
+                <h3>{isEditingRole ? "Edit" : "New role"}</h3>
                 <button class="btn-icon-compact secondary" onclick={() => showCreateRoleModal = false}><X size={16} /></button>
               </header>
               <div class="modal-body scrollable max-h-400">
                 <div class="form-group">
-                  <label for="role-name">{$LL.pangolin.roleName()} *</label>
-                  <input id="role-name" type="text" placeholder={$LL.pangolin.roleNamePlaceholder()} bind:value={roleForm.name} />
+                  <label for="role-name">{"Role name"} *</label>
+                  <input id="role-name" type="text" placeholder={"e.g. IT Administrators"} bind:value={roleForm.name} />
                 </div>
                 <div class="form-group">
-                  <label for="role-desc">{$LL.pangolin.roleDescLabel()}</label>
-                  <textarea id="role-desc" placeholder={$LL.pangolin.roleDescPlaceholder()} bind:value={roleForm.description}></textarea>
+                  <label for="role-desc">{"Role description"}</label>
+                  <textarea id="role-desc" placeholder={"Technical access to servers…"} bind:value={roleForm.description}></textarea>
                 </div>
                 
                 <div class="checkbox-group">
                   <input id="role-dev-app" type="checkbox" bind:checked={roleForm.requireDeviceApproval} />
-                  <label for="role-dev-app">{$LL.pangolin.deviceTrust()}</label>
+                  <label for="role-dev-app">{"Require device approval (MFA/Device Trust)"}</label>
                 </div>
 
                 <div class="checkbox-group mt-2">
                   <input id="role-allow-ssh" type="checkbox" bind:checked={roleForm.allowSsh} />
-                  <label for="role-allow-ssh">{$LL.pangolin.sshAccess()}</label>
+                  <label for="role-allow-ssh">{"Allow SSH access"}</label>
                 </div>
 
                 {#if roleForm.allowSsh}
@@ -2832,18 +2828,18 @@
                     <div class="form-group">
                       <label for="role-sudo">SSH Sudo Mode</label>
                       <select id="role-sudo" bind:value={roleForm.sshSudoMode}>
-                        <option value="none">{$LL.pangolin.sshSudoNone()}</option>
-                        <option value="full">{$LL.pangolin.sshSudoFull()}</option>
-                        <option value="commands">{$LL.pangolin.sshSudoCommands()}</option>
+                        <option value="none">{"No sudo (standard user)"}</option>
+                        <option value="full">{"Full sudo (root privileges)"}</option>
+                        <option value="commands">{"Sudo for specific commands only"}</option>
                       </select>
                     </div>
 
                     {#if roleForm.sshSudoMode === 'commands'}
                       <div class="form-group">
-                        <label for="sudo-commands-list">{$LL.pangolin.sshSudoCommands()}:</label>
+                        <label for="sudo-commands-list">{"Sudo for specific commands only"}:</label>
                         <div class="list-adder">
                           <input id="sudo-commands-list" type="text" placeholder="systemctl restart nginx" bind:value={newSudoCommand} />
-                          <button class="primary btn-sm" onclick={addSudoCommand}>{$LL.common.add()}</button>
+                          <button class="primary btn-sm" onclick={addSudoCommand}>{"Add"}</button>
                         </div>
                         <div class="tags-list mt-2">
                           {#each roleForm.sshSudoCommands as cmd}
@@ -2857,14 +2853,14 @@
 
                     <div class="checkbox-group mt-2">
                       <input id="role-home-dir" type="checkbox" bind:checked={roleForm.sshCreateHomeDir} />
-                      <label for="role-home-dir">{$LL.pangolin.roleHomeDir()}</label>
+                      <label for="role-home-dir">{"Automatically create home directory (/home)"}</label>
                     </div>
 
                     <div class="form-group mt-3">
-                      <label for="unix-groups-list">{$LL.pangolin.unixGroupsLabel()}</label>
+                      <label for="unix-groups-list">{"UNIX system groups on server:"}</label>
                       <div class="list-adder">
                         <input id="unix-groups-list" type="text" placeholder="docker" bind:value={newUnixGroup} />
-                        <button class="primary btn-sm" onclick={addUnixGroup}>{$LL.common.add()}</button>
+                        <button class="primary btn-sm" onclick={addUnixGroup}>{"Add"}</button>
                       </div>
                       <div class="tags-list mt-2">
                         {#each roleForm.sshUnixGroups as grp}
@@ -2878,8 +2874,8 @@
                 {/if}
               </div>
               <footer class="modal-footer">
-                <button class="secondary" onclick={() => showCreateRoleModal = false}>{$LL.common.cancel()}</button>
-                <button class="primary" onclick={handleSaveRole} disabled={!roleForm.name}>{$LL.pangolin.saveRole()}</button>
+                <button class="secondary" onclick={() => showCreateRoleModal = false}>{"Cancel"}</button>
+                <button class="primary" onclick={handleSaveRole} disabled={!roleForm.name}>{"Save role"}</button>
               </footer>
             </div>
           </div>
@@ -2891,61 +2887,61 @@
         <div class="clients-view">
           <div class="section-tabs">
             <button class="tab-btn" class:active={activeClientsTab === 'devices'} onclick={() => activeClientsTab = 'devices'}>
-              {$LL.pangolin.trustedDevices()}
+              {"Trusted user devices"}
             </button>
             <button class="tab-btn" class:active={activeClientsTab === 'tokens'} onclick={() => activeClientsTab = 'tokens'}>
-              {$LL.pangolin.tabTokens()}
+              {"Machine Access Tokens"}
             </button>
           </div>
 
           <div class="mgmt-section glass">
             {#if activeClientsTab === 'devices'}
               <header class="section-header">
-                <h3>{$LL.pangolin.registeredDevices()}</h3>
+                <h3>{"Registered endpoint devices"}</h3>
               </header>
               <table class="telemetry-table">
                 <thead>
                   <tr>
-                    <th>{$LL.pangolin.deviceName()}</th>
-                    <th>{$LL.pangolin.roleOwner()}</th>
+                    <th>{"Device name"}</th>
+                    <th>{"Owner (actor)"}</th>
                     <th>Subnet IP</th>
-                    <th>{$LL.pangolin.deviceVerification()}</th>
-                    <th>{$LL.pangolin.archivedPlur()}</th>
-                    <th>{$LL.pangolin.lastSeen()}</th>
-                    <th>{$LL.common.operations()}</th>
+                    <th>{"Device verification"}</th>
+                    <th>{"Archived"}</th>
+                    <th>{"Last seen"}</th>
+                    <th>{"Actions"}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {#if isClientsLoading}
                     <tr><td colspan="7" class="text-center py-4"><RefreshCw class="spin" size={16} /></td></tr>
                   {:else if clientsList.length === 0}
-                    <tr><td colspan="7" class="text-center py-4 text-muted">{$LL.pangolin.emptyDevices()}</td></tr>
+                    <tr><td colspan="7" class="text-center py-4 text-muted">{"No registered devices."}</td></tr>
                   {:else}
                     {#each clientsList as client}
                       <tr class:archived={client.archived} class:blocked={client.blocked}>
                         <td class="font-semibold">{client.name}</td>
-                        <td>{client.username || $LL.pangolin.machineOther()}</td>
+                        <td>{client.username || "Machine (Token)"}</td>
                         <td class="mono-stats">{client.subnet || '-'}</td>
                         <td>
                           <span class="status-badge {client.blocked ? 'blocked' : 'allowed'}">
-                            {client.blocked ? $LL.pangolin.clientBlocked() : $LL.pangolin.clientAllowed()}
+                            {client.blocked ? "Blocked" : "Allowed"}
                           </span>
                         </td>
                         <td>
                           <span class="status-badge {client.archived ? 'blocked' : 'allowed'}">
-                            {client.archived ? $LL.common.yes() : $LL.common.no()}
+                            {client.archived ? "Yes" : "No"}
                           </span>
                         </td>
                         <td class="mono-stats font-xs">
-                          {client.lastHandshakeTime ? formatDate(client.lastHandshakeTime * 1000) : $LL.pangolin.never()}
+                          {client.lastHandshakeTime ? formatDate(client.lastHandshakeTime * 1000) : "Never"}
                         </td>
                         <td>
                           <div class="flex-actions">
                             <button class="secondary btn-sm" onclick={() => toggleBlockClient(client)}>
-                              {client.blocked ? $LL.pangolin.unblock() : $LL.pangolin.blockAction()}
+                              {client.blocked ? "Unblock" : "Block"}
                             </button>
                             <button class="secondary btn-sm" onclick={() => toggleArchiveClient(client)}>
-                              {client.archived ? $LL.pangolin.restore() : $LL.pangolin.archive()}
+                              {client.archived ? "Restore" : "Archive"}
                             </button>
                             <button class="secondary btn-icon-compact text-red" onclick={() => handleDeleteClient(client.clientId)}>
                               <Trash2 size={14} />
@@ -2959,30 +2955,30 @@
               </table>
             {:else}
               <header class="section-header">
-                <h3>{$LL.pangolin.machineTokens()}</h3>
+                <h3>{"Machine access tokens (API keys / tokens)"}</h3>
               </header>
               <table class="telemetry-table">
                 <thead>
                   <tr>
-                    <th>{$LL.pangolin.tokenLabel()}</th>
-                    <th>{$LL.pangolin.tokenId()}</th>
-                    <th>{$LL.pangolin.keyPrefix()}</th>
-                    <th>{$LL.pangolin.expires()}</th>
-                    <th>{$LL.common.operations()}</th>
+                    <th>{"Token label"}</th>
+                    <th>{"Token ID"}</th>
+                    <th>{"Key (Prefix)"}</th>
+                    <th>{"Expires"}</th>
+                    <th>{"Actions"}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {#if isClientsLoading}
                     <tr><td colspan="5" class="text-center py-4"><RefreshCw class="spin" size={16} /></td></tr>
                   {:else if accessTokensList.length === 0}
-                    <tr><td colspan="5" class="text-center py-4 text-muted">{$LL.pangolin.emptyTokens()}</td></tr>
+                    <tr><td colspan="5" class="text-center py-4 text-muted">{"No generated access keys."}</td></tr>
                   {:else}
                     {#each accessTokensList as tok}
                       <tr>
-                        <td class="font-semibold">{tok.name || $LL.pangolin.noLabel()}</td>
+                        <td class="font-semibold">{tok.name || "No label"}</td>
                         <td class="mono-stats font-xs">{tok.accessTokenId}</td>
                         <td class="mono-stats font-xs">{tok.keyPrefix}...</td>
-                        <td>{tok.expiresAt ? formatDate(tok.expiresAt) : $LL.pangolin.never()}</td>
+                        <td>{tok.expiresAt ? formatDate(tok.expiresAt) : "Never"}</td>
                         <td>
                           <button class="secondary btn-icon-compact text-red" onclick={() => handleDeleteToken(tok.accessTokenId)}>
                             <Trash2 size={14} />
@@ -3001,8 +2997,8 @@
       <!-- 6. SETTINGS VIEW -->
       {#if activeSubTab === 'settings'}
         <div class="settings-view glass glow-amber">
-          <h3>{$LL.pangolin.integrationApiTitle()}</h3>
-          <p class="text-muted">{$LL.pangolin.settingsIntro()}</p>
+          <h3>{"Pangolin Integration API configuration"}</h3>
+          <p class="text-muted">{"Configure connection to your Pangolin management panel so Jarvis can fetch logs, statistics and manage tunnels and access rules."}</p>
           
           {#if configMsg.text}
             <div class="info-alert {configMsg.type}">
@@ -3013,42 +3009,42 @@
 
           <div class="settings-form">
             <div class="form-group">
-              <label for="api-url-input">{$LL.pangolin.apiUrl()}</label>
+              <label for="api-url-input">{"API URL"}</label>
               <input id="api-url-input" type="text" placeholder="https://api.pangolin.net" bind:value={config.api_url} />
-              <span class="input-tip">{$LL.pangolin.apiUrlHint()}</span>
+              <span class="input-tip">{"Main admin panel address or self-hosted Pangolin API."}</span>
             </div>
             
             <div class="form-group">
-              <label for="api-key-input">{$LL.pangolin.apiKey()}</label>
-              <input id="api-key-input" type="password" placeholder={config.has_api_key ? '••••••••••••••••••••••••••••••••' : $LL.pangolin.apiKeyPlaceholder()} bind:value={apiKeyInput} />
-              <span class="input-tip">{$LL.pangolin.apiKeyIntro()} {config.has_api_key ? $LL.pangolin.apiKeySaved() : $LL.pangolin.apiKeyHint()}</span>
+              <label for="api-key-input">{"API key"}</label>
+              <input id="api-key-input" type="password" placeholder={config.has_api_key ? '••••••••••••••••••••••••••••••••' : "Paste API key (Root or Org Key)"} bind:value={apiKeyInput} />
+              <span class="input-tip">{"Bearer token with Integration API permissions."} {config.has_api_key ? "Key is already saved in the system credential store." : "Key will be saved in the secure credential manager (Keyring)."}</span>
             </div>
 
             {#if orgs.length > 0}
               <div class="form-group">
-                <label for="api-org-select">{$LL.pangolin.activeOrganization()}</label>
+                <label for="api-org-select">{"Active Organization"}</label>
                 <select id="api-org-select" bind:value={config.org_id}>
                   {#each orgs as org}
                     <option value={org.orgId}>{org.label} ({org.orgId})</option>
                   {/each}
                 </select>
-                <span class="input-tip">{$LL.pangolin.orgSelect()}</span>
+                <span class="input-tip">{"Select the organization to manage with this panel."}</span>
               </div>
             {:else}
               <div class="form-group">
-                <label for="api-org-input">{$LL.pangolin.orgId()}</label>
-                <input id="api-org-input" type="text" placeholder={$LL.pangolin.orgIdManual()} bind:value={config.org_id} />
-                <span class="input-tip">{$LL.pangolin.orgIdHint()}</span>
+                <label for="api-org-input">{"Organization ID"}</label>
+                <input id="api-org-input" type="text" placeholder={"Enter organization ID manually if list was not fetched"} bind:value={config.org_id} />
+                <span class="input-tip">{"Organization identifier for org-scoped keys."}</span>
               </div>
             {/if}
 
             <div class="flex-actions mt-4">
               <button class="primary" onclick={() => handleSaveConfig()} disabled={isSavingConfig}>
-                <Check size={16} /> {$LL.pangolin.saveVerify()}
+                <Check size={16} /> {"Save and verify connection…"}
               </button>
               {#if config.has_api_key}
                 <button class="secondary" onclick={loadConfig}>
-                  <RefreshCw size={16} /> {$LL.pangolin.refreshConnection()}
+                  <RefreshCw size={16} /> {"Refresh connection"}
                 </button>
               {/if}
             </div>

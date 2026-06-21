@@ -1,8 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { Server, Box, RefreshCw } from 'lucide-svelte';
-  import { LL } from '$lib/i18n/i18n-svelte';
-  import { listContainers, type ExecTarget } from '$lib/exec/target';
+    import { listContainers, type ExecTarget } from '$lib/exec/target';
 
   let {
     target = $bindable({ kind: 'host' } as ExecTarget),
@@ -30,9 +29,9 @@
 </script>
 
 <div class="target-picker">
-  <span class="tp-label">{$LL.execTarget.label()}</span>
+  <span class="tp-label">Run on</span>
   <button class="tp-chip" class:active={target.kind === 'host'} onclick={selectHost}>
-    <Server size={13} /> {$LL.execTarget.host()}
+    <Server size={13} /> Host
   </button>
   {#each containers as c}
     <button
@@ -44,7 +43,7 @@
       <Box size={13} /> {c}
     </button>
   {/each}
-  <button class="tp-refresh" onclick={refresh} title={$LL.execTarget.refreshContainers()} aria-label={$LL.execTarget.refreshContainers()}>
+  <button class="tp-refresh" onclick={refresh} title="Refresh containers" aria-label="Refresh containers">
     <RefreshCw size={13} class={loading ? 'spin' : ''} />
   </button>
 </div>

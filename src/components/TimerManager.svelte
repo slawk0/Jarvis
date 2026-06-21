@@ -5,11 +5,10 @@
   import SortableTh from './ui/SortableTh.svelte';
   import SudoModal from './SudoModal.svelte';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
-  import { LL } from '$lib/i18n/i18n-svelte';
-  import { get } from 'svelte/store';
+    import { get } from 'svelte/store';
   import { shQuote } from '$lib/exec/target';
   import { notifications } from '$lib/notifications.svelte';
-  import { formatInvokeError, isSudoPasswordRequired } from '$lib/i18n/backendErrors';
+  import { formatInvokeError, isSudoPasswordRequired } from '$lib/backendErrors';
 
   interface TimerUnit {
     unit: string;
@@ -110,7 +109,7 @@
     const run = async () => {
       try {
         await invoke('exec_custom_command', { cmd: `systemctl ${act} ${shQuote(unit)}`, useSudo: true });
-        notifications.success(get(LL).timers.actionOk({ action: act, unit }));
+        notifications.success(`${act} on ${unit} done`);
         await load();
       } catch (err) {
         if (isSudoPasswordRequired(err)) {
@@ -126,7 +125,7 @@
 
   async function inspect(unit: string) {
     detailUnit = unit;
-    detailOutput = get(LL).common.loading();
+    detailOutput = "Loading…";
     try {
       detailOutput = await invoke<string>('exec_custom_command', {
         cmd: `systemctl status ${shQuote(unit)} --no-pager -l 2>&1 | head -n 60; echo '---'; systemctl cat ${shQuote(unit)} 2>/dev/null`,
@@ -144,18 +143,18 @@
 
 <div class="timer-manager manager-shell fade-in">
   <header class="manager-header">
-    <h1 class="page-title">{$LL.timers.title()}</h1>
+    <h1 class="page-title">Systemd timers</h1>
   </header>
 
   <div class="table-wrap glass">
     <table>
       <thead>
         <tr>
-          <SortableTh label={$LL.timers.unit()} column="unit" activeColumn={sort.column} direction={sort.direction} onsort={(c) => (sort = nextSort(sort, c as SortCol))} />
-          <SortableTh label={$LL.timers.next()} column="next" activeColumn={sort.column} direction={sort.direction} onsort={(c) => (sort = nextSort(sort, c as SortCol))} />
-          <SortableTh label={$LL.timers.last()} column="last" activeColumn={sort.column} direction={sort.direction} onsort={(c) => (sort = nextSort(sort, c as SortCol))} />
-          <SortableTh label={$LL.timers.state()} column="state" activeColumn={sort.column} direction={sort.direction} onsort={(c) => (sort = nextSort(sort, c as SortCol))} />
-          <th class="actions-col">{$LL.common.actions()}</th>
+          <SortableTh label="Timer unit" column="unit" activeColumn={sort.column} direction={sort.direction} onsort={(c) => (sort = nextSort(sort, c as SortCol))} />
+          <SortableTh label="Next run" column="next" activeColumn={sort.column} direction={sort.direction} onsort={(c) => (sort = nextSort(sort, c as SortCol))} />
+          <SortableTh label="Last run" column="last" activeColumn={sort.column} direction={sort.direction} onsort={(c) => (sort = nextSort(sort, c as SortCol))} />
+          <SortableTh label="State" column="state" activeColumn={sort.column} direction={sort.direction} onsort={(c) => (sort = nextSort(sort, c as SortCol))} />
+          <th class="actions-col">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -172,19 +171,19 @@
               {#if t.active === 'active'}<span class="badge success">{t.active}</span>{/if}
             </td>
             <td class="actions-col">
-              <button class="row-btn" onclick={() => inspect(t.unit)} title={$LL.timers.inspect()}><Eye size={13} /></button>
-              <button class="row-btn" onclick={() => action('start', t.unit)} title={$LL.timers.runNow()}><Play size={13} /></button>
-              <button class="row-btn" onclick={() => action('stop', t.unit)} title={$LL.common.stop()}><Square size={13} /></button>
+              <button class="row-btn" onclick={() => inspect(t.unit)} title="Inspect"><Eye size={13} /></button>
+              <button class="row-btn" onclick={() => action('start', t.unit)} title="Run now (start)"><Play size={13} /></button>
+              <button class="row-btn" onclick={() => action('stop', t.unit)} title="Stop"><Square size={13} /></button>
               {#if t.fileState === 'enabled'}
-                <button class="row-btn warn" onclick={() => action('disable', t.unit)} title={$LL.common.disable()}><PowerOff size={13} /></button>
+                <button class="row-btn warn" onclick={() => action('disable', t.unit)} title="Disable"><PowerOff size={13} /></button>
               {:else}
-                <button class="row-btn" onclick={() => action('enable', t.unit)} title={$LL.common.enable()}><Power size={13} /></button>
+                <button class="row-btn" onclick={() => action('enable', t.unit)} title="Enable"><Power size={13} /></button>
               {/if}
             </td>
           </tr>
         {/each}
         {#if sorted.length === 0 && !isLoading}
-          <tr><td colspan="5" class="empty-cell"><TimerIcon size={20} /> {$LL.timers.noTimers()}</td></tr>
+          <tr><td colspan="5" class="empty-cell"><TimerIcon size={20} /> No timers found</td></tr>
         {/if}
       </tbody>
     </table>

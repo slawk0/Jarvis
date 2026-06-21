@@ -24,12 +24,11 @@
   import '@xterm/xterm/css/xterm.css';
   import { registerBackHandler } from '$lib/backNavigation.svelte';
   import { get } from 'svelte/store';
-  import { LL } from '$lib/i18n/i18n-svelte';
-  import { notifications } from '$lib/notifications.svelte';
+    import { notifications } from '$lib/notifications.svelte';
   import {
     formatInvokeError,
     isSudoPasswordRequired,
-  } from '$lib/i18n/backendErrors';
+  } from '$lib/backendErrors';
   import PathAutocomplete from './ui/PathAutocomplete.svelte';
   import SudoModal from './SudoModal.svelte';
   import { validateContent } from '$lib/syntaxValidator';
@@ -203,19 +202,18 @@
       });
 
       if (activeContainer) {
-        const ll = get(LL);
-        term.writeln(`\x1b[1;33m${ll.terminal.containerBanner({ name: activeContainer.containerName })}\x1b[0m`);
+        term.writeln(`\x1b[1;33m[Jarvis Docker Terminal — Container: ${activeContainer.containerName}]\x1b[0m`);
       } else {
-        term.writeln(`\x1b[1;33m${get(LL).terminal.initBanner()}\x1b[0m`);
+        term.writeln(`\x1b[1;33m$[Jarvis SSH Terminal — Initializing…]\x1b[0m`);
       }
 
       // Use ResizeObserver instead of window resize for split-panel support
       setupResizeObserver();
     } catch (err: unknown) {
       if (isSudoPasswordRequired(err)) {
-        errorMsg = get(LL).terminal.sudoRequired();
+        errorMsg = "Sudo password required — return to Docker and enter password, or enable passwordless access.";
       } else {
-        errorMsg = get(LL).terminal.openFailed({ error: formatInvokeError(err) });
+        errorMsg = `Failed to open terminal: ${formatInvokeError(err)}`;
       }
     } finally {
       isLoading = false;
@@ -252,9 +250,9 @@
       });
     } catch (err: unknown) {
       if (isSudoPasswordRequired(err)) {
-        errorMsg = get(LL).terminal.sudoRequired();
+        errorMsg = "Sudo password required — return to Docker and enter password, or enable passwordless access.";
       } else {
-        errorMsg = get(LL).terminal.externalOpenFailed({ error: formatInvokeError(err) });
+        errorMsg = `Failed to open external terminal: ${formatInvokeError(err)}`;
       }
     }
   }
@@ -554,7 +552,7 @@
           pendingAction = run;
           showSudoModal = true;
         } else {
-          errorMsg = get(LL).terminal.readError({ error: formatInvokeError(err) });
+          errorMsg = `Failed to read file: ${formatInvokeError(err)}`;
         }
       } finally {
         isLoading = false;
@@ -590,7 +588,7 @@
           pendingAction = run;
           showSudoModal = true;
         } else {
-          errorMsg = get(LL).terminal.writeError({ error: formatInvokeError(err) });
+          errorMsg = `Failed to write file: ${formatInvokeError(err)}`;
           editorSaveStatus = 'error';
         }
       } finally {
@@ -657,7 +655,7 @@
           switchToServerShell();
         }
       },
-      label: get(LL).terminal.backToServerShell(),
+      label: "Back to server shell",
     });
   });
 
@@ -694,27 +692,27 @@
       <header class="editor-header">
         <div class="editor-title">
           <FileCode size={18} class="accent-blue-text" />
-          <span>{$LL.terminal.editingFile({ file: editingFile.split('/').pop() })}</span>
+          <span>{`Editing ${editingFile.split('/').pop()}`}</span>
           <span class="path-badge mono-val">{editingFile}</span>
           {#if editorSaveStatus === 'saved'}
-            <span class="save-status-badge saved">{$LL.terminal.editorSaved()}</span>
+            <span class="save-status-badge saved">Saved</span>
           {:else if editorSaveStatus === 'saving'}
-            <span class="save-status-badge saving">{$LL.terminal.editorSaving()}</span>
+            <span class="save-status-badge saving">Saving...</span>
           {:else if editorSaveStatus === 'dirty'}
-            <span class="save-status-badge dirty">{$LL.terminal.editorDirty()}</span>
+            <span class="save-status-badge dirty">Unsaved changes</span>
           {:else if editorSaveStatus === 'error'}
-            <span class="save-status-badge error">{$LL.terminal.editorError()}</span>
+            <span class="save-status-badge error">Error saving</span>
           {/if}
           {#if syntaxError}
-            <span class="save-status-badge error" title={syntaxError}>{$LL.terminal.editorSyntaxError()}</span>
+            <span class="save-status-badge error" title={syntaxError}>● Syntax error</span>
           {/if}
         </div>
         <div class="editor-actions">
           <button class="primary" onclick={saveFile} disabled={isLoading || editorSaveStatus === 'saving'}>
-            <Save size={16} /> {$LL.terminal.save()}
+            <Save size={16} /> Save
           </button>
           <button class="secondary" onclick={closeEditor}>
-            <X size={16} /> {$LL.terminal.close()}
+            <X size={16} /> Close
           </button>
         </div>
       </header>
@@ -726,28 +724,28 @@
     <header class="manager-header term-header">
       <div class="title-area">
         {#if activeContainer}
-          <h1 class="page-title">{$LL.terminal.shellTitle({ name: activeContainer.containerName })}</h1>
+          <h1 class="page-title">{`Shell: ${activeContainer.containerName}`}</h1>
         {:else}
-          <h1 class="page-title">{$LL.terminal.sshConsole()}</h1>
+          <h1 class="page-title">SSH console</h1>
         {/if}
       </div>
       <div class="actions">
         {#if activeContainer}
-          <button class="secondary" onclick={switchToServerShell} disabled={isLoading} title={$LL.terminal.backToServerShell()}>
-            <TerminalIcon size={16} /> {$LL.terminal.serverShell()}
+          <button class="secondary" onclick={switchToServerShell} disabled={isLoading} title="Back to server shell">
+            <TerminalIcon size={16} /> Server shell
           </button>
         {/if}
-        <button class="secondary" onclick={initTerminal} disabled={isLoading} title={$LL.terminal.restartSession()}>
-          <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> {$LL.terminal.restart()}
+        <button class="secondary" onclick={initTerminal} disabled={isLoading} title="Restart session">
+          <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> Restart
         </button>
-        <button class="secondary" onclick={openEditFileModal} title={$LL.terminal.editFile()}>
-          <FileCode size={16} /> {$LL.terminal.editFile()}
+        <button class="secondary" onclick={openEditFileModal} title="Edit File">
+          <FileCode size={16} /> Edit File
         </button>
-        <button class="secondary" class:active={showSavedCommands} onclick={() => (showSavedCommands = !showSavedCommands)} title={$LL.terminal.savedCommands()}>
-          <Bookmark size={16} /> {$LL.terminal.savedCommands()}
+        <button class="secondary" class:active={showSavedCommands} onclick={() => (showSavedCommands = !showSavedCommands)} title="Saved Commands">
+          <Bookmark size={16} /> Saved Commands
         </button>
-        <button class="secondary" onclick={openExternal} title={activeContainer ? $LL.terminal.externalTerminalContainer() : $LL.terminal.externalTerminalDefault()}>
-          <ExternalLink size={16} /> {$LL.terminal.externalTerminal()}
+        <button class="secondary" onclick={openExternal} title={activeContainer ? "Open container shell in Windows Terminal" : "Open Windows Terminal"}>
+          <ExternalLink size={16} /> External terminal
         </button>
       </div>
     </header>
@@ -760,8 +758,8 @@
       {#if showSavedCommands}
         <div class="saved-commands-panel glass">
           <div class="panel-header">
-            <h3>{$LL.terminal.savedCommands()}</h3>
-            <button class="icon-btn" onclick={() => { showAddCommandForm = !showAddCommandForm; editingCommandId = null; commandLabel = ''; commandText = ''; }} title={$LL.terminal.addCommand()}>
+            <h3>Saved Commands</h3>
+            <button class="icon-btn" onclick={() => { showAddCommandForm = !showAddCommandForm; editingCommandId = null; commandLabel = ''; commandText = ''; }} title="Add Command">
               {#if showAddCommandForm}
                 <X size={16} />
               {:else}
@@ -772,21 +770,21 @@
 
           {#if showAddCommandForm}
             <form class="command-form" onsubmit={handleSaveCommand}>
-              <h4>{editingCommandId ? $LL.terminal.editCommand() : $LL.terminal.addCommand()}</h4>
+              <h4>{editingCommandId ? "Edit Command" : "Add Command"}</h4>
               <div class="form-group">
-                <label for="cmd-label">{$LL.terminal.commandLabel()}</label>
-                <input id="cmd-label" bind:value={commandLabel} placeholder={$LL.terminal.labelPlaceholder()} required />
+                <label for="cmd-label">Name/Label</label>
+                <input id="cmd-label" bind:value={commandLabel} placeholder="e.g. List containers" required />
               </div>
               <div class="form-group">
-                <label for="cmd-text">{$LL.terminal.commandText()}</label>
-                <textarea id="cmd-text" bind:value={commandText} placeholder={$LL.terminal.commandPlaceholder()} rows="3" required></textarea>
+                <label for="cmd-text">Command</label>
+                <textarea id="cmd-text" bind:value={commandText} placeholder="e.g. docker ps" rows="3" required></textarea>
               </div>
               <div class="form-actions">
                 <button type="submit" class="primary">
-                  <Check size={14} /> {$LL.terminal.save()}
+                  <Check size={14} /> Save
                 </button>
                 <button type="button" class="secondary" onclick={() => { showAddCommandForm = false; editingCommandId = null; }}>
-                  {$LL.terminal.close()}
+                  Close
                 </button>
               </div>
             </form>
@@ -794,7 +792,7 @@
 
           <div class="panel-search">
             <span class="search-icon-wrapper"><Search size={16} /></span>
-            <input type="text" bind:value={searchQuery} placeholder={$LL.logs.filterResults()} />
+            <input type="text" bind:value={searchQuery} placeholder="Filter results…" />
           </div>
 
           <div class="commands-list">
@@ -818,7 +816,7 @@
               </div>
             {:else}
               <div class="no-commands">
-                {$LL.terminal.noSavedCommands()}
+                No saved commands yet. Click Add to create one!
               </div>
             {/each}
           </div>
@@ -835,24 +833,24 @@
   >
     {#if selectedText}
       <button class="menu-item" onclick={handleCopy}>
-        <Clipboard size={14} /> {$LL.terminal.copySelection()}
+        <Clipboard size={14} /> Copy Selection
       </button>
       {#if isPathSelection}
         <button class="menu-item highlight" onclick={handleEditSelectedPath}>
-          <FileCode size={14} /> {$LL.terminal.editSelectedPath()}
+          <FileCode size={14} /> Open Selected Path in Editor
         </button>
       {/if}
       <hr class="menu-separator" />
     {/if}
     <button class="menu-item" onclick={handlePaste}>
-      <Clipboard size={14} /> {$LL.terminal.paste()}
+      <Clipboard size={14} /> Paste
     </button>
     <button class="menu-item" onclick={handleSelectAll}>
-      <Eye size={14} /> {$LL.terminal.selectAll()}
+      <Eye size={14} /> Select All
     </button>
     <hr class="menu-separator" />
     <button class="menu-item danger" onclick={handleClearTerminal}>
-      <Trash2 size={14} /> {$LL.terminal.clearTerminal()}
+      <Trash2 size={14} /> Clear Terminal
     </button>
   </div>
 {/if}
@@ -860,10 +858,10 @@
 {#if showFileModal}
   <div class="modal-overlay">
     <div class="modal-content glass file-modal">
-      <h3>{$LL.terminal.openFileTitle()}</h3>
+      <h3>Open File for Editing</h3>
       
       <div class="form-group">
-        <label for="file-path">{$LL.terminal.filePath()}</label>
+        <label for="file-path">File Path</label>
         <PathAutocomplete 
           bind:value={filePathToEdit} 
           placeholder="/etc/nginx/nginx.conf" 
@@ -874,16 +872,16 @@
       <div class="form-group checkbox-group">
         <label>
           <input type="checkbox" bind:checked={useSudoForEdit} />
-          <span>{$LL.terminal.useSudo()}</span>
+          <span>Use Sudo</span>
         </label>
       </div>
 
       <div class="modal-actions">
         <button class="primary" onclick={() => openFileForEditing(filePathToEdit)} disabled={!filePathToEdit || isLoading}>
-          {$LL.terminal.openFileBtn()}
+          Open Editor
         </button>
         <button class="secondary" onclick={() => { showFileModal = false; errorMsg = ''; }}>
-          {$LL.terminal.close()}
+          Close
         </button>
       </div>
     </div>

@@ -5,8 +5,7 @@
   import SortableTh from './ui/SortableTh.svelte';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
   import { get } from 'svelte/store';
-  import { LL } from '$lib/i18n/i18n-svelte';
-  import { formatInvokeError } from '$lib/i18n/backendErrors';
+    import { formatInvokeError } from '$lib/backendErrors';
   import { notifications } from '$lib/notifications.svelte';
 
   let { visible = true } = $props();
@@ -125,7 +124,7 @@
       if (lowerErr.includes('no crontab') || lowerErr.includes('kod 1')) {
         cronJobs = [];
       } else {
-        notifications.error(get(LL).cron.loadFailed({ error: errString }));
+        notifications.error(`Failed to load cron jobs: ${errString}`);
       }
     } finally {
       isLoading = false;
@@ -159,7 +158,7 @@
       });
       await loadCronJobs();
     } catch (err: unknown) {
-      notifications.error(get(LL).cron.saveFailed({ error: formatInvokeError(err) }));
+      notifications.error(`Failed to save tasks: ${formatInvokeError(err)}`);
     } finally {
       isLoading = false;
     }
@@ -183,7 +182,7 @@
   }
 
   async function deleteCronJob(id: number) {
-    if (confirm(get(LL).cron.confirmDelete())) {
+    if (confirm("Are you sure you want to delete this cron task?")) {
       const updated = cronJobs.filter(j => j.id !== id);
       await saveCronJobs(updated);
     }
@@ -239,13 +238,13 @@
 
 <div class="cron-manager manager-shell fade-in">
   <header class="manager-header">
-    <h1 class="page-title">{$LL.cron.title()}</h1>
+    <h1 class="page-title">Scheduled tasks (Cron)</h1>
   </header>
 
   <!-- Pasek operacyjny -->
   <div class="ops-bar glass">
     <button class="primary" onclick={() => showCreateModal = true}>
-      <Plus size={16} /> {$LL.cron.newTask()}
+      <Plus size={16} /> New task
     </button>
   </div>
 
@@ -254,23 +253,23 @@
     {#if isLoading && cronJobs.length === 0}
       <div class="loading-state">
         <RefreshCw class="spin" size={32} />
-        <p>{$LL.cron.loading()}</p>
+        <p>Loading scheduled tasks…</p>
       </div>
     {:else}
       <table class="cron-table">
         <thead>
           <tr>
-            <SortableTh label={$LL.cron.active()} column="active" activeColumn={cronSort.column} direction={cronSort.direction} onsort={setCronSort} width="10%" />
-            <SortableTh label={$LL.cron.schedule()} column="expression" activeColumn={cronSort.column} direction={cronSort.direction} onsort={setCronSort} width="20%" />
-            <SortableTh label={$LL.cron.command()} column="command" activeColumn={cronSort.column} direction={cronSort.direction} onsort={setCronSort} width="50%" />
-            <th style="width: 20%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">{$LL.common.actions()}</th>
+            <SortableTh label="Active" column="active" activeColumn={cronSort.column} direction={cronSort.direction} onsort={setCronSort} width="10%" />
+            <SortableTh label="Schedule (Cron)" column="expression" activeColumn={cronSort.column} direction={cronSort.direction} onsort={setCronSort} width="20%" />
+            <SortableTh label="Command" column="command" activeColumn={cronSort.column} direction={cronSort.direction} onsort={setCronSort} width="50%" />
+            <th style="width: 20%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Actions</th>
           </tr>
         </thead>
         <tbody>
           {#each sortedCronJobs as job, index}
             <tr class={job.is_active ? '' : 'disabled-row'}>
               <td>
-                <button class="btn-toggle" onclick={() => toggleCronJob(job)} title={job.is_active ? $LL.cron.toggleDisable() : $LL.cron.toggleEnable()}>
+                <button class="btn-toggle" onclick={() => toggleCronJob(job)} title={job.is_active ? "Disable" : "Enable"}>
                   {#if job.is_active}
                     <ToggleRight size={22} class="toggle-icon active" />
                   {:else}
@@ -285,10 +284,10 @@
                 <code class="mono-val">{job.command}</code>
               </td>
               <td class="actions-cell">
-                <button class="btn-table" onclick={() => openEditModal(job, index)} title={$LL.cron.editTitle()}>
+                <button class="btn-table" onclick={() => openEditModal(job, index)} title="Edit">
                   <Edit size={14} />
                 </button>
-                <button class="btn-table danger-text" onclick={() => deleteCronJob(job.id)} title={$LL.cron.deleteTitle()}>
+                <button class="btn-table danger-text" onclick={() => deleteCronJob(job.id)} title="Delete">
                   <Trash2 size={14} />
                 </button>
               </td>
@@ -297,7 +296,7 @@
 
           {#if sortedCronJobs.length === 0 && !isLoading}
             <tr>
-              <td colspan="4" class="empty-state">{$LL.cron.empty()}</td>
+              <td colspan="4" class="empty-state">No active tasks in crontab file</td>
             </tr>
           {/if}
         </tbody>
@@ -309,70 +308,70 @@
   {#if showCreateModal || showEditModal}
     <div class="modal-overlay">
       <div class="modal-content glass cron-modal">
-        <h3>{showCreateModal ? $LL.cron.addTask() : $LL.cron.editTask()}</h3>
+        <h3>{showCreateModal ? "Add task" : "Edit Cron task"}</h3>
         
         <div class="form-group">
-          <label for="cron-command">{$LL.cron.commandLabel()}</label>
-          <input id="cron-command" type="text" placeholder={$LL.cron.commandPlaceholder()} bind:value={cronCmd} />
+          <label for="cron-command">Command / script to run</label>
+          <input id="cron-command" type="text" placeholder="/var/www/scripts/backup.sh >> /var/log/backup.log 2>&1" bind:value={cronCmd} />
         </div>
 
         <div class="form-group">
-          <label for="cron-expression-input">{$LL.cron.expressionLabel()}</label>
-          <input id="cron-expression-input" type="text" placeholder={$LL.cron.expressionPlaceholder()} bind:value={cronExpr} />
+          <label for="cron-expression-input">Cron expression (5 fields)</label>
+          <input id="cron-expression-input" type="text" placeholder="* * * * *" bind:value={cronExpr} />
         </div>
 
         <!-- Visual Expression Generator -->
         <div class="cron-generator glass">
-          <h4>{$LL.cron.generatorTitle()}</h4>
+          <h4>Visual schedule builder</h4>
           <div class="generator-grid">
             <div class="form-group">
-              <label for="gen-min">{$LL.cron.minute()}</label>
+              <label for="gen-min">Minute</label>
               <select id="gen-min" bind:value={presetMinutes} onchange={updateExprFromPresets}>
-                <option value="*">{$LL.cron.everyMinute()}</option>
-                <option value="*/5">{$LL.cron.every5Min()}</option>
-                <option value="*/15">{$LL.cron.every15Min()}</option>
-                <option value="0">{$LL.cron.onTheHour()}</option>
-                <option value="30">{$LL.cron.at30()}</option>
+                <option value="*">Every (*)</option>
+                <option value="*/5">Every 5 minutes (*/5)</option>
+                <option value="*/15">Every 15 minutes (*/15)</option>
+                <option value="0">On the hour (0)</option>
+                <option value="30">At minute 30 (30)</option>
               </select>
             </div>
             
             <div class="form-group">
-              <label for="gen-hour">{$LL.cron.hour()}</label>
+              <label for="gen-hour">Hour</label>
               <select id="gen-hour" bind:value={presetHours} onchange={updateExprFromPresets}>
-                <option value="*">{$LL.cron.everyHour()}</option>
-                <option value="*/2">{$LL.cron.every2Hours()}</option>
-                <option value="0">{$LL.cron.midnight()}</option>
-                <option value="12">{$LL.cron.noon()}</option>
-                <option value="2">{$LL.cron.twoAm()}</option>
+                <option value="*">Every hour (*)</option>
+                <option value="*/2">Every 2 hours (*/2)</option>
+                <option value="0">Midnight (00:00)</option>
+                <option value="12">Noon (12:00)</option>
+                <option value="2">2 AM (02:00)</option>
               </select>
             </div>
 
             <div class="form-group">
-              <label for="gen-day">{$LL.cron.dayOfMonth()}</label>
+              <label for="gen-day">Day of month</label>
               <select id="gen-day" bind:value={presetDays} onchange={updateExprFromPresets}>
-                <option value="*">{$LL.cron.everyDay()}</option>
-                <option value="1">{$LL.cron.firstDay()}</option>
-                <option value="15">{$LL.cron.midMonth()}</option>
-                <option value="*/2">{$LL.cron.everyOtherDay()}</option>
+                <option value="*">Every day (*)</option>
+                <option value="1">First day (1)</option>
+                <option value="15">Mid-month (15)</option>
+                <option value="*/2">Every other day (*/2)</option>
               </select>
             </div>
 
             <div class="form-group">
-              <label for="gen-month">{$LL.cron.month()}</label>
+              <label for="gen-month">Month</label>
               <select id="gen-month" bind:value={presetMonths} onchange={updateExprFromPresets}>
-                <option value="*">{$LL.cron.everyMonth()}</option>
-                <option value="1">{$LL.cron.january()}</option>
-                <option value="*/3">{$LL.cron.quarterly()}</option>
+                <option value="*">Every month (*)</option>
+                <option value="1">January (1)</option>
+                <option value="*/3">Quarterly (*/3)</option>
               </select>
             </div>
 
             <div class="form-group">
-              <label for="gen-dow">{$LL.cron.dayOfWeek()}</label>
+              <label for="gen-dow">Day of week</label>
               <select id="gen-dow" bind:value={presetDayOfWeek} onchange={updateExprFromPresets}>
-                <option value="*">{$LL.cron.everyDay()}</option>
-                <option value="1-5">{$LL.cron.weekdays()}</option>
-                <option value="0,6">{$LL.cron.weekend()}</option>
-                <option value="1">{$LL.cron.monday()}</option>
+                <option value="*">Every day (*)</option>
+                <option value="1-5">Weekdays (Mon–Fri)</option>
+                <option value="0,6">Weekend (Sat–Sun)</option>
+                <option value="1">Monday (1)</option>
               </select>
             </div>
           </div>
@@ -380,11 +379,11 @@
 
         <div class="modal-actions">
           {#if showCreateModal}
-            <button class="primary" onclick={addCronJob} disabled={!cronExpr || !cronCmd}>{$LL.cron.addTask()}</button>
-            <button class="secondary" onclick={() => showCreateModal = false}>{$LL.common.cancel()}</button>
+            <button class="primary" onclick={addCronJob} disabled={!cronExpr || !cronCmd}>Add task</button>
+            <button class="secondary" onclick={() => showCreateModal = false}>Cancel</button>
           {:else}
-            <button class="primary" onclick={editCronJob} disabled={!cronExpr || !cronCmd}>{$LL.common.saveChanges()}</button>
-            <button class="secondary" onclick={() => { showEditModal = false; editingIndex = null; }}>{$LL.common.cancel()}</button>
+            <button class="primary" onclick={editCronJob} disabled={!cronExpr || !cronCmd}>Save changes</button>
+            <button class="secondary" onclick={() => { showEditModal = false; editingIndex = null; }}>Cancel</button>
           {/if}
         </div>
       </div>

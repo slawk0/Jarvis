@@ -31,11 +31,7 @@
     BarChart3,
   } from 'lucide-svelte';
   import type { ServerProfile } from '$lib/admin/types';
-  import { LL } from '$lib/i18n/i18n-svelte';
-  import { getNavLabel, TAB_IDS } from '$lib/i18n/nav';
-  import { getCurrentLocale, setAppLocale } from '$lib/i18n/localeStore.svelte';
-  import { get } from 'svelte/store';
-  import type { Locales } from '$lib/i18n/i18n-types';
+  import { getNavLabel, TAB_IDS } from '$lib/nav';
 
   let {
     activeTab = '',
@@ -54,7 +50,6 @@
   } = $props();
 
   let showProfileMenu = $state(false);
-  let currentLocale = $state<Locales>(getCurrentLocale());
 
   const menuItems = TAB_IDS.map((id) => ({
     id,
@@ -85,7 +80,7 @@
     }[id],
   }));
 
-  const displayHostname = $derived(hostname || get(LL).shell.defaultServerLabel());
+  const displayHostname = $derived(hostname || 'Remote Server');
 
   function toggleProfileMenu() {
     if (profiles.length <= 1) return;
@@ -107,12 +102,6 @@
     }
   }
 
-  async function switchLocale(locale: Locales) {
-    if (locale === currentLocale) return;
-    await setAppLocale(locale);
-    currentLocale = locale;
-  }
-
   const currentProfile = $derived(profiles.find((p) => p.id === currentProfileId));
 </script>
 
@@ -120,15 +109,15 @@
 
 <aside class="sidebar glass" class:collapsed>
   <div class="brand">
-    <button class="logo-circle" onclick={toggleCollapse} title={collapsed ? $LL.sidebar.expandSidebar() : $LL.sidebar.collapseSidebar()}>J</button>
+    <button class="logo-circle" onclick={toggleCollapse} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>J</button>
     {#if !collapsed}
       <div class="brand-info">
-        <span class="brand-name">{$LL.sidebar.brandName()}</span>
+        <span class="brand-name">JARVIS</span>
         <button
           class="server-switcher"
           class:clickable={profiles.length > 1}
           onclick={(e) => { e.stopPropagation(); toggleProfileMenu(); }}
-          title={profiles.length > 1 ? $LL.sidebar.switchServer() : displayHostname}
+          title={profiles.length > 1 ? 'Switch server' : displayHostname}
         >
           {#if isSwitching}
             <Loader2 size={12} class="spin" />
@@ -165,7 +154,7 @@
 
   <nav class="nav-menu">
     {#each menuItems as item}
-      {@const label = getNavLabel(get(LL), item.id)}
+      {@const label = getNavLabel(item.id)}
       <div 
         class="nav-item {activeTab === item.id ? 'active' : ''}" 
         onclick={() => onTabSelect(item.id)}
@@ -185,31 +174,15 @@
 
   <div class="sidebar-footer">
     {#if !collapsed}
-      <div class="locale-picker" role="group" aria-label={$LL.locale.label()}>
-        <button
-          type="button"
-          class="locale-btn"
-          class:active={currentLocale === 'en'}
-          onclick={() => switchLocale('en')}
-        >EN</button>
-        <span class="locale-sep">|</span>
-        <button
-          type="button"
-          class="locale-btn"
-          class:active={currentLocale === 'pl'}
-          onclick={() => switchLocale('pl')}
-        >PL</button>
-      </div>
-
       <div class="telemetry-hud">
         <div class="hud-row">
-          <span class="hud-label">{$LL.sidebar.hostLabel()}</span>
+          <span class="hud-label">Host</span>
           <span class="hud-val" title={displayHostname}>{displayHostname.length > 14 ? displayHostname.slice(0, 14) + '...' : displayHostname}</span>
         </div>
         <div class="hud-row">
-          <span class="hud-label">{$LL.sidebar.statusLabel()}</span>
+          <span class="hud-label">Status</span>
           <span class="hud-status" class:nominal={isOnline} class:offline={!isOnline}>
-            {isSwitching ? $LL.common.switching() : (isOnline ? $LL.common.online() : $LL.common.offline())}
+            {isSwitching ? 'Switching' : (isOnline ? 'Online' : 'Offline')}
           </span>
         </div>
         {#if !isOnline}
@@ -221,33 +194,33 @@
               disabled={isReconnecting}
             >
               {#if isReconnecting}
-                <Loader2 size={10} class="spin" /> {$LL.common.connecting()}
+                <Loader2 size={10} class="spin" /> Reconnecting...
               {:else}
-                {$LL.common.reconnect()}
+                Reconnect
               {/if}
             </button>
           </div>
         {/if}
         <div class="hud-row">
-          <span class="hud-label">{$LL.sidebar.tunnelLabel()}</span>
-          <span class="hud-val secure">{$LL.sidebar.tunnelValue()}</span>
+          <span class="hud-label">Connection</span>
+          <span class="hud-val secure">SSH (enc)</span>
         </div>
       </div>
     {/if}
 
-    <button class="nav-item collapse-toggle" onclick={toggleCollapse} title={collapsed ? $LL.sidebar.expandSidebarFooter() : $LL.sidebar.collapseSidebarFooter()}>
+    <button class="nav-item collapse-toggle" onclick={toggleCollapse} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
       {#if collapsed}
         <PanelLeftOpen size={16} class="nav-icon" />
       {:else}
         <PanelLeftClose size={16} class="nav-icon" />
-        <span class="nav-label">{$LL.sidebar.collapse()}</span>
+        <span class="nav-label">Collapse</span>
       {/if}
     </button>
 
-    <button class="nav-item logout" onclick={onDisconnect} title={collapsed ? $LL.sidebar.disconnect() : ''}>
+    <button class="nav-item logout" onclick={onDisconnect} title={collapsed ? 'Disconnect' : ''}>
       <LogOut size={16} class="nav-icon" />
       {#if !collapsed}
-        <span class="nav-label">{$LL.sidebar.disconnect()}</span>
+        <span class="nav-label">Disconnect</span>
       {/if}
     </button>
   </div>
@@ -501,39 +474,7 @@
     gap: 4px;
   }
 
-  .locale-picker {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    margin-bottom: 10px;
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-  }
 
-  .locale-btn {
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    padding: 2px 4px;
-    font: inherit;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-  }
-
-  .locale-btn:hover {
-    color: var(--text-primary);
-  }
-
-  .locale-btn.active {
-    color: var(--accent-amber);
-  }
-
-  .locale-sep {
-    color: var(--text-muted);
-    opacity: 0.5;
-  }
 
   .telemetry-hud {
     background: rgba(0, 0, 0, 0.2);

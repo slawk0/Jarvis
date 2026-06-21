@@ -2,11 +2,10 @@
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { KeyRound, Box, Eye, EyeOff, Plus, Trash2, RefreshCw, Copy, Check, X } from 'lucide-svelte';
-  import { LL } from '$lib/i18n/i18n-svelte';
-  import { get } from 'svelte/store';
+    import { get } from 'svelte/store';
   import { listContainers, shQuote } from '$lib/exec/target';
   import { notifications } from '$lib/notifications.svelte';
-  import { formatInvokeError } from '$lib/i18n/backendErrors';
+  import { formatInvokeError } from '$lib/backendErrors';
 
   let { profileId = '', visible = true } = $props();
 
@@ -69,7 +68,7 @@
       localVars = parseEnvLines(out);
       localLoaded = true;
     } catch (err) {
-      errorMsg = get(LL).envvars.loadFailed({ error: formatInvokeError(err) });
+      errorMsg = `Load failed: ${formatInvokeError(err)}`;
     } finally {
       localLoading = false;
     }
@@ -87,13 +86,13 @@
       const useSudo = persistTarget === '/etc/environment';
       const cmd = `echo ${shQuote(line)} >> ${shQuote(target)}`;
       await invoke('exec_custom_command', { cmd, useSudo });
-      notifications.success(get(LL).envvars.addedToProfile({ file: persistTarget }));
+      notifications.success(`Variable added to ${persistTarget}`);
       showAddForm = false;
       newKey = '';
       newValue = '';
       await loadLocalEnv();
     } catch (err) {
-      errorMsg = get(LL).envvars.addFailed({ error: formatInvokeError(err) });
+      errorMsg = `Failed to add variable: ${formatInvokeError(err)}`;
     } finally {
       adding = false;
     }
@@ -130,7 +129,7 @@
   async function copyValue(v: string) {
     try {
       await navigator.clipboard.writeText(v);
-      notifications.success(get(LL).envvars.copied());
+      notifications.success("Copied to clipboard");
     } catch {}
   }
 
@@ -141,39 +140,39 @@
 
 <div class="env-manager manager-shell fade-in">
   <header class="manager-header">
-    <h1 class="page-title">{$LL.envvars.title()}</h1>
+    <h1 class="page-title">Environment variables</h1>
   </header>
 
   <div class="sub-tabs">
-    <button class="sub-tab" class:active={tab === 'local'} onclick={() => (tab = 'local')}><KeyRound size={14} /> {$LL.envvars.tabLocal()}</button>
-    <button class="sub-tab" class:active={tab === 'docker'} onclick={() => { tab = 'docker'; loadContainers(); }}><Box size={14} /> {$LL.envvars.tabDocker()}</button>
+    <button class="sub-tab" class:active={tab === 'local'} onclick={() => (tab = 'local')}><KeyRound size={14} /> Local</button>
+    <button class="sub-tab" class:active={tab === 'docker'} onclick={() => { tab = 'docker'; loadContainers(); }}><Box size={14} /> Docker container</button>
   </div>
 
   {#if tab === 'local'}
     <div class="control-bar glass">
-      <button class="secondary btn-compact" disabled={localLoading} onclick={loadLocalEnv}><RefreshCw size={14} /> {localLoading ? $LL.common.loading() : $LL.envvars.load()}</button>
+      <button class="secondary btn-compact" disabled={localLoading} onclick={loadLocalEnv}><RefreshCw size={14} /> {localLoading ? "Loading…" : "Load"}</button>
       {#if localLoaded}
-        <button class="secondary btn-compact" onclick={() => (showAddForm = !showAddForm)}><Plus size={14} /> {$LL.envvars.addVar()}</button>
+        <button class="secondary btn-compact" onclick={() => (showAddForm = !showAddForm)}><Plus size={14} /> Add variable</button>
       {/if}
       <span class="var-count">{localLoaded ? `${localVars.length} vars` : ''}</span>
     </div>
 
     {#if showAddForm}
       <div class="add-form glass">
-        <input class="k-input" bind:value={newKey} placeholder={$LL.envvars.key()} onkeydown={(e) => e.key === 'Enter' && addVar()} />
+        <input class="k-input" bind:value={newKey} placeholder="KEY" onkeydown={(e) => e.key === 'Enter' && addVar()} />
         <span class="eq">=</span>
-        <input class="v-input" bind:value={newValue} placeholder={$LL.envvars.value()} onkeydown={(e) => e.key === 'Enter' && addVar()} />
-        <span class="persist-label">{$LL.envvars.persistTarget()}</span>
+        <input class="v-input" bind:value={newValue} placeholder="value" onkeydown={(e) => e.key === 'Enter' && addVar()} />
+        <span class="persist-label">Persist to</span>
         <select class="target-select" bind:value={persistTarget}>
           {#each PERSIST_TARGETS as t}<option value={t}>{t}</option>{/each}
         </select>
-        <button class="icon-mini success" disabled={adding || !newKey.trim()} onclick={addVar} title={$LL.common.save()}><Check size={13} /></button>
-        <button class="icon-mini" onclick={cancelAdd} title={$LL.common.cancel()}><X size={13} /></button>
+        <button class="icon-mini success" disabled={adding || !newKey.trim()} onclick={addVar} title="Save"><Check size={13} /></button>
+        <button class="icon-mini" onclick={cancelAdd} title="Cancel"><X size={13} /></button>
       </div>
     {/if}
 
     {#if !localLoaded}
-      <div class="empty glass"><KeyRound size={22} /> {$LL.envvars.localHint()}</div>
+      <div class="empty glass"><KeyRound size={22} /> Load to view the server's current environment variables.</div>
     {:else}
       <div class="var-list">
         {#each localVars as v}
@@ -182,11 +181,11 @@
             <span class="eq">=</span>
             <span class="v-static">{v.revealed || !isSecret(v.key) ? v.value : '••••••••'}</span>
             {#if isSecret(v.key)}
-              <button class="icon-mini" onclick={() => (v.revealed = !v.revealed)} title={v.revealed ? $LL.envvars.hide() : $LL.envvars.reveal()}>
+              <button class="icon-mini" onclick={() => (v.revealed = !v.revealed)} title={v.revealed ? "Hide" : "Reveal"}>
                 {#if v.revealed}<EyeOff size={13} />{:else}<Eye size={13} />{/if}
               </button>
             {/if}
-            <button class="icon-mini" onclick={() => copyValue(v.value)} title={$LL.common.download()}><Copy size={13} /></button>
+            <button class="icon-mini" onclick={() => copyValue(v.value)} title="Download"><Copy size={13} /></button>
           </div>
         {/each}
       </div>
@@ -194,12 +193,12 @@
   {:else}
     <div class="control-bar glass">
       <select class="container-select" bind:value={selectedContainer}>
-        {#if containers.length === 0}<option value="">{$LL.envvars.noContainers()}</option>{/if}
+        {#if containers.length === 0}<option value="">No running containers</option>{/if}
         {#each containers as c}<option value={c}>{c}</option>{/each}
       </select>
-      <button class="secondary btn-compact" onclick={loadContainers} title={$LL.execTarget.refreshContainers()}><RefreshCw size={14} /></button>
-      <button class="primary btn-compact" disabled={!selectedContainer || dockerLoading} onclick={loadDockerEnv}>{dockerLoading ? $LL.common.loading() : $LL.envvars.load()}</button>
-      <span class="readonly-tag">{$LL.envvars.readonly()}</span>
+      <button class="secondary btn-compact" onclick={loadContainers} title="Refresh containers"><RefreshCw size={14} /></button>
+      <button class="primary btn-compact" disabled={!selectedContainer || dockerLoading} onclick={loadDockerEnv}>{dockerLoading ? "Loading…" : "Load"}</button>
+      <span class="readonly-tag">read-only</span>
     </div>
 
     <div class="var-list">
@@ -209,15 +208,15 @@
           <span class="eq">=</span>
           <span class="v-static">{v.revealed || !isSecret(v.key) ? v.value : '••••••••'}</span>
           {#if isSecret(v.key)}
-            <button class="icon-mini" onclick={() => (v.revealed = !v.revealed)} title={v.revealed ? $LL.envvars.hide() : $LL.envvars.reveal()}>
+            <button class="icon-mini" onclick={() => (v.revealed = !v.revealed)} title={v.revealed ? "Hide" : "Reveal"}>
               {#if v.revealed}<EyeOff size={13} />{:else}<Eye size={13} />{/if}
             </button>
           {/if}
-          <button class="icon-mini" onclick={() => copyValue(v.value)} title={$LL.common.download()}><Copy size={13} /></button>
+          <button class="icon-mini" onclick={() => copyValue(v.value)} title="Download"><Copy size={13} /></button>
         </div>
       {/each}
       {#if dockerVars.length === 0}
-        <div class="empty glass"><Box size={22} /> {$LL.envvars.dockerHint()}</div>
+        <div class="empty glass"><Box size={22} /> Pick a container and load to view its environment variables.</div>
       {/if}
     </div>
   {/if}

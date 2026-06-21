@@ -1,4 +1,4 @@
-import { getIntlLocale } from '$lib/i18n/formatLocale';
+import { getIntlLocale } from '$lib/formatLocale';
 
 export type SortDir = 'asc' | 'desc';
 

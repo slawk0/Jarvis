@@ -1,6 +1,5 @@
 import { get } from 'svelte/store';
-import LL from '$lib/i18n/i18n-svelte';
-import { getIntlLocale } from '$lib/i18n/formatLocale';
+import { getIntlLocale } from '$lib/formatLocale';
 
 export interface CountryTraffic {
   code: string;
@@ -17,7 +16,7 @@ export function formatCompact(n: number): string {
 }
 
 export function countryCodeToName(code: string): string {
-  if (!code) return get(LL).common.unknown();
+  if (!code) return "Unknown";
   try {
     const dn = new Intl.DisplayNames([getIntlLocale()], { type: 'region' });
     return dn.of(code.toUpperCase()) || code;

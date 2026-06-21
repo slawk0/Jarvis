@@ -8,9 +8,8 @@
   } from 'lucide-svelte';
   import SudoModal from './SudoModal.svelte';
   import { get } from 'svelte/store';
-  import { LL } from '$lib/i18n/i18n-svelte';
-  import { notifications } from '$lib/notifications.svelte';
-  import { formatInvokeError } from '$lib/i18n/backendErrors';
+    import { notifications } from '$lib/notifications.svelte';
+  import { formatInvokeError } from '$lib/backendErrors';
 
   let { profileId = '', visible = true } = $props();
 
@@ -253,7 +252,7 @@
     } catch { /* ignore */ }
 
     return new Promise<void>((resolve, reject) => {
-      sudoModalTitle = get(LL).disks.title();
+      sudoModalTitle = "Disk Management";
       sudoModalDesc = undefined;
       pendingSudoAction = async () => {
         try {
@@ -290,7 +289,7 @@
 
     try {
       await execSudo(cmd, 'Mount failed');
-      notifications.success(get(LL).disks.mountSuccess());
+      notifications.success("Device mounted successfully");
       showMountModal = false;
       await loadData();
     } catch (err) {
@@ -307,7 +306,7 @@
     
     try {
       await execSudo(cmd, 'Unmount failed');
-      notifications.success(get(LL).disks.umountSuccess());
+      notifications.success("Device unmounted successfully");
       await loadData();
     } catch (err) {
       console.error(err);
@@ -387,7 +386,7 @@
 
     try {
       await execSudo(fullCmd, 'Partition creation failed');
-      notifications.success(get(LL).disks.partitionSuccess());
+      notifications.success("Partition created successfully");
       showPartitionModal = false;
       await loadData();
     } catch (err) {
@@ -474,7 +473,7 @@
   <header class="manager-header">
     <div style="display: flex; align-items: center; gap: 10px;">
       <HardDrive size={24} class="accent-amber-text" />
-      <h1 class="page-title">{$LL.disks.title()}</h1>
+      <h1 class="page-title">Disk Management</h1>
     </div>
   </header>
 
@@ -502,7 +501,7 @@
     <div class="disk-layout">
       <!-- 1. Disk usage cards -->
       <section class="disk-section">
-        <h2 class="section-title">{$LL.disks.diskUsage()}</h2>
+        <h2 class="section-title">Disk Usage</h2>
         <div class="usage-grid">
           {#each filteredDf as df}
             <div class="usage-card glass">
@@ -530,7 +529,7 @@
 
       <!-- 2. Physical Disks & Partitions -->
       <section class="disk-section">
-        <h2 class="section-title">{$LL.disks.blockDevices()}</h2>
+        <h2 class="section-title">Block Devices</h2>
         <div class="disks-list">
           {#each physicalDisks as disk}
             {@const segments = getDiskSegments(disk)}
@@ -556,7 +555,7 @@
                 <div class="disk-info-right" style="display: flex; align-items: center; gap: 12px;">
                   <span class="disk-size mono-val">{disk.size}</span>
                   <button class="btn-compact primary" onclick={() => openPartitionModal(disk.name)}>
-                    + {$LL.disks.createPartition()}
+                    + Create Partition
                   </button>
                 </div>
               </div>
@@ -581,12 +580,12 @@
                 <table class="partition-table">
                   <thead>
                     <tr>
-                      <th>{$LL.disks.device()}</th>
-                      <th>{$LL.disks.size()}</th>
-                      <th>{$LL.disks.filesystem()}</th>
-                      <th>{$LL.disks.mountPoint()}</th>
+                      <th>Device</th>
+                      <th>Size</th>
+                      <th>Filesystem</th>
+                      <th>Mount Point</th>
                       <th>Label / UUID</th>
-                      <th style="text-align: right;">{$LL.disks.actions()}</th>
+                      <th style="text-align: right;">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -624,15 +623,15 @@
                           </button>
                           {#if part.mountpoint}
                             <button class="btn-action danger-text" onclick={() => executeUmount(part.name)}>
-                              {$LL.disks.umount()}
+                              Unmount
                             </button>
                           {:else}
                             <button class="btn-action" onclick={() => openMountModal(part.name)}>
-                              {$LL.disks.mount()}
+                              Mount
                             </button>
                             {#if part.fstype}
                               <button class="btn-action" onclick={() => runFsck(part.name)}>
-                                {$LL.disks.fsck()}
+                                Check FS (fsck)
                               </button>
                             {/if}
                           {/if}
@@ -659,11 +658,11 @@
                             <td class="actions-cell" style="text-align: right;">
                               {#if sub.mountpoint}
                                 <button class="btn-action danger-text" onclick={() => executeUmount(sub.name)}>
-                                  {$LL.disks.umount()}
+                                  Unmount
                                 </button>
                               {:else}
                                 <button class="btn-action" onclick={() => openMountModal(sub.name)}>
-                                  {$LL.disks.mount()}
+                                  Mount
                                 </button>
                               {/if}
                             </td>
@@ -682,7 +681,7 @@
                         <td class="text-muted">—</td>
                         <td style="text-align: right;">
                           <button class="btn-action success-text" onclick={() => openPartitionModal(disk.name)}>
-                            + {$LL.disks.createPartition()}
+                            + Create Partition
                           </button>
                         </td>
                       </tr>
@@ -730,7 +729,7 @@
                     <td class="mono-val">{dev.mountpoint || '—'}</td>
                     <td style="text-align: right;">
                       {#if dev.mountpoint}
-                        <button class="btn-table danger-text" onclick={() => executeUmount(dev.name)}>{$LL.disks.umount()}</button>
+                        <button class="btn-table danger-text" onclick={() => executeUmount(dev.name)}>Unmount</button>
                       {/if}
                     </td>
                   </tr>
@@ -767,9 +766,9 @@
                     <td class="mono-val">{dev.mountpoint || '—'}</td>
                     <td style="text-align: right;">
                       {#if dev.mountpoint}
-                        <button class="btn-table danger-text" onclick={() => executeUmount(dev.name)}>{$LL.disks.umount()}</button>
+                        <button class="btn-table danger-text" onclick={() => executeUmount(dev.name)}>Unmount</button>
                       {:else}
-                        <button class="btn-table" onclick={() => openMountModal(dev.name)}>{$LL.disks.mount()}</button>
+                        <button class="btn-table" onclick={() => openMountModal(dev.name)}>Mount</button>
                       {/if}
                     </td>
                   </tr>
@@ -790,10 +789,10 @@
       <div class="modal-header-icon" style="margin-bottom: 0;">
         <FolderOpen size={32} class="accent-amber-text" />
       </div>
-      <h3 style="text-align: center; margin: 0;">{$LL.disks.mount()}: /dev/{mountDeviceName}</h3>
+      <h3 style="text-align: center; margin: 0;">Mount: /dev/{mountDeviceName}</h3>
       
       <div class="form-group" style="margin-top: 10px;">
-        <label for="mount-path-input">{$LL.disks.mountPath()}</label>
+        <label for="mount-path-input">Mount Path</label>
         <input 
           id="mount-path-input"
           type="text" 
@@ -811,12 +810,12 @@
       <div class="modal-actions">
         <button class="primary" onclick={executeMount} disabled={mountLoading}>
           {#if mountLoading}
-            <Loader2 class="spin" size={14} /> {$LL.disks.executing()}
+            <Loader2 class="spin" size={14} /> Executing...
           {:else}
-            {$LL.disks.mount()}
+            Mount
           {/if}
         </button>
-        <button class="secondary" onclick={() => showMountModal = false}>{$LL.common.cancel()}</button>
+        <button class="secondary" onclick={() => showMountModal = false}>Cancel</button>
       </div>
     </div>
   </div>
@@ -829,23 +828,23 @@
       <div class="modal-header-icon" style="color: var(--color-danger, #ef4444);">
         <AlertCircle size={32} />
       </div>
-      <h3 style="text-align: center; margin: 0;">{$LL.disks.createPartition()}: /dev/{partDiskName}</h3>
+      <h3 style="text-align: center; margin: 0;">Create Partition: /dev/{partDiskName}</h3>
       
       <div class="alert-box danger-box" style="margin: 10px 0;">
-        <strong>{$LL.disks.warningDestructive()}</strong>
-        <p style="font-size: 0.8rem; margin: 4px 0 0 0;">{$LL.disks.warningDestructiveDesc()}</p>
+        <strong>Destructive Action Warning</strong>
+        <p style="font-size: 0.8rem; margin: 4px 0 0 0;">Creating partition table and formatting will erase all data on the selected drive!</p>
       </div>
 
       <div class="form-row">
         <div class="form-group flex-1">
-          <label for="partition-table-select">{$LL.disks.partitionTable()}</label>
+          <label for="partition-table-select">Partition Table</label>
           <select id="partition-table-select" bind:value={partLabelType}>
             <option value="gpt">GPT (Recommended)</option>
             <option value="msdos">MBR (Legacy)</option>
           </select>
         </div>
         <div class="form-group flex-1">
-          <label for="filesystem-type-select">{$LL.disks.fsType()}</label>
+          <label for="filesystem-type-select">Filesystem Type</label>
           <select id="filesystem-type-select" bind:value={partFsType}>
             <option value="ext4">ext4 (Linux default)</option>
             <option value="xfs">xfs (Enterprise)</option>
@@ -856,23 +855,23 @@
 
       <label class="toggle-checkbox" style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9rem;">
         <input type="checkbox" bind:checked={partUseEntire} disabled />
-        <span>{$LL.disks.useEntireDisk()}</span>
+        <span>Use Entire Disk (100%)</span>
       </label>
 
       <label class="toggle-checkbox" style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9rem; margin-top: 10px; color: var(--color-danger, #ef4444); font-weight: 600;">
         <input type="checkbox" bind:checked={partConfirm} />
-        <span>{$LL.disks.confirmPartition()}</span>
+        <span>I understand, create partition</span>
       </label>
 
       <div class="modal-actions" style="margin-top: 15px;">
         <button class="danger" onclick={executePartition} disabled={!partConfirm || partLoading}>
           {#if partLoading}
-            <Loader2 class="spin" size={14} /> {$LL.disks.executing()}
+            <Loader2 class="spin" size={14} /> Executing...
           {:else}
-            {$LL.disks.createPartition()}
+            Create Partition
           {/if}
         </button>
-        <button class="secondary" onclick={() => showPartitionModal = false}>{$LL.common.cancel()}</button>
+        <button class="secondary" onclick={() => showPartitionModal = false}>Cancel</button>
       </div>
     </div>
   </div>
@@ -895,12 +894,12 @@
       <div class="modal-actions">
         <button class="primary" onclick={executeExpand} disabled={expandLoading}>
           {#if expandLoading}
-            <Loader2 class="spin" size={14} /> {$LL.disks.executing()}
+            <Loader2 class="spin" size={14} /> Executing...
           {:else}
             Expand Partition
           {/if}
         </button>
-        <button class="secondary" onclick={() => showExpandModal = false}>{$LL.common.cancel()}</button>
+        <button class="secondary" onclick={() => showExpandModal = false}>Cancel</button>
       </div>
     </div>
   </div>

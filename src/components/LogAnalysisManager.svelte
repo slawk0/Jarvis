@@ -3,11 +3,10 @@
   import { invoke } from '@tauri-apps/api/core';
   import { BarChart3, Play, FileSearch, Settings2, Save, Plus, Trash2, X, FileCode, RefreshCw, Container, HardDrive } from 'lucide-svelte';
   import SudoModal from './SudoModal.svelte';
-  import { LL } from '$lib/i18n/i18n-svelte';
-  import { get } from 'svelte/store';
+    import { get } from 'svelte/store';
   import { shQuote, wrapCmd, isDocker, listContainers, type ExecTarget } from '$lib/exec/target';
   import { notifications } from '$lib/notifications.svelte';
-  import { formatInvokeError, isSudoPasswordRequired } from '$lib/i18n/backendErrors';
+  import { formatInvokeError, isSudoPasswordRequired } from '$lib/backendErrors';
 
   interface Row { count: number; value: string; }
 
@@ -189,7 +188,7 @@
   function deleteProfile(id: string) {
     const p = profiles.find((x) => x.id === id);
     if (!p) return;
-    if (!confirm(get(LL).loganalysis.deleteProfileConfirm({ name: p.name }))) return;
+    if (!confirm(`Delete profile ${p.name}?`)) return;
     profiles = profiles.filter((x) => x.id !== id);
     saveProfiles();
     if (activeProfileId === id) {
@@ -351,17 +350,17 @@
 
 <div class="log-analysis manager-shell fade-in">
   <header class="manager-header">
-    <h1 class="page-title">{$LL.loganalysis.title()}</h1>
+    <h1 class="page-title">Log analysis</h1>
     <div class="header-actions">
       {#if profiles.length > 0}
         <div class="profile-selector glass">
-          <span class="ps-label">{$LL.loganalysis.activeProfile()}:</span>
+          <span class="ps-label">Profile:</span>
           <select bind:value={activeProfileId} class="profile-select" onchange={handleProfileChange}>
             {#each profiles as p}
-              <option value={p.id}>{p.name} ({$LL.loganalysis.servers[p.serverType]()} · {p.target.kind === 'host' ? $LL.loganalysis.sourceHost() : p.target.container})</option>
+              <option value={p.id}>{p.name} ({{"nginx":"Nginx","apache":"Apache","httpd":"httpd","traefik":"Traefik"}[p.serverType]} · {p.target.kind === 'host' ? "On the host" : p.target.container})</option>
             {/each}
           </select>
-          <button class="icon-btn-compact" onclick={() => (showProfilesModal = true)} title={$LL.loganalysis.manageProfiles()}>
+          <button class="icon-btn-compact" onclick={() => (showProfilesModal = true)} title="Manage profiles">
             <Settings2 size={14} />
           </button>
         </div>
@@ -375,43 +374,43 @@
       <div class="setup-card glass">
         <div class="setup-header">
           <BarChart3 size={32} class="accent" />
-          <h2>{$LL.loganalysis.setupTitle()}</h2>
-          <p>{$LL.loganalysis.setupDesc()}</p>
+          <h2>Log Analysis Setup</h2>
+          <p>Create a profile: pick your web server and whether it runs on the host or in a Docker container.</p>
         </div>
 
         <div class="form-group">
-          <label for="setup-name">{$LL.loganalysis.profileName()}</label>
-          <input id="setup-name" type="text" bind:value={profileFormName} placeholder={$LL.loganalysis.profileNamePlaceholder()} />
+          <label for="setup-name">Profile name</label>
+          <input id="setup-name" type="text" bind:value={profileFormName} placeholder="e.g. Web server, App container" />
         </div>
 
         <div class="form-group">
-          <label>{$LL.loganalysis.serverType()}</label>
+          <label>Web server</label>
           <div class="server-chips">
             {#each SERVER_TYPES as st}
               <button type="button" class="server-chip" class:active={profileFormServer === st} onclick={() => { profileFormServer = st; onFormServerChange(); }}>
-                {$LL.loganalysis.servers[st]()}
+                {{"nginx":"Nginx","apache":"Apache","httpd":"httpd","traefik":"Traefik"}[st]}
               </button>
             {/each}
           </div>
         </div>
 
         <div class="form-group">
-          <label>{$LL.loganalysis.source()}</label>
+          <label>Where it runs</label>
           <div class="target-options">
             <label class="target-radio" class:active={profileFormKind === 'host'}>
               <input type="radio" name="setup-kind" value="host" bind:group={profileFormKind} />
-              <HardDrive size={14} /> <span>{$LL.loganalysis.sourceHost()}</span>
+              <HardDrive size={14} /> <span>On the host</span>
             </label>
             <label class="target-radio" class:active={profileFormKind === 'docker'}>
               <input type="radio" name="setup-kind" value="docker" bind:group={profileFormKind} />
-              <Container size={14} /> <span>{$LL.loganalysis.sourceDocker()}</span>
+              <Container size={14} /> <span>In a Docker container</span>
             </label>
           </div>
         </div>
 
         {#if profileFormKind === 'docker'}
           <div class="form-group fade-in">
-            <label for="setup-container">{$LL.loganalysis.selectContainer()}</label>
+            <label for="setup-container">Container</label>
             <div class="select-row">
               <select id="setup-container" bind:value={profileFormContainer}>
                 {#each containers as c}
@@ -422,22 +421,22 @@
                 <RefreshCw size={14} class={loadingContainers ? 'spin' : ''} />
               </button>
             </div>
-            <span class="field-hint">{$LL.loganalysis.dockerLogsNote()}</span>
+            <span class="field-hint">Reads container output via docker logs.</span>
           </div>
         {:else}
           <div class="form-group fade-in">
-            <label for="setup-path">{$LL.loganalysis.logPath()}</label>
+            <label for="setup-path">Access log path</label>
             <input id="setup-path" class="mono" type="text" bind:value={profileFormLogPath} oninput={() => (pathTouched = true)} placeholder={DEFAULT_PATHS[profileFormServer]} />
           </div>
         {/if}
 
         {#if profileFormServer === 'traefik'}
-          <span class="field-hint warn-hint">{$LL.loganalysis.traefikHint()}</span>
+          <span class="field-hint warn-hint">Traefik must have access logs enabled in Common Log Format (CLF).</span>
         {/if}
 
         <div class="setup-actions">
           <button class="primary" onclick={saveProfileForm} disabled={!profileFormName.trim()}>
-            <Save size={14} /> {$LL.loganalysis.saveProfile()}
+            <Save size={14} /> Save profile
           </button>
         </div>
       </div>
@@ -447,7 +446,7 @@
     <div class="control-bar glass">
       <span class="server-badge">
         {#if target.kind === 'docker'}<Container size={13} />{:else}<HardDrive size={13} />{/if}
-        {$LL.loganalysis.servers[serverType]()}
+        {{"nginx":"Nginx","apache":"Apache","httpd":"httpd","traefik":"Traefik"}[serverType]}
       </span>
       {#if target.kind === 'docker'}
         <span class="source-display mono">docker logs {target.container}</span>
@@ -455,25 +454,25 @@
         <input class="path-input" type="text" bind:value={logPath} placeholder={DEFAULT_PATHS[serverType]} />
       {/if}
       <label class="lines-label">
-        {$LL.loganalysis.lines()}
+        Last lines
         <input class="lines-input" type="number" bind:value={lines} min="1000" step="1000" />
       </label>
       <button class="primary btn-compact" disabled={analyzing} onclick={analyze}>
-        <Play size={14} /> {analyzing ? $LL.loganalysis.analyzing() : $LL.loganalysis.analyze()}
+        <Play size={14} /> {analyzing ? "Analyzing…" : "Analyze"}
       </button>
     </div>
 
     {#if !hasRun}
       <div class="placeholder glass">
         <FileSearch size={32} />
-        <p>{$LL.loganalysis.emptyHint()}</p>
+        <p>Analyze top IPs, paths, status codes and traffic from your access log.</p>
       </div>
     {:else}
       <div class="results">
         <div class="stat-row">
           <div class="stat-card glass">
             <span class="stat-num">{total.toLocaleString()}</span>
-            <span class="stat-label">{$LL.loganalysis.totalRequests()}</span>
+            <span class="stat-label">Total requests</span>
           </div>
           <div class="status-chips glass">
             {#each statusRows as s}
@@ -486,7 +485,7 @@
         </div>
 
         <div class="grid-2">
-          {#each [{ title: $LL.loganalysis.topIps(), rows: ipRows }, { title: $LL.loganalysis.topPaths(), rows: pathRows }, { title: $LL.loganalysis.methods(), rows: methodRows }, { title: $LL.loganalysis.topUserAgents(), rows: uaRows }, { title: $LL.loganalysis.byHour(), rows: hourRows }] as section}
+          {#each [{ title: "Top IP addresses", rows: ipRows }, { title: "Top paths", rows: pathRows }, { title: "HTTP methods", rows: methodRows }, { title: "Top user agents", rows: uaRows }, { title: "Requests by hour", rows: hourRows }] as section}
             {@const mx = maxOf(section.rows)}
             <div class="panel glass">
               <h3 class="panel-title">{section.title}</h3>
@@ -498,7 +497,7 @@
                     <span class="bar-count">{r.count.toLocaleString()}</span>
                   </div>
                 {/each}
-                {#if section.rows.length === 0}<span class="empty">{$LL.common.noData()}</span>{/if}
+                {#if section.rows.length === 0}<span class="empty">(no data)</span>{/if}
               </div>
             </div>
           {/each}
@@ -513,70 +512,70 @@
   <div class="modal-overlay" role="presentation" onclick={() => (showProfilesModal = false)}>
     <div class="modal-content glass profiles-modal" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()}>
       <div class="modal-header">
-        <h3>{$LL.loganalysis.manageProfiles()}</h3>
+        <h3>Manage profiles</h3>
         <button class="icon-btn-compact" onclick={() => (showProfilesModal = false)}><X size={16} /></button>
       </div>
 
       <div class="modal-body flex-col gap-md">
         <div class="profiles-list-section">
-          <h4>{$LL.loganalysis.profilesTitle()}</h4>
+          <h4>Profiles</h4>
           <div class="profiles-grid">
             {#each profiles as p}
               <div class="profile-item glass" class:active={p.id === activeProfileId}>
                 <div class="profile-details">
                   <span class="profile-title">{p.name}</span>
-                  <span class="profile-subtitle mono">{$LL.loganalysis.servers[p.serverType]()} · {p.target.kind === 'host' ? $LL.loganalysis.sourceHost() : p.target.container}</span>
+                  <span class="profile-subtitle mono">{{"nginx":"Nginx","apache":"Apache","httpd":"httpd","traefik":"Traefik"}[p.serverType]} · {p.target.kind === 'host' ? "On the host" : p.target.container}</span>
                 </div>
                 <div class="profile-actions">
-                  <button class="row-btn" onclick={() => openEditProfile(p)} title={$LL.common.edit()}><FileCode size={13} /></button>
-                  <button class="row-btn danger" onclick={() => deleteProfile(p.id)} title={$LL.common.delete()}><Trash2 size={13} /></button>
+                  <button class="row-btn" onclick={() => openEditProfile(p)} title="Edit"><FileCode size={13} /></button>
+                  <button class="row-btn danger" onclick={() => deleteProfile(p.id)} title="Delete"><Trash2 size={13} /></button>
                 </div>
               </div>
             {/each}
           </div>
           <button class="secondary btn-compact mt-sm" onclick={openAddProfile}>
-            <Plus size={14} /> {$LL.loganalysis.addProfile()}
+            <Plus size={14} /> Add profile
           </button>
         </div>
       </div>
 
       {#if showProfilesModal && (profileFormId && !profiles.some(p => p.id === profileFormId) || isEditingProfile)}
         <div class="profile-form-section glass mt-md p-md">
-          <h4>{isEditingProfile ? $LL.loganalysis.editProfile() : $LL.loganalysis.addProfile()}</h4>
+          <h4>{isEditingProfile ? "Edit profile" : "Add profile"}</h4>
 
           <div class="form-group mt-sm">
-            <label for="form-name">{$LL.loganalysis.profileName()}</label>
-            <input id="form-name" type="text" bind:value={profileFormName} placeholder={$LL.loganalysis.profileNamePlaceholder()} />
+            <label for="form-name">Profile name</label>
+            <input id="form-name" type="text" bind:value={profileFormName} placeholder="e.g. Web server, App container" />
           </div>
 
           <div class="form-group">
-            <label>{$LL.loganalysis.serverType()}</label>
+            <label>Web server</label>
             <div class="server-chips">
               {#each SERVER_TYPES as st}
                 <button type="button" class="server-chip" class:active={profileFormServer === st} onclick={() => { profileFormServer = st; onFormServerChange(); }}>
-                  {$LL.loganalysis.servers[st]()}
+                  {{"nginx":"Nginx","apache":"Apache","httpd":"httpd","traefik":"Traefik"}[st]}
                 </button>
               {/each}
             </div>
           </div>
 
           <div class="form-group">
-            <label>{$LL.loganalysis.source()}</label>
+            <label>Where it runs</label>
             <div class="target-options">
               <label class="target-radio" class:active={profileFormKind === 'host'}>
                 <input type="radio" name="form-kind" value="host" bind:group={profileFormKind} />
-                <HardDrive size={14} /> <span>{$LL.loganalysis.sourceHost()}</span>
+                <HardDrive size={14} /> <span>On the host</span>
               </label>
               <label class="target-radio" class:active={profileFormKind === 'docker'}>
                 <input type="radio" name="form-kind" value="docker" bind:group={profileFormKind} />
-                <Container size={14} /> <span>{$LL.loganalysis.sourceDocker()}</span>
+                <Container size={14} /> <span>In a Docker container</span>
               </label>
             </div>
           </div>
 
           {#if profileFormKind === 'docker'}
             <div class="form-group">
-              <label for="form-container">{$LL.loganalysis.selectContainer()}</label>
+              <label for="form-container">Container</label>
               <div class="select-row">
                 <select id="form-container" bind:value={profileFormContainer}>
                   {#each containers as c}
@@ -587,18 +586,18 @@
                   <RefreshCw size={14} class={loadingContainers ? 'spin' : ''} />
                 </button>
               </div>
-              <span class="field-hint">{$LL.loganalysis.dockerLogsNote()}</span>
+              <span class="field-hint">Reads container output via docker logs.</span>
             </div>
           {:else}
             <div class="form-group">
-              <label for="form-path">{$LL.loganalysis.logPath()}</label>
+              <label for="form-path">Access log path</label>
               <input id="form-path" class="mono" type="text" bind:value={profileFormLogPath} oninput={() => (pathTouched = true)} placeholder={DEFAULT_PATHS[profileFormServer]} />
             </div>
           {/if}
 
           <div class="modal-actions mt-md">
-            <button class="secondary" onclick={() => { isEditingProfile = false; profileFormId = ''; }}>{$LL.common.cancel()}</button>
-            <button class="primary" onclick={saveProfileForm} disabled={!profileFormName.trim()}><Save size={14} /> {$LL.common.save()}</button>
+            <button class="secondary" onclick={() => { isEditingProfile = false; profileFormId = ''; }}>Cancel</button>
+            <button class="primary" onclick={saveProfileForm} disabled={!profileFormName.trim()}><Save size={14} /> Save</button>
           </div>
         </div>
       {/if}

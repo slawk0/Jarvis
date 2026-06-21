@@ -2,11 +2,10 @@
   import { invoke } from '@tauri-apps/api/core';
   import { listen } from '@tauri-apps/api/event';
   import { Play, Trash2, Radar, Activity, Route, Search as SearchIcon, Globe, Network } from 'lucide-svelte';
-  import { LL } from '$lib/i18n/i18n-svelte';
-  import { get } from 'svelte/store';
+    import { get } from 'svelte/store';
   import { stickToBottom } from '$lib/stickToBottom';
   import { shQuote } from '$lib/exec/target';
-  import { formatInvokeError } from '$lib/i18n/backendErrors';
+  import { formatInvokeError } from '$lib/backendErrors';
   import { notifications } from '$lib/notifications.svelte';
 
   type Tool = 'ping' | 'traceroute' | 'dns' | 'http' | 'mtr' | 'port';
@@ -52,7 +51,7 @@
   async function run() {
     const cmd = buildCmd();
     if (!cmd) {
-      notifications.error(get(LL).netdiag.needTarget());
+      notifications.error("Enter a target first");
       return;
     }
     running = true;
@@ -78,19 +77,19 @@
 
 <div class="netdiag manager-shell fade-in">
   <header class="manager-header">
-    <h1 class="page-title">{$LL.netdiag.title()}</h1>
+    <h1 class="page-title">Network diagnostics</h1>
   </header>
 
   <div class="tool-tabs">
     {#each tools as tt}
       <button class="tool-tab" class:active={tool === tt.id} onclick={() => (tool = tt.id)}>
-        <tt.icon size={14} /> {$LL.netdiag.tools[tt.id]()}
+        <tt.icon size={14} /> {{"ping":"Ping","traceroute":"Traceroute","dns":"DNS lookup","http":"HTTP (curl)","mtr":"MTR","port":"Port check"}[tt.id]}
       </button>
     {/each}
   </div>
 
   <div class="run-bar glass">
-    <input class="target-input" type="text" placeholder={$LL.netdiag.targetPlaceholder()} bind:value={target} onkeydown={(e) => e.key === 'Enter' && !running && run()} />
+    <input class="target-input" type="text" placeholder="Host, IP or URL…" bind:value={target} onkeydown={(e) => e.key === 'Enter' && !running && run()} />
     {#if tool === 'dns'}
       <select bind:value={recordType} class="extra-select">
         {#each ['A', 'AAAA', 'MX', 'TXT', 'NS', 'CNAME', 'SOA', 'PTR'] as rt}
@@ -99,17 +98,17 @@
       </select>
     {/if}
     {#if tool === 'port'}
-      <input class="port-input" type="text" placeholder={$LL.netdiag.portPlaceholder()} bind:value={port} />
+      <input class="port-input" type="text" placeholder="Port" bind:value={port} />
     {/if}
     <button class="primary btn-compact" disabled={running} onclick={run}>
-      <Play size={14} /> {running ? $LL.netdiag.running() : $LL.common.run()}
+      <Play size={14} /> {running ? "Running…" : "Run"}
     </button>
     <button class="secondary btn-compact" disabled={!output} onclick={clear}>
-      <Trash2 size={14} /> {$LL.common.clear()}
+      <Trash2 size={14} /> Clear
     </button>
   </div>
 
-  <pre class="output glass" use:stickToBottom>{output || $LL.netdiag.emptyHint()}</pre>
+  <pre class="output glass" use:stickToBottom>{output || "Pick a tool, enter a target and run a diagnostic."}</pre>
 </div>
 
 <style>

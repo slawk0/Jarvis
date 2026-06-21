@@ -2,11 +2,10 @@
   import { onMount, onDestroy, untrack } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { Database, Table, Play, Plug, PlugZap, Download, Server, ChevronRight, Terminal, Settings2, Save, Plus, Trash2, X, FileCode, RefreshCw, Container, HardDrive, Wand2, Columns3, Pencil, Check, ChevronLeft, Filter as FilterIcon, Eye } from 'lucide-svelte';
-  import { LL } from '$lib/i18n/i18n-svelte';
-  import { get } from 'svelte/store';
+    import { get } from 'svelte/store';
   import { shQuote, listContainers } from '$lib/exec/target';
   import { notifications } from '$lib/notifications.svelte';
-  import { formatInvokeError } from '$lib/i18n/backendErrors';
+  import { formatInvokeError } from '$lib/backendErrors';
   import { defaultPort, engineLabel, FILTER_OPS, type Engine } from '$lib/db/dialect';
 
   let { profileId = '', visible = true } = $props();
@@ -300,7 +299,7 @@
 
   function saveProfileForm() {
     if (!profileFormName.trim()) {
-      notifications.error(get(LL).database.nameRequired());
+      notifications.error("Please enter a profile name");
       return;
     }
     const finalId = profileFormId || Math.random().toString(36).substring(7);
@@ -332,7 +331,7 @@
   function deleteProfile(id: string) {
     const p = profiles.find((x) => x.id === id);
     if (!p) return;
-    if (!confirm(get(LL).database.deleteProfileConfirm({ name: p.name }))) return;
+    if (!confirm(`Delete profile "${p.name}"?`)) return;
     profiles = profiles.filter((x) => x.id !== id);
     saveProfiles();
     if (activeProfileId === id) {
@@ -378,7 +377,7 @@
         env.MARIADB_USER !== undefined;
 
       if (!isPg && !isMy) {
-        notifications.warning(get(LL).database.detectNothing());
+        notifications.warning("No database settings found in the container environment.");
         return;
       }
 
@@ -403,10 +402,10 @@
       if (!profileFormName.trim()) profileFormName = profileFormContainer;
 
       notifications.success(
-        get(LL).database.detectSuccess({ engine: isPg ? 'PostgreSQL' : 'MySQL' }),
+        `Detected ${isPg ? 'PostgreSQL' : 'MySQL'} settings from the container.`,
       );
     } catch (err) {
-      notifications.error(get(LL).database.detectFailed({ error: formatInvokeError(err) }));
+      notifications.error(`Could not auto-detect settings: ${formatInvokeError(err)}`);
     } finally {
       detecting = false;
     }
@@ -439,7 +438,7 @@
       databases = await invoke<string[]>('db_list_databases', { connectionId });
       if (databases.length) await selectDatabase(databases[0]);
     } catch (err) {
-      errorMsg = get(LL).database.connectFailed({ error: formatInvokeError(err) });
+      errorMsg = `Connection failed: ${formatInvokeError(err)}`;
       connected = false;
       connectionId = '';
     } finally {
@@ -531,7 +530,7 @@
       total = res.total;
       selectedRows = new Set();
     } catch (err) {
-      errorMsg = get(LL).database.queryError({ error: formatInvokeError(err) });
+      errorMsg = `Query error: ${formatInvokeError(err)}`;
     } finally {
       running = false;
     }
@@ -612,11 +611,11 @@
         values,
         pk,
       });
-      notifications.success(get(LL).database.rowUpdated());
+      notifications.success("Row updated");
       cancelEdit();
       await loadData();
     } catch (err) {
-      notifications.error(get(LL).database.queryError({ error: formatInvokeError(err) }));
+      notifications.error(`Query error: ${formatInvokeError(err)}`);
     }
   }
 
@@ -635,7 +634,7 @@
       .map((col, c) => ({ column: col, value: insertValues[c] }))
       .filter((cell) => cell.value !== null && cell.value !== undefined);
     if (values.length === 0) {
-      notifications.warning(get(LL).database.noValues());
+      notifications.warning("Enter at least one value");
       return;
     }
     try {
@@ -645,11 +644,11 @@
         table: selectedTable,
         values,
       });
-      notifications.success(get(LL).database.rowInserted());
+      notifications.success("Row inserted");
       cancelEdit();
       await loadData();
     } catch (err) {
-      notifications.error(get(LL).database.queryError({ error: formatInvokeError(err) }));
+      notifications.error(`Query error: ${formatInvokeError(err)}`);
     }
   }
 
@@ -666,7 +665,7 @@
 
   async function deleteSelected() {
     if (selectedRows.size === 0) return;
-    if (!confirm(get(LL).database.confirmDeleteRows({ count: selectedRows.size }))) return;
+    if (!confirm(`Delete ${selectedRows.size} row(s)?`)) return;
     const rows = [...selectedRows].map((i) => pkCellsFor(i));
     try {
       await invoke('db_delete_rows', {
@@ -675,10 +674,10 @@
         table: selectedTable,
         rows,
       });
-      notifications.success(get(LL).database.rowsDeleted({ count: rows.length }));
+      notifications.success(`${rows.length} row(s) deleted`);
       await loadData();
     } catch (err) {
-      notifications.error(get(LL).database.queryError({ error: formatInvokeError(err) }));
+      notifications.error(`Query error: ${formatInvokeError(err)}`);
     }
   }
 
@@ -694,7 +693,7 @@
         sql: sqlText,
       });
     } catch (err) {
-      errorMsg = get(LL).database.queryError({ error: formatInvokeError(err) });
+      errorMsg = `Query error: ${formatInvokeError(err)}`;
     } finally {
       sqlRunning = false;
     }
@@ -721,7 +720,7 @@
     download(`${base}.json`, JSON.stringify(objs, null, 2), 'application/json');
   }
 
-  const sourceLabel = $derived(useDocker ? container : get(LL).database.sourceHost());
+  const sourceLabel = $derived(useDocker ? container : "On the host");
 
   onMount(async () => {
     await loadContainers();
@@ -739,17 +738,17 @@
 
 <div class="database-manager manager-shell fade-in">
   <header class="manager-header">
-    <h1 class="page-title">{$LL.database.title()}</h1>
+    <h1 class="page-title">Database browser</h1>
     <div class="header-actions">
       {#if profiles.length > 0}
         <div class="profile-selector glass">
-          <span class="ps-label">{$LL.database.activeProfile()}:</span>
+          <span class="ps-label">Profile:</span>
           <select bind:value={activeProfileId} class="profile-select" onchange={handleProfileChange}>
             {#each profiles as p}
-              <option value={p.id}>{p.name} ({engineLabel(p.engine)} · {p.kind === 'host' ? $LL.database.sourceHost() : p.container})</option>
+              <option value={p.id}>{p.name} ({engineLabel(p.engine)} · {p.kind === 'host' ? "On the host" : p.container})</option>
             {/each}
           </select>
-          <button class="icon-btn-compact" onclick={() => (showProfilesModal = true)} title={$LL.database.manageProfiles()}>
+          <button class="icon-btn-compact" onclick={() => (showProfilesModal = true)} title="Manage profiles">
             <Settings2 size={14} />
           </button>
         </div>
@@ -763,13 +762,13 @@
       <div class="setup-card glass">
         <div class="setup-header">
           <Database size={32} class="accent" />
-          <h2>{$LL.database.setupTitle()}</h2>
-          <p>{$LL.database.setupDesc()}</p>
+          <h2>Database Browser Setup</h2>
+          <p>Create a connection profile to browse databases on the host or inside a Docker container.</p>
         </div>
         {@render profileForm()}
         <div class="setup-actions">
           <button class="primary" onclick={saveProfileForm} disabled={!profileFormName.trim()}>
-            <Save size={14} /> {$LL.database.saveProfile()}
+            <Save size={14} /> Save profile
           </button>
         </div>
       </div>
@@ -785,11 +784,11 @@
       <div class="conn-spacer"></div>
       {#if connected}
         <button class="secondary btn-compact" onclick={disconnect}>
-          <PlugZap size={14} /> {$LL.database.disconnect()}
+          <PlugZap size={14} /> Disconnect
         </button>
       {:else}
         <button class="primary btn-compact" disabled={connecting} onclick={connect}>
-          <Plug size={14} /> {connecting ? $LL.database.connecting() : $LL.database.connect()}
+          <Plug size={14} /> {connecting ? "Connecting…" : "Connect"}
         </button>
       {/if}
     </div>
@@ -798,7 +797,7 @@
       <div class="db-workspace">
         <aside class="db-sidebar glass">
           <div class="sb-section">
-            <div class="sb-title"><Server size={13} /> {$LL.database.databases()}</div>
+            <div class="sb-title"><Server size={13} /> Databases</div>
             <div class="sb-list">
               {#each databases as db}
                 <button class="sb-item" class:active={selectedDb === db} onclick={() => selectDatabase(db)}>
@@ -809,14 +808,14 @@
           </div>
           {#if selectedDb}
             <div class="sb-section">
-              <div class="sb-title"><Table size={13} /> {$LL.database.tables()} ({tables.length})</div>
+              <div class="sb-title"><Table size={13} /> Tables ({tables.length})</div>
               <div class="sb-list">
                 {#each tables as t}
                   <button class="sb-item" class:active={selectedTable === t.name} onclick={() => openTable(t)}>
                     {#if t.kind === 'view'}<Eye size={11} />{:else}<ChevronRight size={11} />{/if} {t.name}
                   </button>
                 {/each}
-                {#if tables.length === 0}<span class="sb-empty">{$LL.database.noTables()}</span>{/if}
+                {#if tables.length === 0}<span class="sb-empty">No tables</span>{/if}
               </div>
             </div>
           {/if}
@@ -824,20 +823,20 @@
 
         <main class="db-main">
           <div class="main-tabs">
-            <button class="mtab" class:active={view === 'data'} disabled={!selectedTable} onclick={() => (view = 'data')}><Table size={13} /> {$LL.database.data()}</button>
-            <button class="mtab" class:active={view === 'structure'} disabled={!selectedTable} onclick={() => (view = 'structure')}><Columns3 size={13} /> {$LL.database.structure()}</button>
-            <button class="mtab" class:active={view === 'sql'} onclick={() => (view = 'sql')}><Terminal size={13} /> {$LL.database.sqlEditor()}</button>
+            <button class="mtab" class:active={view === 'data'} disabled={!selectedTable} onclick={() => (view = 'data')}><Table size={13} /> Data</button>
+            <button class="mtab" class:active={view === 'structure'} disabled={!selectedTable} onclick={() => (view = 'structure')}><Columns3 size={13} /> Structure</button>
+            <button class="mtab" class:active={view === 'sql'} onclick={() => (view = 'sql')}><Terminal size={13} /> SQL editor</button>
           </div>
 
           <!-- ============================ DATA ============================ -->
           {#if view === 'data'}
             {#if !selectedTable}
-              <div class="result-empty"><Database size={22} /> {$LL.database.pickHint()}</div>
+              <div class="result-empty"><Database size={22} /> Pick a table to browse, or run a query in the SQL editor.</div>
             {:else}
               <div class="data-toolbar">
-                <button class="secondary btn-compact" onclick={loadData} title={$LL.common.refresh()}><RefreshCw size={13} class={running ? 'spin' : ''} /></button>
-                <button class="secondary btn-compact" onclick={startInsert} disabled={selectedKind === 'view'}><Plus size={13} /> {$LL.database.addRow()}</button>
-                <button class="secondary btn-compact danger" onclick={deleteSelected} disabled={selectedRows.size === 0 || selectedKind === 'view'}><Trash2 size={13} /> {$LL.database.deleteSelected()} {selectedRows.size > 0 ? `(${selectedRows.size})` : ''}</button>
+                <button class="secondary btn-compact" onclick={loadData} title="Refresh"><RefreshCw size={13} class={running ? 'spin' : ''} /></button>
+                <button class="secondary btn-compact" onclick={startInsert} disabled={selectedKind === 'view'}><Plus size={13} /> Add row</button>
+                <button class="secondary btn-compact danger" onclick={deleteSelected} disabled={selectedRows.size === 0 || selectedKind === 'view'}><Trash2 size={13} /> Delete {selectedRows.size > 0 ? `(${selectedRows.size})` : ''}</button>
                 <div class="mtab-spacer"></div>
                 <button class="secondary btn-compact" onclick={() => exportCsv(dataColumns, dataRows, selectedTable)}><Download size={13} /> CSV</button>
                 <button class="secondary btn-compact" onclick={() => exportJson(dataColumns, dataRows, selectedTable)}><Download size={13} /> JSON</button>
@@ -854,20 +853,20 @@
                     <select bind:value={f.op} class="flt-op">
                       {#each FILTER_OPS as op}<option value={op}>{op}</option>{/each}
                     </select>
-                    <input class="flt-val mono" bind:value={f.value} placeholder={$LL.database.filterValue()} />
+                    <input class="flt-val mono" bind:value={f.value} placeholder="value" />
                     <button class="icon-btn-compact" onclick={() => removeFilter(i)}><X size={12} /></button>
                   </div>
                 {/each}
-                <button class="secondary btn-compact" onclick={addFilter}><Plus size={12} /> {$LL.database.addFilter()}</button>
+                <button class="secondary btn-compact" onclick={addFilter}><Plus size={12} /> Filter</button>
                 {#if filters.length > 0}
-                  <button class="primary btn-compact" onclick={applyFilters}><Check size={12} /> {$LL.database.applyFilters()}</button>
-                  <button class="secondary btn-compact" onclick={clearFilters}>{$LL.database.clearFilters()}</button>
+                  <button class="primary btn-compact" onclick={applyFilters}><Check size={12} /> Apply</button>
+                  <button class="secondary btn-compact" onclick={clearFilters}>Clear</button>
                 {/if}
               </div>
 
               <div class="result-area glass">
                 {#if running}
-                  <div class="result-empty">{$LL.common.loading()}</div>
+                  <div class="result-empty">Loading…</div>
                 {:else}
                   <div class="grid-scroll">
                     <table>
@@ -887,14 +886,14 @@
                           <tr class="edit-row">
                             <td class="sel-col"></td>
                             <td class="act-col">
-                              <button class="row-btn ok" onclick={saveInsert} title={$LL.common.save()}><Check size={13} /></button>
-                              <button class="row-btn" onclick={cancelEdit} title={$LL.common.cancel()}><X size={13} /></button>
+                              <button class="row-btn ok" onclick={saveInsert} title="Save"><Check size={13} /></button>
+                              <button class="row-btn" onclick={cancelEdit} title="Cancel"><X size={13} /></button>
                             </td>
                             {#each dataColumns as _col, c}
                               <td>
                                 <div class="cell-edit">
                                   <input class="cell-input mono" value={insertValues[c] ?? ''} oninput={(e) => (insertValues[c] = e.currentTarget.value)} placeholder={insertValues[c] === null ? 'NULL' : ''} />
-                                  <button class="null-btn" class:on={insertValues[c] === null} onclick={() => setInsertNull(c)} title={$LL.database.setNull()}>∅</button>
+                                  <button class="null-btn" class:on={insertValues[c] === null} onclick={() => setInsertNull(c)} title="Set NULL">∅</button>
                                 </div>
                               </td>
                             {/each}
@@ -905,14 +904,14 @@
                             <tr class="edit-row">
                               <td class="sel-col"></td>
                               <td class="act-col">
-                                <button class="row-btn ok" onclick={saveEdit} title={$LL.common.save()}><Check size={13} /></button>
-                                <button class="row-btn" onclick={cancelEdit} title={$LL.common.cancel()}><X size={13} /></button>
+                                <button class="row-btn ok" onclick={saveEdit} title="Save"><Check size={13} /></button>
+                                <button class="row-btn" onclick={cancelEdit} title="Cancel"><X size={13} /></button>
                               </td>
                               {#each dataColumns as _col, c}
                                 <td>
                                   <div class="cell-edit">
                                     <input class="cell-input mono" value={editValues[c] ?? ''} oninput={(e) => (editValues[c] = e.currentTarget.value)} placeholder={editValues[c] === null ? 'NULL' : ''} />
-                                    <button class="null-btn" class:on={editValues[c] === null} onclick={() => setEditNull(c)} title={$LL.database.setNull()}>∅</button>
+                                    <button class="null-btn" class:on={editValues[c] === null} onclick={() => setEditNull(c)} title="Set NULL">∅</button>
                                   </div>
                                 </td>
                               {/each}
@@ -921,7 +920,7 @@
                             <tr class:selected={selectedRows.has(i)}>
                               <td class="sel-col"><input type="checkbox" checked={selectedRows.has(i)} onchange={() => toggleRowSelect(i)} /></td>
                               <td class="act-col">
-                                <button class="row-btn" onclick={() => startEdit(i)} disabled={selectedKind === 'view'} title={$LL.common.edit()}><Pencil size={12} /></button>
+                                <button class="row-btn" onclick={() => startEdit(i)} disabled={selectedKind === 'view'} title="Edit"><Pencil size={12} /></button>
                               </td>
                               {#each row as cell}
                                 <td title={cell ?? 'NULL'}>{#if cell === null}<span class="null-cell">NULL</span>{:else}{cell}{/if}</td>
@@ -931,11 +930,11 @@
                         {/each}
                       </tbody>
                     </table>
-                    {#if dataRows.length === 0 && !inserting}<div class="result-empty">{$LL.database.emptyTable()}</div>{/if}
+                    {#if dataRows.length === 0 && !inserting}<div class="result-empty">No rows</div>{/if}
                   </div>
                   <div class="pager">
-                    <span class="pager-info">{$LL.database.rows({ count: total })}</span>
-                    {#if structure && structure.primaryKey.length === 0}<span class="pk-warn">{$LL.database.noPrimaryKeyHint()}</span>{/if}
+                    <span class="pager-info">{`${total} row(s)`}</span>
+                    {#if structure && structure.primaryKey.length === 0}<span class="pk-warn">No primary key — row edits match on all columns</span>{/if}
                     <div class="mtab-spacer"></div>
                     <select class="page-size" value={pageSize} onchange={(e) => changePageSize(Number(e.currentTarget.value))}>
                       {#each [10, 25, 50, 100, 200] as n}<option value={n}>{n}</option>{/each}
@@ -952,10 +951,10 @@
           {:else if view === 'structure'}
             {#if structure}
               <div class="result-area glass struct-area">
-                <h4 class="struct-h">{$LL.database.structureColumns()}</h4>
+                <h4 class="struct-h">Columns</h4>
                 <div class="grid-scroll struct-grid">
                   <table>
-                    <thead><tr><th>{$LL.database.colName()}</th><th>{$LL.database.colType()}</th><th>{$LL.database.colNull()}</th><th>{$LL.database.colDefault()}</th><th>{$LL.database.colKey()}</th><th>{$LL.database.colExtra()}</th></tr></thead>
+                    <thead><tr><th>Name</th><th>Type</th><th>Null</th><th>Default</th><th>Key</th><th>Extra</th></tr></thead>
                     <tbody>
                       {#each structure.columns as c}
                         <tr>
@@ -972,10 +971,10 @@
                 </div>
 
                 {#if structure.indexes.length}
-                  <h4 class="struct-h">{$LL.database.structureIndexes()}</h4>
+                  <h4 class="struct-h">Indexes</h4>
                   <div class="grid-scroll struct-grid">
                     <table>
-                      <thead><tr><th>{$LL.database.colName()}</th><th>{$LL.database.idxColumns()}</th><th>{$LL.database.idxUnique()}</th><th>{$LL.database.idxPrimary()}</th></tr></thead>
+                      <thead><tr><th>Name</th><th>Columns</th><th>Unique</th><th>Primary</th></tr></thead>
                       <tbody>
                         {#each structure.indexes as ix}
                           <tr><td class="mono">{ix.name}</td><td class="mono">{ix.columns.join(', ')}</td><td>{ix.unique ? '✓' : ''}</td><td>{ix.primary ? '✓' : ''}</td></tr>
@@ -986,10 +985,10 @@
                 {/if}
 
                 {#if structure.foreignKeys.length}
-                  <h4 class="struct-h">{$LL.database.structureForeignKeys()}</h4>
+                  <h4 class="struct-h">Foreign keys</h4>
                   <div class="grid-scroll struct-grid">
                     <table>
-                      <thead><tr><th>{$LL.database.colName()}</th><th>{$LL.database.colName()}</th><th>{$LL.database.fkRef()}</th></tr></thead>
+                      <thead><tr><th>Name</th><th>Name</th><th>References</th></tr></thead>
                       <tbody>
                         {#each structure.foreignKeys as fk}
                           <tr><td class="mono">{fk.name}</td><td class="mono">{fk.column}</td><td class="mono">{fk.refTable}.{fk.refColumn}</td></tr>
@@ -1000,7 +999,7 @@
                 {/if}
               </div>
             {:else}
-              <div class="result-empty">{$LL.database.pickHint()}</div>
+              <div class="result-empty">Pick a table to browse, or run a query in the SQL editor.</div>
             {/if}
 
           <!-- ============================= SQL ============================= -->
@@ -1008,7 +1007,7 @@
             <div class="sql-box">
               <textarea class="sql-area" bind:value={sqlText} placeholder={`SELECT * FROM ...`} spellcheck="false"></textarea>
               <div class="sql-actions">
-                <button class="primary btn-compact" disabled={sqlRunning} onclick={runSql}><Play size={14} /> {sqlRunning ? $LL.database.running() : $LL.database.runQuery()}</button>
+                <button class="primary btn-compact" disabled={sqlRunning} onclick={runSql}><Play size={14} /> {sqlRunning ? "Running…" : "Run"}</button>
                 {#if sqlResult && sqlResult.columns.length}
                   <button class="secondary btn-compact" onclick={() => exportCsv(sqlResult!.columns, sqlResult!.rows, 'query')}><Download size={13} /> CSV</button>
                   <button class="secondary btn-compact" onclick={() => exportJson(sqlResult!.columns, sqlResult!.rows, 'query')}><Download size={13} /> JSON</button>
@@ -1017,13 +1016,13 @@
             </div>
             <div class="result-area glass">
               {#if sqlRunning}
-                <div class="result-empty">{$LL.common.loading()}</div>
+                <div class="result-empty">Loading…</div>
               {:else if !sqlResult}
-                <div class="result-empty"><Terminal size={22} /> {$LL.database.pickHint()}</div>
+                <div class="result-empty"><Terminal size={22} /> Pick a table to browse, or run a query in the SQL editor.</div>
               {:else if sqlResult.columns.length === 0}
                 <div class="result-msg">{sqlResult.message}</div>
               {:else}
-                <div class="result-meta">{$LL.database.rows({ count: sqlResult.rows.length })}</div>
+                <div class="result-meta">{`${sqlResult.rows.length} row(s)`}</div>
                 <div class="grid-scroll">
                   <table>
                     <thead><tr>{#each sqlResult.columns as col}<th>{col}</th>{/each}</tr></thead>
@@ -1040,7 +1039,7 @@
         </main>
       </div>
     {:else}
-      <div class="empty glass"><Database size={26} /> {$LL.database.connectHint()}</div>
+      <div class="empty glass"><Database size={26} /> Select a profile and connect to a database server.</div>
     {/if}
   {/if}
 </div>
@@ -1050,40 +1049,40 @@
   <div class="modal-overlay" role="presentation" onclick={() => (showProfilesModal = false)}>
     <div class="modal-content glass profiles-modal" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()}>
       <div class="modal-header">
-        <h3>{$LL.database.manageProfiles()}</h3>
+        <h3>Manage profiles</h3>
         <button class="icon-btn-compact" onclick={() => (showProfilesModal = false)}><X size={16} /></button>
       </div>
 
       <div class="modal-body flex-col gap-md">
         <div class="profiles-list-section">
-          <h4>{$LL.database.profilesTitle()}</h4>
+          <h4>Profiles</h4>
           <div class="profiles-grid">
             {#each profiles as p}
               <div class="profile-item glass" class:active={p.id === activeProfileId}>
                 <div class="profile-details">
                   <span class="profile-title">{p.name}</span>
-                  <span class="profile-subtitle mono">{engineLabel(p.engine)} · {p.kind === 'host' ? $LL.database.sourceHost() : p.container}</span>
+                  <span class="profile-subtitle mono">{engineLabel(p.engine)} · {p.kind === 'host' ? "On the host" : p.container}</span>
                 </div>
                 <div class="profile-actions">
-                  <button class="row-btn" onclick={() => openEditProfile(p)} title={$LL.common.edit()}><FileCode size={13} /></button>
-                  <button class="row-btn danger" onclick={() => deleteProfile(p.id)} title={$LL.common.delete()}><Trash2 size={13} /></button>
+                  <button class="row-btn" onclick={() => openEditProfile(p)} title="Edit"><FileCode size={13} /></button>
+                  <button class="row-btn danger" onclick={() => deleteProfile(p.id)} title="Delete"><Trash2 size={13} /></button>
                 </div>
               </div>
             {/each}
           </div>
           <button class="secondary btn-compact mt-sm" onclick={openAddProfile}>
-            <Plus size={14} /> {$LL.database.addProfile()}
+            <Plus size={14} /> Add profile
           </button>
         </div>
       </div>
 
       {#if profileFormId && (!profiles.some((p) => p.id === profileFormId) || isEditingProfile)}
         <div class="profile-form-section glass mt-md p-md">
-          <h4>{isEditingProfile ? $LL.database.editProfile() : $LL.database.addProfile()}</h4>
+          <h4>{isEditingProfile ? "Edit profile" : "Add profile"}</h4>
           {@render profileForm()}
           <div class="modal-actions mt-md">
-            <button class="secondary" onclick={() => { isEditingProfile = false; profileFormId = ''; }}>{$LL.common.cancel()}</button>
-            <button class="primary" onclick={saveProfileForm} disabled={!profileFormName.trim()}><Save size={14} /> {$LL.common.save()}</button>
+            <button class="secondary" onclick={() => { isEditingProfile = false; profileFormId = ''; }}>Cancel</button>
+            <button class="primary" onclick={saveProfileForm} disabled={!profileFormName.trim()}><Save size={14} /> Save</button>
           </div>
         </div>
       {/if}
@@ -1094,12 +1093,12 @@
 <!-- ===================== Reusable profile form ===================== -->
 {#snippet profileForm()}
   <div class="form-group mt-sm">
-    <label for="db-form-name">{$LL.database.profileName()}</label>
-    <input id="db-form-name" type="text" bind:value={profileFormName} placeholder={$LL.database.profileNamePlaceholder()} />
+    <label for="db-form-name">Profile name</label>
+    <input id="db-form-name" type="text" bind:value={profileFormName} placeholder="e.g. App database, Postgres prod" />
   </div>
 
   <div class="form-group">
-    <label>{$LL.database.engine()}</label>
+    <label>Engine</label>
     <div class="seg">
       <button type="button" class="seg-btn" class:active={profileFormEngine === 'mysql'} onclick={() => onFormEngineChange('mysql')}>MySQL</button>
       <button type="button" class="seg-btn" class:active={profileFormEngine === 'postgres'} onclick={() => onFormEngineChange('postgres')}>PostgreSQL</button>
@@ -1107,58 +1106,58 @@
   </div>
 
   <div class="form-group">
-    <label>{$LL.database.source()}</label>
+    <label>Source</label>
     <div class="target-options">
       <label class="target-radio" class:active={profileFormKind === 'host'}>
         <input type="radio" name="db-kind" value="host" bind:group={profileFormKind} />
-        <HardDrive size={14} /> <span>{$LL.database.sourceHost()}</span>
+        <HardDrive size={14} /> <span>On the host</span>
       </label>
       <label class="target-radio" class:active={profileFormKind === 'docker'}>
         <input type="radio" name="db-kind" value="docker" bind:group={profileFormKind} />
-        <Container size={14} /> <span>{$LL.database.sourceDocker()}</span>
+        <Container size={14} /> <span>In a Docker container</span>
       </label>
     </div>
   </div>
 
   {#if profileFormKind === 'docker'}
     <div class="form-group fade-in">
-      <label for="db-form-container">{$LL.database.selectContainer()}</label>
+      <label for="db-form-container">Container</label>
       <div class="select-row">
         <select id="db-form-container" bind:value={profileFormContainer}>
-          {#if containers.length === 0}<option value="">{$LL.database.noContainers()}</option>{/if}
+          {#if containers.length === 0}<option value="">No containers</option>{/if}
           {#each containers as c}
             <option value={c}>{c}</option>
           {/each}
         </select>
-        <button class="secondary btn-compact" onclick={loadContainers} disabled={loadingContainers} title={$LL.common.refresh()}>
+        <button class="secondary btn-compact" onclick={loadContainers} disabled={loadingContainers} title="Refresh">
           <RefreshCw size={14} class={loadingContainers ? 'spin' : ''} />
         </button>
         <button class="secondary btn-compact" onclick={autoDetect} disabled={detecting || !profileFormContainer}>
-          <Wand2 size={14} /> {detecting ? $LL.database.detecting() : $LL.database.autoDetect()}
+          <Wand2 size={14} /> {detecting ? "Detecting…" : "Auto-detect"}
         </button>
       </div>
-      <span class="field-hint">{$LL.database.detectHint()}</span>
+      <span class="field-hint">Pick a database container and auto-detect reads its engine and credentials from the container environment.</span>
     </div>
   {/if}
 
   <div class="form-row">
     <div class="form-group grow">
-      <label for="db-form-host">{$LL.database.host()}</label>
+      <label for="db-form-host">Host</label>
       <input id="db-form-host" class="mono" type="text" bind:value={profileFormHost} placeholder="127.0.0.1" />
     </div>
     <div class="form-group port-col">
-      <label for="db-form-port">{$LL.database.port()}</label>
+      <label for="db-form-port">Port</label>
       <input id="db-form-port" class="mono" type="text" bind:value={profileFormPort} placeholder={defaultPort(profileFormEngine)} />
     </div>
   </div>
 
   <div class="form-row">
     <div class="form-group grow">
-      <label for="db-form-user">{$LL.database.user()}</label>
+      <label for="db-form-user">User</label>
       <input id="db-form-user" class="mono" type="text" bind:value={profileFormUser} />
     </div>
     <div class="form-group grow">
-      <label for="db-form-pass">{$LL.database.password()}</label>
+      <label for="db-form-pass">Password</label>
       <input id="db-form-pass" type="password" bind:value={profileFormPassword} autocomplete="off" />
     </div>
   </div>

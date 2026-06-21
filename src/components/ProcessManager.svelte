@@ -5,10 +5,9 @@
   import SortableTh from './ui/SortableTh.svelte';
   import SudoModal from './SudoModal.svelte';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
-  import { LL } from '$lib/i18n/i18n-svelte';
-  import { get } from 'svelte/store';
+    import { get } from 'svelte/store';
   import { notifications } from '$lib/notifications.svelte';
-  import { formatInvokeError, isSudoPasswordRequired } from '$lib/i18n/backendErrors';
+  import { formatInvokeError, isSudoPasswordRequired } from '$lib/backendErrors';
 
   interface Proc {
     pid: string;
@@ -116,20 +115,20 @@
   }
 
   function killProc(p: Proc, force: boolean) {
-    const msg = force ? get(LL).processes.confirmForceKill({ pid: p.pid }) : get(LL).processes.confirmKill({ pid: p.pid });
+    const msg = force ? `Force kill (SIGKILL) process ${p.pid}? This cannot be undone.` : `Send SIGTERM to process ${p.pid}?`;
     if (!confirm(msg)) return;
-    runPrivileged(`kill ${force ? '-9 ' : ''}${p.pid}`, get(LL).processes.killed({ pid: p.pid }));
+    runPrivileged(`kill ${force ? '-9 ' : ''}${p.pid}`, `Signal sent to process ${p.pid}`);
   }
 
   function renice(p: Proc) {
-    const val = prompt(get(LL).processes.nicePrompt({ pid: p.pid }), p.nice);
+    const val = prompt(`New nice value for PID ${p.pid} (-20 highest priority … 19 lowest):`, p.nice);
     if (val === null) return;
     const n = parseInt(val);
     if (isNaN(n) || n < -20 || n > 19) {
-      errorMsg = get(LL).processes.niceInvalid();
+      errorMsg = "Nice value must be between -20 and 19";
       return;
     }
-    runPrivileged(`renice -n ${n} -p ${p.pid}`, get(LL).processes.reniced({ pid: p.pid, nice: n }));
+    runPrivileged(`renice -n ${n} -p ${p.pid}`, `Process ${p.pid} reniced to ${n}`);
   }
 
   function toggleAuto() {
@@ -153,10 +152,10 @@
 
 <div class="process-manager manager-shell fade-in">
   <header class="manager-header">
-    <h1 class="page-title">{$LL.processes.title()}</h1>
+    <h1 class="page-title">Process manager</h1>
     <div class="header-actions">
       <button class="secondary btn-compact" class:active={autoRefresh} onclick={toggleAuto}>
-        <Gauge size={14} /> {autoRefresh ? $LL.processes.autoOn() : $LL.processes.autoOff()}
+        <Gauge size={14} /> {autoRefresh ? "Auto-refresh: on" : "Auto-refresh: off"}
       </button>
     </div>
   </header>
@@ -164,12 +163,12 @@
   <div class="toolbar">
     <div class="search-box">
       <Search size={14} />
-      <input type="text" placeholder={$LL.processes.searchPlaceholder()} bind:value={searchQuery} />
+      <input type="text" placeholder="Search by command, user or PID…" bind:value={searchQuery} />
       {#if searchQuery}
-        <button class="clear-search" onclick={() => (searchQuery = '')} aria-label={$LL.common.clear()}><X size={13} /></button>
+        <button class="clear-search" onclick={() => (searchQuery = '')} aria-label="Clear"><X size={13} /></button>
       {/if}
     </div>
-    <span class="count-badge">{$LL.processes.count({ count: filtered.length })}</span>
+    <span class="count-badge">{`${filtered.length} processes`}</span>
   </div>
 
   <div class="table-wrap glass">
@@ -177,11 +176,11 @@
       <thead>
         <tr>
           <SortableTh label="PID" column="pid" activeColumn={sort.column} direction={sort.direction} onsort={(c) => (sort = nextSort(sort, c as SortCol))} />
-          <SortableTh label={$LL.processes.user()} column="user" activeColumn={sort.column} direction={sort.direction} onsort={(c) => (sort = nextSort(sort, c as SortCol))} />
+          <SortableTh label="User" column="user" activeColumn={sort.column} direction={sort.direction} onsort={(c) => (sort = nextSort(sort, c as SortCol))} />
           <SortableTh label="CPU %" column="cpu" activeColumn={sort.column} direction={sort.direction} onsort={(c) => (sort = nextSort(sort, c as SortCol))} />
           <SortableTh label="MEM %" column="mem" activeColumn={sort.column} direction={sort.direction} onsort={(c) => (sort = nextSort(sort, c as SortCol))} />
-          <SortableTh label={$LL.processes.command()} column="command" activeColumn={sort.column} direction={sort.direction} onsort={(c) => (sort = nextSort(sort, c as SortCol))} />
-          <th class="actions-col">{$LL.common.actions()}</th>
+          <SortableTh label="Command" column="command" activeColumn={sort.column} direction={sort.direction} onsort={(c) => (sort = nextSort(sort, c as SortCol))} />
+          <th class="actions-col">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -193,14 +192,14 @@
             <td><span class="metric" class:hot={p.mem > 50}><MemoryStick size={11} /> {p.mem.toFixed(1)}</span></td>
             <td class="cmd-cell" title={p.command}>{p.command}</td>
             <td class="actions-col">
-              <button class="row-btn" onclick={() => renice(p)} title={$LL.processes.renice()}><Gauge size={13} /></button>
-              <button class="row-btn warn" onclick={() => killProc(p, false)} title={$LL.processes.kill()}>TERM</button>
-              <button class="row-btn danger" onclick={() => killProc(p, true)} title={$LL.processes.forceKill()}><Skull size={13} /></button>
+              <button class="row-btn" onclick={() => renice(p)} title="Change priority (renice)"><Gauge size={13} /></button>
+              <button class="row-btn warn" onclick={() => killProc(p, false)} title="Terminate (SIGTERM)">TERM</button>
+              <button class="row-btn danger" onclick={() => killProc(p, true)} title="Force kill (SIGKILL)"><Skull size={13} /></button>
             </td>
           </tr>
         {/each}
         {#if sorted.length === 0}
-          <tr><td colspan="6" class="empty-cell">{$LL.common.noData()}</td></tr>
+          <tr><td colspan="6" class="empty-cell">(no data)</td></tr>
         {/if}
       </tbody>
     </table>

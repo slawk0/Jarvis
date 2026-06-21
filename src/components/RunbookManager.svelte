@@ -6,12 +6,11 @@
   import type { ProfileExtras, Runbook } from '$lib/admin/types';
   import { DEFAULT_PROFILE_EXTRAS } from '$lib/admin/types';
   import { get } from 'svelte/store';
-  import { LL } from '$lib/i18n/i18n-svelte';
   import { notifications } from '$lib/notifications.svelte';
   import {
     formatInvokeError,
     isSudoPasswordRequired,
-  } from '$lib/i18n/backendErrors';
+  } from '$lib/backendErrors';
 
   let { profileId = '', visible = true } = $props();
 
@@ -42,16 +41,13 @@
   let showSudoModal = $state(false);
   let pendingAction: (() => Promise<void>) | null = null;
 
-  const PRESETS = $derived.by(() => {
-    const ll = get(LL);
-    return [
-      { name: ll.runbook.presetDockerPrune(), command: 'docker system prune -f', use_sudo: false },
-      { name: ll.runbook.presetDockerComposePs(), command: 'docker compose ps', use_sudo: false },
-      { name: ll.runbook.presetNginxTest(), command: 'nginx -t', use_sudo: true },
-      { name: ll.runbook.presetNginxReload(), command: 'systemctl reload nginx', use_sudo: true },
-      { name: ll.runbook.presetNginxRestart(), command: 'systemctl restart nginx', use_sudo: true },
-    ];
-  });
+  const PRESETS = [
+    { name: 'Docker: prune unused', command: 'docker system prune -f', use_sudo: false },
+    { name: 'Docker: compose ps', command: 'docker compose ps', use_sudo: false },
+    { name: 'Nginx: test config', command: 'nginx -t', use_sudo: true },
+    { name: 'Nginx: reload', command: 'systemctl reload nginx', use_sudo: true },
+    { name: 'Restart nginx', command: 'systemctl restart nginx', use_sudo: true },
+  ];
 
   async function exec(cmd: string, useSudo: boolean): Promise<string> {
     return invoke<string>('exec_custom_command', { cmd, useSudo });
@@ -112,7 +108,7 @@
 
   async function saveRunbook() {
     if (!formName.trim() || !formCommand.trim()) {
-      alert(get(LL).runbook.alertNameAndCommand());
+      alert("Enter name and command");
       return;
     }
     const rb: Runbook = {
@@ -131,7 +127,7 @@
   }
 
   async function deleteRunbook(id: string) {
-    if (!confirm(get(LL).runbook.confirmDelete())) return;
+    if (!confirm("Delete runbook?")) return;
     extras.runbooks = extras.runbooks.filter((r) => r.id !== id);
     await saveExtras();
   }
@@ -139,7 +135,7 @@
   async function runRunbook(rb: Runbook) {
     isRunning = true;
     outputTitle = rb.name;
-    outputContent = get(LL).runbook.running();
+    outputContent = "Running…";
     showOutputModal = true;
     errorMsg = '';
 
@@ -150,7 +146,8 @@
         if (isSudoPasswordRequired(err)) {
           throw err;
         }
-        outputContent = get(LL).runbook.errorPrefix({ error: formatInvokeError(err) });
+        outputContent = `Error:
+${formatInvokeError(err)}`;
       } finally {
         isRunning = false;
       }
@@ -173,16 +170,16 @@
 
 <div class="runbooks manager-shell scrollable fade-in">
   <header class="manager-header">
-    <h1 class="page-title">{$LL.runbook.title()}</h1>
+    <h1 class="page-title">{"Runbooks"}</h1>
     <div class="header-actions">
       <button class="primary btn-compact" onclick={openAdd}>
-        <Plus size={14} /> {$LL.common.new()}
+        <Plus size={14} /> {"New"}
       </button>
     </div>
   </header>
 
   <section class="presets glass">
-    <h3>{$LL.runbook.quickPresets()}</h3>
+    <h3>{"Quick presets"}</h3>
     <div class="preset-chips">
       {#each PRESETS as p}
         <button class="chip" onclick={() => addPreset(p)}>{p.name}</button>
@@ -193,7 +190,7 @@
   {#if extras.runbooks.length === 0}
     <div class="empty glass">
       <BookOpen size={36} class="muted" />
-      <p>{$LL.runbook.empty()}</p>
+      <p>{"No saved runbooks. Add repeatable command sequences."}</p>
     </div>
   {:else}
     <div class="runbook-list">
@@ -206,15 +203,15 @@
               <div class="rb-cmd mono-val">{rb.command}</div>
             </div>
             {#if rb.use_sudo}
-              <span class="badge warning">{$LL.runbook.requiresSudo()}</span>
+              <span class="badge warning">{"Requires sudo"}</span>
             {/if}
           </div>
           <div class="rb-actions">
             <button class="primary btn-compact" disabled={isRunning} onclick={() => runRunbook(rb)}>
               {#if isRunning}<Loader2 size={14} class="spin" />{:else}<Play size={14} />{/if}
-              {$LL.common.run()}
+              {"Run"}
             </button>
-            <button class="secondary btn-compact" onclick={() => openEdit(rb)}>{$LL.common.edit()}</button>
+            <button class="secondary btn-compact" onclick={() => openEdit(rb)}>{"Edit"}</button>
             <button class="secondary btn-compact" onclick={() => deleteRunbook(rb.id)}>
               <Trash2 size={14} />
             </button>
@@ -228,16 +225,16 @@
 {#if showAddModal}
   <div class="modal-overlay" role="presentation" onclick={() => (showAddModal = false)}>
     <div class="modal glass" role="dialog" onclick={(e) => e.stopPropagation()}>
-      <h3>{editId ? $LL.runbook.editRunbook() : $LL.runbook.newRunbook()}</h3>
-      <label>{$LL.runbook.name()}<input bind:value={formName} placeholder={$LL.runbook.namePlaceholder()} /></label>
-      <label>{$LL.runbook.command()}<textarea bind:value={formCommand} rows="3" placeholder={$LL.runbook.commandPlaceholder()}></textarea></label>
+      <h3>{editId ? "Edit runbook" : "New runbook"}</h3>
+      <label>{"Name"}<input bind:value={formName} placeholder={"App deploy"} /></label>
+      <label>{"Command"}<textarea bind:value={formCommand} rows="3" placeholder={"cd /opt/app && git pull && docker compose up -d"}></textarea></label>
       <label class="checkbox-row">
         <input type="checkbox" bind:checked={formUseSudo} />
-        {$LL.runbook.requiresSudo()}
+        {"Requires sudo"}
       </label>
       <div class="modal-actions">
-        <button class="secondary" onclick={() => (showAddModal = false)}>{$LL.common.cancel()}</button>
-        <button class="primary" onclick={saveRunbook}>{$LL.common.save()}</button>
+        <button class="secondary" onclick={() => (showAddModal = false)}>{"Cancel"}</button>
+        <button class="primary" onclick={saveRunbook}>{"Save"}</button>
       </div>
     </div>
   </div>
@@ -248,7 +245,7 @@
     <div class="modal output-modal glass" role="dialog" onclick={(e) => e.stopPropagation()}>
       <div class="output-header">
         <h3>{outputTitle}</h3>
-        <button class="secondary btn-compact" onclick={() => (showOutputModal = false)}>{$LL.common.close()}</button>
+        <button class="secondary btn-compact" onclick={() => (showOutputModal = false)}>{"Close"}</button>
       </div>
       <pre class="output">{outputContent}</pre>
     </div>

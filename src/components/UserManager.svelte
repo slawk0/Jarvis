@@ -5,12 +5,11 @@
   import SortableTh from './ui/SortableTh.svelte';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
   import { get } from 'svelte/store';
-  import { LL } from '$lib/i18n/i18n-svelte';
-  import { notifications } from '$lib/notifications.svelte';
+    import { notifications } from '$lib/notifications.svelte';
   import {
     formatInvokeError,
     isSudoPasswordRequired,
-  } from '$lib/i18n/backendErrors';
+  } from '$lib/backendErrors';
 
   let { visible = true } = $props();
 
@@ -94,7 +93,7 @@
       users = parsedUsers;
       groups = parsedGroups;
     } catch (err: unknown) {
-      errorMsg = get(LL).users.loadFailed({ error: formatInvokeError(err) });
+      errorMsg = `Failed to load user data: ${formatInvokeError(err)}`;
     } finally {
       isLoading = false;
     }
@@ -147,7 +146,7 @@
           pendingAction = run;
           showSudoModal = true;
         } else {
-          errorMsg = get(LL).common.commandFailed({ error: formatInvokeError(err) });
+          errorMsg = `Command failed: ${formatInvokeError(err)}`;
         }
       }
     };
@@ -192,7 +191,7 @@
   }
 
   async function deleteUser(username: string) {
-    if (confirm(get(LL).users.confirmDeleteUser({ username }))) {
+    if (confirm(`Are you sure you want to delete user "${username}" along with their home directory?`)) {
       const action = async () => {
         isLoading = true;
         errorMsg = '';
@@ -216,7 +215,7 @@
       showChangePassModal = false;
       targetPassword = '';
       targetUser = null;
-      alert(get(LL).users.passwordChanged());
+      alert("Password changed successfully.");
     };
     
     await handleActionWithSudo(action);
@@ -237,7 +236,7 @@
   }
 
   async function deleteGroup(groupName: string) {
-    if (confirm(get(LL).users.confirmDeleteGroup({ name: groupName }))) {
+    if (confirm(`Are you sure you want to delete group "${groupName}"?`)) {
       const action = async () => {
         isLoading = true;
         errorMsg = '';
@@ -287,39 +286,39 @@
 
 <div class="user-manager manager-shell fade-in">
   <header class="manager-header">
-    <h1 class="page-title">{$LL.users.title()}</h1>
+    <h1 class="page-title">Users & groups</h1>
   </header>
 
   <!-- Pasek operacji -->
   <div class="ops-bar glass">
     <label class="toggle-checkbox">
       <input type="checkbox" bind:checked={showSystemAccounts} />
-      <span>{$LL.users.showSystemAccounts()}</span>
+      <span>Show system accounts (UID &lt; 1000)</span>
     </label>
     <button class="primary" onclick={() => showCreateUserModal = true}>
-      <UserPlus size={16} /> {$LL.users.newUser()}
+      <UserPlus size={16} /> New user
     </button>
     <button class="secondary" onclick={() => showCreateGroupModal = true}>
-      <Plus size={16} /> {$LL.users.newGroup()}
+      <Plus size={16} /> New group
     </button>
   </div>
 
   <div class="split-view">
     <!-- Users list -->
     <div class="table-container glass users-section">
-      <h3>{$LL.users.userList()}</h3>
+      <h3>User list</h3>
       {#if isLoading && users.length === 0}
         <div class="loading-state">
           <RefreshCw class="spin" size={32} />
-          <p>{$LL.users.loadingAccounts()}</p>
+          <p>Loading accounts…</p>
         </div>
       {:else}
         <table class="users-table">
           <thead>
             <tr>
-              <SortableTh label={$LL.users.nameUid()} column="name" activeColumn={userSort.column} direction={userSort.direction} onsort={setUserSort} width="30%" />
-              <SortableTh label={$LL.users.homeAndShell()} column="home" activeColumn={userSort.column} direction={userSort.direction} onsort={setUserSort} width="35%" />
-              <th style="width: 35%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">{$LL.common.actions()}</th>
+              <SortableTh label="Name (UID)" column="name" activeColumn={userSort.column} direction={userSort.direction} onsort={setUserSort} width="30%" />
+              <SortableTh label="Home directory & shell" column="home" activeColumn={userSort.column} direction={userSort.direction} onsort={setUserSort} width="35%" />
+              <th style="width: 35%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -334,14 +333,14 @@
                   <span class="shell-code mono-val"><code>{user.shell}</code></span>
                 </td>
                 <td class="actions-cell">
-                  <button class="btn-table" onclick={() => { targetUser = user; showChangePassModal = true; }} title={$LL.users.changePassword()}>
+                  <button class="btn-table" onclick={() => { targetUser = user; showChangePassModal = true; }} title="Change password">
                     <KeyRound size={14} />
                   </button>
-                  <button class="btn-table" onclick={() => openGroupsModal(user)} title={$LL.users.manageGroups()}>
+                  <button class="btn-table" onclick={() => openGroupsModal(user)} title="Manage groups">
                     <Settings2 size={14} />
                   </button>
                   {#if user.uid !== 0 && user.username !== 'slawek'}
-                    <button class="btn-table danger-text" onclick={() => deleteUser(user.username)} title={$LL.users.deleteUser()}>
+                    <button class="btn-table danger-text" onclick={() => deleteUser(user.username)} title="Delete user">
                       <Trash2 size={14} />
                     </button>
                   {/if}
@@ -355,7 +354,7 @@
 
     <!-- Lista grup -->
     <div class="table-container glass groups-section">
-      <h3>{$LL.users.systemGroups()}</h3>
+      <h3>System groups</h3>
       {#if isLoading && groups.length === 0}
         <div class="loading-state">
           <RefreshCw class="spin" size={32} />
@@ -364,9 +363,9 @@
         <table class="groups-table">
           <thead>
             <tr>
-              <SortableTh label={$LL.users.groupNameGid()} column="name" activeColumn={groupSort.column} direction={groupSort.direction} onsort={setGroupSort} width="40%" />
-              <SortableTh label={$LL.users.members()} column="members" activeColumn={groupSort.column} direction={groupSort.direction} onsort={setGroupSort} width="40%" />
-              <th style="width: 20%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">{$LL.common.delete()}</th>
+              <SortableTh label="Group name (GID)" column="name" activeColumn={groupSort.column} direction={groupSort.direction} onsort={setGroupSort} width="40%" />
+              <SortableTh label="Members" column="members" activeColumn={groupSort.column} direction={groupSort.direction} onsort={setGroupSort} width="40%" />
+              <th style="width: 20%; text-align: right; padding: 14px 16px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Delete</th>
             </tr>
           </thead>
           <tbody>
@@ -377,11 +376,11 @@
                   <span class="gid-tag mono-val">GID: {group.gid}</span>
                 </td>
                 <td class="members-cell mono-val">
-                  {group.members.length > 0 ? group.members.join(', ') : $LL.common.none()}
+                  {group.members.length > 0 ? group.members.join(', ') : "(none)"}
                 </td>
                 <td class="actions-cell">
                   {#if group.gid >= 1000}
-                    <button class="btn-table danger-text" onclick={() => deleteGroup(group.name)} title={$LL.users.deleteGroupTitle()}>
+                    <button class="btn-table danger-text" onclick={() => deleteGroup(group.name)} title="Delete group">
                       <Trash2 size={14} />
                     </button>
                   {/if}
@@ -401,11 +400,11 @@
         <div class="modal-header-icon">
           <KeyRound size={32} class="accent-amber-text" />
         </div>
-        <h3>{$LL.sudo.authTitle()}</h3>
-        <p class="modal-desc">{$LL.sudo.authDesc()}</p>
+        <h3>Sudo authentication required</h3>
+        <p class="modal-desc">This operation requires root privileges. Enter your user password (sudo):</p>
         <input 
           type="password" 
-          placeholder={$LL.sudo.passwordInputPlaceholder()} 
+          placeholder="Enter password…" 
           bind:value={sudoPassword} 
           onkeydown={(e) => e.key === 'Enter' && submitSudoPassword()}
         />
@@ -413,8 +412,8 @@
           <span class="error-text">{sudoError}</span>
         {/if}
         <div class="modal-actions">
-          <button class="primary" onclick={submitSudoPassword}>{$LL.common.submit()}</button>
-          <button class="secondary" onclick={() => { showSudoModal = false; sudoPassword = ''; pendingAction = null; }}>{$LL.common.cancel()}</button>
+          <button class="primary" onclick={submitSudoPassword}>Submit</button>
+          <button class="secondary" onclick={() => { showSudoModal = false; sudoPassword = ''; pendingAction = null; }}>Cancel</button>
         </div>
       </div>
     </div>
@@ -424,31 +423,31 @@
   {#if showCreateUserModal}
     <div class="modal-overlay">
       <div class="modal-content glass">
-        <h3>{$LL.users.createUserTitle()}</h3>
+        <h3>Create new user</h3>
         
         <div class="form-group">
-          <label for="new-username">{$LL.users.username()}</label>
-          <input id="new-username" type="text" placeholder={$LL.users.usernamePlaceholder()} bind:value={newUsername} />
+          <label for="new-username">Username</label>
+          <input id="new-username" type="text" placeholder="john" bind:value={newUsername} />
         </div>
 
         <div class="form-group">
-          <label for="new-user-shell">{$LL.users.defaultShell()}</label>
+          <label for="new-user-shell">Default shell</label>
           <select id="new-user-shell" bind:value={newUserShell}>
-            <option value="/bin/bash">{$LL.users.shellBash()}</option>
-            <option value="/bin/sh">{$LL.users.shellSh()}</option>
-            <option value="/usr/bin/zsh">{$LL.users.shellZsh()}</option>
-            <option value="/usr/sbin/nologin">{$LL.users.shellNologin()}</option>
+            <option value="/bin/bash">/bin/bash (Bash)</option>
+            <option value="/bin/sh">/bin/sh (Standard Sh)</option>
+            <option value="/usr/bin/zsh">/usr/bin/zsh (Zsh)</option>
+            <option value="/usr/sbin/nologin">/usr/sbin/nologin (No login)</option>
           </select>
         </div>
 
         <div class="form-group">
-          <label for="new-user-home">{$LL.users.homeOptional()}</label>
-          <input id="new-user-home" type="text" placeholder={$LL.users.homePlaceholder()} bind:value={newUserHome} />
+          <label for="new-user-home">Home directory (optional)</label>
+          <input id="new-user-home" type="text" placeholder="Automatic (/home/name)" bind:value={newUserHome} />
         </div>
 
         <div class="modal-actions">
-          <button class="primary" onclick={createUser} disabled={!newUsername}>{$LL.users.createUser()}</button>
-          <button class="secondary" onclick={() => { showCreateUserModal = false; newUsername = ''; }}>{$LL.common.cancel()}</button>
+          <button class="primary" onclick={createUser} disabled={!newUsername}>Create user</button>
+          <button class="secondary" onclick={() => { showCreateUserModal = false; newUsername = ''; }}>Cancel</button>
         </div>
       </div>
     </div>
@@ -458,11 +457,11 @@
   {#if showCreateGroupModal}
     <div class="modal-overlay">
       <div class="modal-content glass">
-        <h3>{$LL.users.createGroupTitle()}</h3>
-        <input type="text" placeholder={$LL.users.groupNamePlaceholder()} bind:value={newGroupName} />
+        <h3>Create new group</h3>
+        <input type="text" placeholder="Group name (e.g. developers)" bind:value={newGroupName} />
         <div class="modal-actions">
-          <button class="primary" onclick={createGroup} disabled={!newGroupName}>{$LL.common.create()}</button>
-          <button class="secondary" onclick={() => { showCreateGroupModal = false; newGroupName = ''; }}>{$LL.common.cancel()}</button>
+          <button class="primary" onclick={createGroup} disabled={!newGroupName}>Create</button>
+          <button class="secondary" onclick={() => { showCreateGroupModal = false; newGroupName = ''; }}>Cancel</button>
         </div>
       </div>
     </div>
@@ -472,11 +471,11 @@
   {#if showChangePassModal}
     <div class="modal-overlay">
       <div class="modal-content glass">
-        <h3>{$LL.users.changePasswordFor({ username: targetUser?.username ?? '' })}</h3>
-        <input type="password" placeholder={$LL.users.newPasswordPlaceholder()} bind:value={targetPassword} />
+        <h3>{`Change password for ${targetUser?.username ?? ''}`}</h3>
+        <input type="password" placeholder="Enter new password…" bind:value={targetPassword} />
         <div class="modal-actions">
-          <button class="primary" onclick={changePassword} disabled={!targetPassword}>{$LL.users.changePasswordBtn()}</button>
-          <button class="secondary" onclick={() => { showChangePassModal = false; targetPassword = ''; targetUser = null; }}>{$LL.common.cancel()}</button>
+          <button class="primary" onclick={changePassword} disabled={!targetPassword}>Change password</button>
+          <button class="secondary" onclick={() => { showChangePassModal = false; targetPassword = ''; targetUser = null; }}>Cancel</button>
         </div>
       </div>
     </div>
@@ -486,8 +485,8 @@
   {#if showGroupsModal}
     <div class="modal-overlay">
       <div class="modal-content glass groups-select-modal">
-        <h3>{$LL.users.userGroupsTitle({ username: targetUser?.username ?? '' })}</h3>
-        <p class="modal-desc">{$LL.users.selectGroups()}</p>
+        <h3>{`Groups for user ${targetUser?.username ?? ''}`}</h3>
+        <p class="modal-desc">Select groups the user should belong to:</p>
         <div class="groups-checkbox-list">
           {#each groups.filter(g => g.gid >= 1000 || g.name === 'sudo' || g.name === 'docker') as group}
             <label class="group-checkbox-item">
@@ -509,8 +508,8 @@
           {/each}
         </div>
         <div class="modal-actions">
-          <button class="primary" onclick={saveUserGroups}>{$LL.users.saveGroups()}</button>
-          <button class="secondary" onclick={() => { showGroupsModal = false; targetUser = null; }}>{$LL.common.cancel()}</button>
+          <button class="primary" onclick={saveUserGroups}>Save groups</button>
+          <button class="secondary" onclick={() => { showGroupsModal = false; targetUser = null; }}>Cancel</button>
         </div>
       </div>
     </div>
