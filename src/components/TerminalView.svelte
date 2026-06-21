@@ -46,11 +46,13 @@
     containerSession = null,
     onExitContainer = () => {},
     sessionId = crypto.randomUUID(),
+    visible = true,
   }: {
     profileId: string;
     containerSession?: ContainerSession | null;
     onExitContainer?: () => void;
     sessionId?: string;
+    visible?: boolean;
   } = $props();
 
   let terminalContainer = $state<HTMLDivElement | null>(null);
@@ -102,6 +104,17 @@
 
   $effect(() => {
     activeContainer = containerSession ?? null;
+  });
+
+  // When this pane becomes visible again after being hidden (kept alive), the terminal
+  // container was display:none with zero size — re-fit xterm and relayout the editor.
+  $effect(() => {
+    if (visible) {
+      requestAnimationFrame(() => {
+        try { fitAddon?.fit(); } catch (_) { /* ignore */ }
+        try { editorInstance?.layout?.(); } catch (_) { /* ignore */ }
+      });
+    }
   });
 
   async function initTerminal() {

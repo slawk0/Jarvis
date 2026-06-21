@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(pnpm check 2>&1 | Select-String -Pattern \"ERROR|COMPLETED\" | ForEach-Object { $_.Line })",
+      "PowerShell(pnpm check 2>&1 | Select-String -Pattern \"never used|never read|Unused\" | Where-Object { $_ -match \"DiskManager|CronManager|Network|Process|Timer|User|Services|Maintenance|Backup|Runbook|LogViewer|Crowdsec|Firewall|Nginx\" } | ForEach-Object { $_.Line })"
+    ]
+  }
+}

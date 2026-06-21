@@ -15,7 +15,15 @@
     initialStats,
     profileId = '',
     profileLabel = '',
+    visible = true,
   } = $props();
+
+  export function refresh() {
+    updateStats();
+    loadProxyStats();
+    loadExtendedStats();
+    loadAlertConfig();
+  }
 
   const displayProfileLabel = $derived(profileLabel || get(LL).shell.defaultServerLabel());
 
@@ -199,8 +207,9 @@
     loadAlertConfig();
     loadExtendedStats();
 
-    intervalId = setInterval(updateStats, 2000);
-    extendedIntervalId = setInterval(loadExtendedStats, 10000);
+    // Pause polling while this pane is hidden (kept alive) to avoid wasted SSH calls.
+    intervalId = setInterval(() => { if (visible) updateStats(); }, 2000);
+    extendedIntervalId = setInterval(() => { if (visible) loadExtendedStats(); }, 10000);
   });
 
   $effect(() => {

@@ -21,7 +21,12 @@
   import { notifications } from '$lib/notifications.svelte';
 
   // Svelte 5 Props
-  let { profileId } = $props<{ profileId: string }>();
+  let { profileId, visible = true } = $props<{ profileId: string; visible?: boolean }>();
+
+  export function refresh() {
+    if (isInstalled) loadAllData();
+    else initCrowdsec();
+  }
 
   // Connection and installation management state
   let isInstalled = $state<boolean | null>(null);
@@ -1383,7 +1388,8 @@
     isMetricLogStreaming = true;
     fetchMetricLogContent();
     if (metricLogIntervalId) clearInterval(metricLogIntervalId);
-    metricLogIntervalId = setInterval(fetchMetricLogContent, 3000);
+    // Skip the tick while this pane is hidden (kept alive) to avoid wasted SSH calls.
+    metricLogIntervalId = setInterval(() => { if (visible) fetchMetricLogContent(); }, 3000);
   }
 
   function stopMetricLogStreaming() {
@@ -1451,11 +1457,6 @@
     </div>
 
     <div class="header-actions">
-      {#if isInstalled}
-        <button class="secondary btn-sm" onclick={loadAllData} disabled={isLoading}>
-          <RefreshCw size={14} class={isLoading ? 'spin' : ''} /> {$LL.common.refresh()}
-        </button>
-      {/if}
       <button class="secondary btn-sm" onclick={() => { showSettingsModal = true; testConnectionResult = null; }}>
         <Settings size={14} /> {$LL.common.settings()}
       </button>

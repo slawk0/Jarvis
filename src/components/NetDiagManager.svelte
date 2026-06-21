@@ -11,6 +11,8 @@
 
   type Tool = 'ping' | 'traceroute' | 'dns' | 'http' | 'mtr' | 'port';
 
+  let { visible = true } = $props();
+
   let tool = $state<Tool>('ping');
   let target = $state('');
   let recordType = $state('A');

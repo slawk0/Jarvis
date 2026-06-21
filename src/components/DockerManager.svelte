@@ -30,7 +30,12 @@
   import { validateContent } from '$lib/syntaxValidator';
 
   // Props
-  let { onRequestTerminalExec = (_ctx: { containerId: string; containerName: string; useSudo: boolean; shell: string }) => {} } = $props();
+  let { onRequestTerminalExec = (_ctx: { containerId: string; containerName: string; useSudo: boolean; shell: string }) => {}, visible = true } = $props();
+
+  export async function refresh() {
+    await checkDockerStatus();
+    if (dockerInstalled && dockerVersion) await loadAllStats();
+  }
 
   // Sub-tab state
   let dockerTab = $state<'containers' | 'images' | 'networks' | 'compose' | 'volumes' | 'stats'>('containers');
@@ -365,7 +370,8 @@
       if (statsInterval) clearInterval(statsInterval);
       if (autoRefreshStats) {
         statsInterval = setInterval(() => {
-          loadStats();
+          // Skip the tick while this pane is hidden (kept alive) to avoid wasted SSH calls.
+          if (visible) loadStats();
         }, refreshIntervalSeconds * 1000);
       }
     } else {

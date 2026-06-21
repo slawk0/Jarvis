@@ -1,16 +1,20 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { RefreshCw, Network, Globe, ArrowRightLeft } from 'lucide-svelte';
+  import { Network, Globe, ArrowRightLeft } from 'lucide-svelte';
   import SortableTh from './ui/SortableTh.svelte';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
   import { LL } from '$lib/i18n/i18n-svelte';
   import { formatInvokeError } from '$lib/i18n/backendErrors';
   import { notifications } from '$lib/notifications.svelte';
 
+  let { visible = true } = $props();
+
   let activeSubTab = $state<'listening' | 'connections'>('listening');
   let isLoading = $state(false);
   let errorMsg = $state('');
+
+  export function refresh() { loadData(); }
 
   $effect(() => {
     if (errorMsg) {
@@ -99,9 +103,6 @@
 <div class="network manager-shell fade-in">
   <header class="manager-header">
     <h1 class="page-title">{$LL.network.title()}</h1>
-    <button class="secondary btn-compact" disabled={isLoading} onclick={loadData}>
-      <RefreshCw size={14} class={isLoading ? 'spin' : ''} /> {$LL.common.refresh()}
-    </button>
   </header>
 
   <div class="sub-tabs">

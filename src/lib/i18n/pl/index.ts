@@ -801,6 +801,7 @@ const pl = {
 		paneSplitVertical: 'Podziel pionowo',
 		paneSplitHorizontal: 'Podziel poziomo',
 		paneClose: 'Zamknij panel',
+		refresh: 'Odśwież',
 		dropSwap: 'Zamień',
 		dropChangeTab: 'Zmień zakładkę',
 		dragMovePane: 'Przenoszenie panelu',

@@ -79,7 +79,13 @@
   const JARVIS_MARKER = '# --- JARVIS PROXY HOST METADATA ---';
   const JARVIS_END = '# --- END JARVIS PROXY HOST METADATA ---';
 
-  let { profileId = '' } = $props();
+  let { profileId = '', visible = true } = $props();
+
+  export function refresh() {
+    if (profileId) loadProfiles();
+    loadContainers();
+    loadCurrent();
+  }
 
   const getProfilesStoreKey = () => `jarvis-nginx-profiles-${profileId}`;
   const getActiveProfileStoreKey = () => `jarvis-nginx-active-profile-${profileId}`;
@@ -906,10 +912,6 @@
           </button>
         </div>
       {/if}
-
-      <button class="secondary btn-compact" disabled={isLoading || profiles.length === 0} onclick={loadCurrent}>
-        <RefreshCw size={14} class={isLoading ? 'spin' : ''} /> {$LL.common.refresh()}
-      </button>
     </div>
   </header>
 

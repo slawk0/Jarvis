@@ -801,6 +801,7 @@ const en = {
 		paneSplitVertical: 'Split vertically',
 		paneSplitHorizontal: 'Split horizontally',
 		paneClose: 'Close panel',
+		refresh: 'Refresh',
 		dropSwap: 'Swap',
 		dropChangeTab: 'Change tab',
 		dragMovePane: 'Moving panel',

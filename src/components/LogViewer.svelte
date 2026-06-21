@@ -13,9 +13,16 @@
     isSudoPasswordRequired,
   } from '$lib/i18n/backendErrors';
 
+  let { visible = true } = $props();
+
   let activeSubTab = $state('logs'); // 'logs' | 'sessions'
   let isLoading = $state(false);
   let errorMsg = $state('');
+
+  export function refresh() {
+    if (activeSubTab === 'logs') loadLogs();
+    else loadSessionsAndHistory();
+  }
 
   $effect(() => {
     if (errorMsg) {
@@ -233,7 +240,8 @@
     if (activeSubTab === 'logs') {
       loadLogs();
       if (logIntervalId) clearInterval(logIntervalId);
-      logIntervalId = setInterval(loadLogs, 3000);
+      // Skip the tick while this pane is hidden (kept alive) to avoid wasted SSH calls.
+      logIntervalId = setInterval(() => { if (visible) loadLogs(); }, 3000);
     } else {
       if (logIntervalId) clearInterval(logIntervalId);
       loadSessionsAndHistory();
@@ -284,9 +292,6 @@
           {:else}
             <Play size={16} /> {$LL.common.stream()}
           {/if}
-        </button>
-        <button class="secondary" onclick={loadLogs}>
-          <RefreshCw size={16} /> {$LL.common.refresh()}
         </button>
       </div>
     </div>

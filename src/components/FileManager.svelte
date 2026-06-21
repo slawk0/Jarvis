@@ -17,10 +17,12 @@
   } from '$lib/i18n/backendErrors';
   import { validateContent } from '$lib/syntaxValidator';
 
-  let { profileId = '' } = $props();
+  let { profileId = '', visible = true } = $props();
   let errorMsg = $state('');
   let browserPath = $state('/');
   let browserRef: SftpFileBrowser | undefined = $state();
+
+  export function refresh() { browserRef?.refresh(); }
 
   $effect(() => {
     if (errorMsg) {

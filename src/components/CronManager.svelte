@@ -9,6 +9,10 @@
   import { formatInvokeError } from '$lib/i18n/backendErrors';
   import { notifications } from '$lib/notifications.svelte';
 
+  let { visible = true } = $props();
+
+  export function refresh() { loadCronJobs(); }
+
   let cronJobs = $state<any[]>([]);
   type CronSortCol = 'active' | 'expression' | 'command';
   let cronSort = $state<SortState<CronSortCol>>({ column: 'expression', direction: 'asc' });
@@ -240,9 +244,6 @@
 
   <!-- Pasek operacyjny -->
   <div class="ops-bar glass">
-    <button class="secondary" onclick={loadCronJobs} disabled={isLoading}>
-      <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> {$LL.common.refresh()}
-    </button>
     <button class="primary" onclick={() => showCreateModal = true}>
       <Plus size={16} /> {$LL.cron.newTask()}
     </button>

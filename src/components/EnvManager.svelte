@@ -8,7 +8,9 @@
   import { notifications } from '$lib/notifications.svelte';
   import { formatInvokeError } from '$lib/i18n/backendErrors';
 
-  let { profileId = '' } = $props();
+  let { profileId = '', visible = true } = $props();
+
+  export function refresh() { loadContainers(); }
 
   type Tab = 'local' | 'docker';
   let tab = $state<Tab>('local');

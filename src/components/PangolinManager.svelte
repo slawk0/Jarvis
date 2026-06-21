@@ -27,6 +27,8 @@
   } from '$lib/i18n/backendErrors';
   import { formatDate } from '$lib/i18n/formatLocale';
 
+  let { visible = true } = $props();
+
   // Navigation state
   let activeSubTab = $state('dashboard'); // 'dashboard', 'logs', 'tunnels', 'priv_resources', 'pub_resources', 'access', 'clients', 'settings'
   
@@ -1307,6 +1309,8 @@
       alert(get(LL).pangolin.tokenDeleteFailed({ error: formatInvokeError(err) }));
     }
   }
+
+  export function refresh() { loadConfig(); }
 
   onMount(() => {
     loadConfig();

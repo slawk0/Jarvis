@@ -12,6 +12,8 @@
     isSudoPasswordRequired,
   } from '$lib/i18n/backendErrors';
 
+  let { visible = true } = $props();
+
   let users = $state<any[]>([]);
   let groups = $state<any[]>([]);
   let isLoading = $state(false);
@@ -276,6 +278,8 @@
     await handleActionWithSudo(action);
   }
 
+  export function refresh() { loadData(); }
+
   onMount(() => {
     loadData();
   });
@@ -292,9 +296,6 @@
       <input type="checkbox" bind:checked={showSystemAccounts} />
       <span>{$LL.users.showSystemAccounts()}</span>
     </label>
-    <button class="secondary" onclick={loadData} disabled={isLoading}>
-      <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> {$LL.common.refresh()}
-    </button>
     <button class="primary" onclick={() => showCreateUserModal = true}>
       <UserPlus size={16} /> {$LL.users.newUser()}
     </button>

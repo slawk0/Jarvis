@@ -12,7 +12,9 @@
   import { notifications } from '$lib/notifications.svelte';
   import { formatInvokeError } from '$lib/i18n/backendErrors';
 
-  let { profileId = '' } = $props();
+  let { profileId = '', visible = true } = $props();
+
+  export function refresh() { loadData(); }
 
   // State lists
   let dfList = $state<any[]>([]);
@@ -489,9 +491,6 @@
         </label>
       {/if}
     </div>
-    <button class="secondary" onclick={loadData} disabled={isLoading}>
-      <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> {$LL.common.refresh()}
-    </button>
   </div>
 
   {#if isLoading && dfList.length === 0}

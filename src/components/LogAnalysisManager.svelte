@@ -32,7 +32,12 @@
     logPath: string;
   }
 
-  let { profileId = '' } = $props();
+  let { profileId = '', visible = true } = $props();
+
+  export function refresh() {
+    loadContainers();
+    if (profileId) loadProfiles();
+  }
 
   const getProfilesKey = () => `jarvis-loganalysis-profiles-${profileId}`;
   const getActiveKey = () => `jarvis-loganalysis-active-${profileId}`;

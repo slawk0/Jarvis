@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { Shield, ShieldOff, Plus, Trash2, RefreshCw, KeyRound, Check, ShieldAlert } from 'lucide-svelte';
+  import { Shield, ShieldOff, Plus, Trash2, KeyRound, Check, ShieldAlert } from 'lucide-svelte';
   import SortableTh from './ui/SortableTh.svelte';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
   import { get } from 'svelte/store';
@@ -11,6 +11,8 @@
     formatInvokeError,
     isSudoPasswordRequired,
   } from '$lib/i18n/backendErrors';
+
+  let { visible = true } = $props();
 
   let firewallMode = $state<'ufw' | 'iptables'>('ufw');
 
@@ -407,6 +409,15 @@
     }
   }
 
+  export function refresh() {
+    if (isSudoAuthorized) {
+      if (firewallMode === 'ufw') loadUfwStatus();
+      else loadIptablesStatus();
+    } else {
+      checkSudo();
+    }
+  }
+
   onMount(() => {
     checkSudo();
   });
@@ -456,9 +467,6 @@
         {/if}
       </div>
       <div class="status-actions">
-        <button class="secondary" onclick={loadUfwStatus} disabled={isLoading}>
-          <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> {$LL.common.refresh()}
-        </button>
         <button class={ufwActive ? 'danger' : 'primary'} onclick={toggleUfw} disabled={isLoading}>
           {ufwActive ? $LL.firewall.disableUfw() : $LL.firewall.enableUfw()}
         </button>
@@ -542,9 +550,6 @@
       <div class="status-actions">
         <button class="secondary" onclick={() => showRawModal = true}>
           {$LL.firewall.showRawOutput()}
-        </button>
-        <button class="secondary" onclick={loadIptablesStatus} disabled={isLoading}>
-          <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> {$LL.common.refresh()}
         </button>
       </div>
     </div>

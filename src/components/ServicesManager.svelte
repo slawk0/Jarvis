@@ -14,6 +14,8 @@
     isSudoPasswordRequired,
   } from '$lib/i18n/backendErrors';
 
+  let { visible = true } = $props();
+
   let services = $state<any[]>([]);
   let filteredServices = $state<any[]>([]);
   type ServiceSortCol = 'name' | 'load' | 'status' | 'desc';
@@ -259,6 +261,8 @@ WantedBy=multi-user.target
     await run();
   }
 
+  export function refresh() { loadServices(); }
+
   onMount(() => {
     loadServices();
   });
@@ -278,9 +282,6 @@ WantedBy=multi-user.target
       bind:value={searchQuery}
       oninput={filterServices}
     />
-    <button class="secondary" onclick={loadServices} disabled={isLoading}>
-      <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> {$LL.common.refresh()}
-    </button>
     <button class="primary" onclick={() => showCreateModal = true}>
       <Plus size={16} /> {$LL.services.newService()}
     </button>

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { RefreshCw, Search, Skull, X, Gauge, Cpu, MemoryStick } from 'lucide-svelte';
+  import { Search, Skull, X, Gauge, Cpu, MemoryStick } from 'lucide-svelte';
   import SortableTh from './ui/SortableTh.svelte';
   import SudoModal from './SudoModal.svelte';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
@@ -18,6 +18,8 @@
     nice: string;
     command: string;
   }
+
+  let { visible = true } = $props();
 
   let procs = $state<Proc[]>([]);
   let isLoading = $state(false);
@@ -133,12 +135,15 @@
   function toggleAuto() {
     autoRefresh = !autoRefresh;
     if (autoRefresh) {
-      refreshTimer = setInterval(load, 3000);
+      // Skip the tick while this pane is hidden (kept alive) to avoid wasted SSH calls.
+      refreshTimer = setInterval(() => { if (visible) load(); }, 3000);
     } else if (refreshTimer) {
       clearInterval(refreshTimer);
       refreshTimer = null;
     }
   }
+
+  export function refresh() { load(); }
 
   onMount(load);
   onDestroy(() => {
@@ -152,9 +157,6 @@
     <div class="header-actions">
       <button class="secondary btn-compact" class:active={autoRefresh} onclick={toggleAuto}>
         <Gauge size={14} /> {autoRefresh ? $LL.processes.autoOn() : $LL.processes.autoOff()}
-      </button>
-      <button class="secondary btn-compact" disabled={isLoading} onclick={load}>
-        <RefreshCw size={14} class={isLoading ? 'spin' : ''} /> {$LL.common.refresh()}
       </button>
     </div>
   </header>

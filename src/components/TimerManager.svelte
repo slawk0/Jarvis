@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { RefreshCw, Play, Square, Power, PowerOff, Eye, Timer as TimerIcon, X } from 'lucide-svelte';
+  import { Play, Square, Power, PowerOff, Eye, Timer as TimerIcon, X } from 'lucide-svelte';
   import SortableTh from './ui/SortableTh.svelte';
   import SudoModal from './SudoModal.svelte';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
@@ -19,6 +19,8 @@
     next: number; // epoch ms, 0 = none
     last: number; // epoch ms, 0 = none
   }
+
+  let { visible = true } = $props();
 
   let timers = $state<TimerUnit[]>([]);
   let isLoading = $state(false);
@@ -135,15 +137,14 @@
     }
   }
 
+  export function refresh() { load(); }
+
   onMount(load);
 </script>
 
 <div class="timer-manager manager-shell fade-in">
   <header class="manager-header">
     <h1 class="page-title">{$LL.timers.title()}</h1>
-    <button class="secondary btn-compact" disabled={isLoading} onclick={load}>
-      <RefreshCw size={14} class={isLoading ? 'spin' : ''} /> {$LL.common.refresh()}
-    </button>
   </header>
 
   <div class="table-wrap glass">

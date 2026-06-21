@@ -8,7 +8,12 @@
   import { notifications } from '$lib/notifications.svelte';
   import { formatInvokeError } from '$lib/i18n/backendErrors';
 
-  let { profileId = '' } = $props();
+  let { profileId = '', visible = true } = $props();
+
+  export function refresh() {
+    loadContainers();
+    if (profileId) loadProfiles();
+  }
 
   interface QueryResult {
     columns: string[];

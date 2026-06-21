@@ -27,6 +27,7 @@
     Star,
     Keyboard,
     HelpCircle,
+    RefreshCw,
   } from 'lucide-svelte';
   import {
     canNavigateBack,
@@ -76,6 +77,8 @@
     terminalContainerSession: ContainerSession | null;
     terminalSessionId: string;
     visitedTabs: Record<string, boolean>;
+    /** Per-tab component instances kept alive for this pane (keyed by tab id). */
+    componentRefs: Record<string, any>;
     r1: number;
     c1: number;
     r2: number;
@@ -191,12 +194,19 @@
       terminalContainerSession: null,
       terminalSessionId: crypto.randomUUID(),
       visitedTabs: { [tab]: true },
+      componentRefs: {},
       r1: 1, c1: 1, r2: 121, c2: 121,
     };
   }
 
   let panes = $state<Pane[]>([createPane()]);
   let activePaneId = $state(panes[0].id);
+
+  /** Reload the focused pane's active tab via its component's exposed refresh(). */
+  function refreshActiveTab() {
+    const pane = panes.find((p) => p.id === activePaneId);
+    pane?.componentRefs[pane.activeTab]?.refresh?.();
+  }
 
   // Derived: the focused pane's activeTab (used by sidebar highlighting)
   let activeTab = $derived(panes.find(p => p.id === activePaneId)?.activeTab ?? 'dashboard');
@@ -270,7 +280,8 @@
     if (!pane) return;
     if (tab === pane.activeTab) return;
     tabHistory = [...tabHistory, pane.activeTab];
-    if (tab === 'terminal') {
+    // Only start a fresh terminal on the first visit; afterwards keep the live session alive.
+    if (tab === 'terminal' && !pane.visitedTabs['terminal']) {
       pane.terminalContainerSession = null;
       pane.terminalSessionId = crypto.randomUUID();
     }
@@ -573,7 +584,7 @@
       if (!targetPane) return;
       
       if (zone === 'center') {
-        if (tabId === 'terminal') {
+        if (tabId === 'terminal' && !targetPane.visitedTabs['terminal']) {
           targetPane.terminalContainerSession = null;
           targetPane.terminalSessionId = crypto.randomUUID();
         }
@@ -629,7 +640,7 @@
   function selectPaneTab(paneId: string, tabId: string) {
     const pane = panes.find(p => p.id === paneId);
     if (!pane) return;
-    if (tabId === 'terminal') {
+    if (tabId === 'terminal' && !pane.visitedTabs['terminal']) {
       pane.terminalContainerSession = null;
       pane.terminalSessionId = crypto.randomUUID();
     }
@@ -750,9 +761,10 @@
       tabHistory = tabHistory.slice(0, -1);
       const pane = panes.find(p => p.id === activePaneId);
       if (pane) {
+        const firstTerminalVisit = prev === 'terminal' && !pane.visitedTabs['terminal'];
         pane.activeTab = prev;
         pane.visitedTabs[prev] = true;
-        if (prev === 'terminal') {
+        if (firstTerminalVisit) {
           pane.terminalContainerSession = null;
           pane.terminalSessionId = crypto.randomUUID();
         }
@@ -1002,6 +1014,17 @@
         <div class="workspace-bar-right">
           <button
             class="layout-btn"
+            onclick={refreshActiveTab}
+            title={$LL.shell.refresh()}
+            aria-label={$LL.shell.refresh()}
+          >
+            <RefreshCw size={14} />
+          </button>
+
+          <div class="actions-divider"></div>
+
+          <button
+            class="layout-btn"
             class:active={layoutMode === 'single'}
             onclick={() => setLayoutPreset('single')}
             title={$LL.shell.layoutSingle()}
@@ -1079,6 +1102,78 @@
           ></div>
         {/each}
 
+        {#snippet paneTabContent(pane: Pane, tabId: string)}
+          {@const visible = pane.activeTab === tabId}
+          {#if tabId === 'dashboard'}
+            <Dashboard
+              bind:this={pane.componentRefs[tabId]}
+              {visible}
+              initialStats={serverStats}
+              profileId={currentProfileId}
+              profileLabel={currentProfileLabel}
+            />
+          {:else if tabId === 'maintenance'}
+            <MaintenanceManager bind:this={pane.componentRefs[tabId]} {visible} onDisconnect={handleDisconnect} />
+          {:else if tabId === 'backups'}
+            <BackupManager bind:this={pane.componentRefs[tabId]} {visible} profileId={currentProfileId} />
+          {:else if tabId === 'network'}
+            <NetworkManager bind:this={pane.componentRefs[tabId]} {visible} />
+          {:else if tabId === 'runbooks'}
+            <RunbookManager bind:this={pane.componentRefs[tabId]} {visible} profileId={currentProfileId} />
+          {:else if tabId === 'files'}
+            <FileManager bind:this={pane.componentRefs[tabId]} {visible} profileId={currentProfileId} />
+          {:else if tabId === 'disks'}
+            <DiskManager bind:this={pane.componentRefs[tabId]} {visible} profileId={currentProfileId} />
+          {:else if tabId === 'services'}
+            <ServicesManager bind:this={pane.componentRefs[tabId]} {visible} />
+          {:else if tabId === 'docker'}
+            <DockerManager bind:this={pane.componentRefs[tabId]} {visible} onRequestTerminalExec={(session: ContainerSession) => {
+              pane.terminalContainerSession = session;
+              pane.terminalSessionId = crypto.randomUUID();
+              pane.activeTab = 'terminal';
+              pane.visitedTabs['terminal'] = true;
+              activePaneId = pane.id;
+            }} />
+          {:else if tabId === 'cron'}
+            <CronManager bind:this={pane.componentRefs[tabId]} {visible} />
+          {:else if tabId === 'users'}
+            <UserManager bind:this={pane.componentRefs[tabId]} {visible} />
+          {:else if tabId === 'firewall'}
+            <FirewallManager bind:this={pane.componentRefs[tabId]} {visible} />
+          {:else if tabId === 'crowdsec'}
+            <CrowdsecManager bind:this={pane.componentRefs[tabId]} {visible} profileId={currentProfileId} />
+          {:else if tabId === 'pangolin'}
+            <PangolinManager bind:this={pane.componentRefs[tabId]} {visible} />
+          {:else if tabId === 'logs'}
+            <LogViewer bind:this={pane.componentRefs[tabId]} {visible} />
+          {:else if tabId === 'loganalysis'}
+            <LogAnalysisManager bind:this={pane.componentRefs[tabId]} {visible} profileId={currentProfileId} />
+          {:else if tabId === 'webserver'}
+            <NginxProxyManager bind:this={pane.componentRefs[tabId]} {visible} profileId={currentProfileId} />
+          {:else if tabId === 'processes'}
+            <ProcessManager bind:this={pane.componentRefs[tabId]} {visible} />
+          {:else if tabId === 'database'}
+            <DatabaseManager bind:this={pane.componentRefs[tabId]} {visible} profileId={currentProfileId} />
+          {:else if tabId === 'envvars'}
+            <EnvManager bind:this={pane.componentRefs[tabId]} {visible} profileId={currentProfileId} />
+          {:else if tabId === 'netdiag'}
+            <NetDiagManager bind:this={pane.componentRefs[tabId]} {visible} />
+          {:else if tabId === 'timers'}
+            <TimerManager bind:this={pane.componentRefs[tabId]} {visible} />
+          {:else if tabId === 'terminal'}
+            {#key pane.terminalSessionId}
+              <TerminalView
+                bind:this={pane.componentRefs[tabId]}
+                {visible}
+                profileId={currentProfileId}
+                containerSession={pane.terminalContainerSession}
+                sessionId={pane.terminalSessionId}
+                onExitContainer={() => { pane.terminalContainerSession = null; }}
+              />
+            {/key}
+          {/if}
+        {/snippet}
+
         {#each panes as pane (pane.id)}
           {@const isActive = pane.id === activePaneId}
           {@const showDropOverlay = customDragState?.active && !(customDragState.type === 'pane' && customDragState.id === pane.id)}
@@ -1111,6 +1206,13 @@
                 </div>
 
                 <div class="pane-actions">
+                  <button
+                    class="pane-action-btn"
+                    onclick={(e: MouseEvent) => { e.stopPropagation(); pane.componentRefs[pane.activeTab]?.refresh?.(); }}
+                    title={$LL.shell.refresh()}
+                  >
+                    <RefreshCw size={13} />
+                  </button>
                   {#if panes.length < 4}
                     <button
                       class="pane-action-btn"
@@ -1175,71 +1277,17 @@
             {/if}
 
             <!-- Pane Content -->
+            <!--
+              Keep-alive: every visited tab stays mounted; only the active one is shown.
+              Switching tabs hides (display:none) rather than destroying the component, so
+              its state — terminal cwd/SSH session, selections, scroll — survives.
+            -->
             <div class="pane-content" style={customDragState?.active || resizeState ? 'pointer-events: none;' : ''}>
-              {#if pane.activeTab === 'dashboard'}
-                <Dashboard
-                  initialStats={serverStats}
-                  profileId={currentProfileId}
-                  profileLabel={currentProfileLabel}
-                />
-              {:else if pane.activeTab === 'maintenance'}
-                <MaintenanceManager onDisconnect={handleDisconnect} />
-              {:else if pane.activeTab === 'backups'}
-                <BackupManager profileId={currentProfileId} />
-              {:else if pane.activeTab === 'network'}
-                <NetworkManager />
-              {:else if pane.activeTab === 'runbooks'}
-                <RunbookManager profileId={currentProfileId} />
-              {:else if pane.activeTab === 'files'}
-                <FileManager profileId={currentProfileId} />
-              {:else if pane.activeTab === 'disks'}
-                <DiskManager profileId={currentProfileId} />
-              {:else if pane.activeTab === 'services'}
-                <ServicesManager />
-              {:else if pane.activeTab === 'docker'}
-                <DockerManager onRequestTerminalExec={(session: ContainerSession) => {
-                  pane.terminalContainerSession = session;
-                  pane.terminalSessionId = crypto.randomUUID();
-                  pane.activeTab = 'terminal';
-                  pane.visitedTabs['terminal'] = true;
-                  activePaneId = pane.id;
-                }} />
-              {:else if pane.activeTab === 'cron'}
-                <CronManager />
-              {:else if pane.activeTab === 'users'}
-                <UserManager />
-              {:else if pane.activeTab === 'firewall'}
-                <FirewallManager />
-              {:else if pane.activeTab === 'crowdsec'}
-                <CrowdsecManager profileId={currentProfileId} />
-              {:else if pane.activeTab === 'pangolin'}
-                <PangolinManager />
-              {:else if pane.activeTab === 'logs'}
-                <LogViewer />
-              {:else if pane.activeTab === 'loganalysis'}
-                <LogAnalysisManager profileId={currentProfileId} />
-              {:else if pane.activeTab === 'webserver'}
-                <NginxProxyManager profileId={currentProfileId} />
-              {:else if pane.activeTab === 'processes'}
-                <ProcessManager />
-              {:else if pane.activeTab === 'database'}
-                <DatabaseManager profileId={currentProfileId} />
-              {:else if pane.activeTab === 'envvars'}
-                <EnvManager profileId={currentProfileId} />
-              {:else if pane.activeTab === 'netdiag'}
-                <NetDiagManager />
-              {:else if pane.activeTab === 'timers'}
-                <TimerManager />
-              {:else if pane.activeTab === 'terminal'}
-                {#key pane.terminalSessionId}
-                  <TerminalView
-                    profileId={currentProfileId}
-                    containerSession={pane.terminalContainerSession}
-                    sessionId={pane.terminalSessionId}
-                    onExitContainer={() => { pane.terminalContainerSession = null; }}
-                  />
-                {/key}
-              {/if}
+              {#each Object.keys(pane.visitedTabs) as tabId (tabId)}
+                <div class="pane-tab-host" style:display={pane.activeTab === tabId ? 'contents' : 'none'}>
+                  {@render paneTabContent(pane, tabId)}
+                </div>
+              {/each}
             </div>
           </div>
         {/each}

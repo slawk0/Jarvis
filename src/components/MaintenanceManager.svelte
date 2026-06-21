@@ -17,11 +17,14 @@
 
   let {
     onDisconnect = () => {},
+    visible = true,
   } = $props();
 
   let isLoading = $state(false);
   let isRunningAction = $state(false);
   let errorMsg = $state('');
+
+  export function refresh() { loadStatus(); }
 
   $effect(() => {
     if (errorMsg) {
@@ -215,11 +218,6 @@
 <div class="maintenance manager-shell scrollable fade-in">
   <header class="manager-header">
     <h1 class="page-title">{$LL.maintenance.title()}</h1>
-    <div class="header-actions">
-      <button class="secondary btn-compact" disabled={isLoading} onclick={loadStatus}>
-        <RefreshCw size={14} class={isLoading ? 'spin' : ''} /> {$LL.common.refresh()}
-      </button>
-    </div>
   </header>
 
   <section class="status-grid">

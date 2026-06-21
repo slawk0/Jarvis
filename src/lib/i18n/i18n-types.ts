@@ -3116,6 +3116,10 @@ type RootTranslation = {
 		 */
 		paneClose: string
 		/**
+		 * R​e​f​r​e​s​h
+		 */
+		refresh: string
+		/**
 		 * S​w​a​p
 		 */
 		dropSwap: string
@@ -11466,6 +11470,10 @@ export type TranslationFunctions = {
 		 * Close panel
 		 */
 		paneClose: () => LocalizedString
+		/**
+		 * Refresh
+		 */
+		refresh: () => LocalizedString
 		/**
 		 * Swap
 		 */

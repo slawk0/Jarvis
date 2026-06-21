@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import {
-    RefreshCw, Plus, Trash2, Play, Database, FolderArchive, Loader2, Download,
+    Plus, Trash2, Play, Database, FolderArchive, Loader2, Download,
   } from 'lucide-svelte';
   import SudoModal from './SudoModal.svelte';
   import PathAutocomplete from './ui/PathAutocomplete.svelte';
@@ -16,11 +16,13 @@
     isSudoPasswordRequired,
   } from '$lib/i18n/backendErrors';
 
-  let { profileId = '' } = $props();
+  let { profileId = '', visible = true } = $props();
 
   let extras = $state<ProfileExtras>({ ...DEFAULT_PROFILE_EXTRAS });
   let isLoading = $state(false);
   let isRunning = $state(false);
+
+  export function refresh() { loadExtras(); }
 
   let showAddModal = $state(false);
   let editId = $state<string | null>(null);
@@ -273,9 +275,6 @@
   <header class="manager-header">
     <h1 class="page-title">{$LL.backup.title()}</h1>
     <div class="header-actions">
-      <button class="secondary btn-compact" disabled={isLoading} onclick={loadExtras}>
-        <RefreshCw size={14} /> {$LL.common.refresh()}
-      </button>
       <button class="primary btn-compact" onclick={openAdd}>
         <Plus size={14} /> {$LL.backup.newTemplate()}
       </button>

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { RefreshCw, Plus, Trash2, Play, BookOpen, Terminal, Loader2 } from 'lucide-svelte';
+  import { Plus, Trash2, Play, BookOpen, Terminal, Loader2 } from 'lucide-svelte';
   import SudoModal from './SudoModal.svelte';
   import type { ProfileExtras, Runbook } from '$lib/admin/types';
   import { DEFAULT_PROFILE_EXTRAS } from '$lib/admin/types';
@@ -13,12 +13,14 @@
     isSudoPasswordRequired,
   } from '$lib/i18n/backendErrors';
 
-  let { profileId = '' } = $props();
+  let { profileId = '', visible = true } = $props();
 
   let extras = $state<ProfileExtras>({ ...DEFAULT_PROFILE_EXTRAS });
   let isLoading = $state(false);
   let isRunning = $state(false);
   let errorMsg = $state('');
+
+  export function refresh() { loadExtras(); }
 
   $effect(() => {
     if (errorMsg) {
@@ -173,9 +175,6 @@
   <header class="manager-header">
     <h1 class="page-title">{$LL.runbook.title()}</h1>
     <div class="header-actions">
-      <button class="secondary btn-compact" disabled={isLoading} onclick={loadExtras}>
-        <RefreshCw size={14} /> {$LL.common.refresh()}
-      </button>
       <button class="primary btn-compact" onclick={openAdd}>
         <Plus size={14} /> {$LL.common.new()}
       </button>
