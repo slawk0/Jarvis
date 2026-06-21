@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { Play, Square, Power, PowerOff, Eye, Timer as TimerIcon, X } from 'lucide-svelte';
+  import { Play, Square, Power, PowerOff, Eye, Timer as TimerIcon, X, Search } from 'lucide-svelte';
   import SortableTh from './ui/SortableTh.svelte';
   import SudoModal from './SudoModal.svelte';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
@@ -30,6 +30,8 @@
   let detailUnit = $state<string | null>(null);
   let detailOutput = $state('');
 
+  let searchQuery = $state('');
+
   type SortCol = 'unit' | 'next' | 'last' | 'state';
   let sort = $state<SortState<SortCol>>({ column: 'next', direction: 'asc' });
 
@@ -48,6 +50,14 @@
       state: (t) => t.fileState,
     }),
   );
+
+  const filtered = $derived(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return sorted;
+    return sorted.filter(
+      (t) => t.unit.toLowerCase().includes(q) || t.description.toLowerCase().includes(q),
+    );
+  });
 
   function fmt(ms: number): string {
     if (!ms) return '—';
@@ -146,6 +156,16 @@
     <h1 class="page-title">Systemd timers</h1>
   </header>
 
+  <div class="ops-bar">
+    <div class="search-box">
+      <Search size={14} />
+      <input type="text" placeholder="Filter timers…" bind:value={searchQuery} />
+      {#if searchQuery}
+        <button class="clear-search" onclick={() => (searchQuery = '')} aria-label="Clear"><X size={13} /></button>
+      {/if}
+    </div>
+  </div>
+
   <div class="table-wrap glass">
     <table>
       <thead>
@@ -158,7 +178,7 @@
         </tr>
       </thead>
       <tbody>
-        {#each sorted as t (t.unit)}
+        {#each filtered() as t (t.unit)}
           <tr>
             <td>
               <div class="unit-name">{t.unit}</div>
@@ -182,8 +202,8 @@
             </td>
           </tr>
         {/each}
-        {#if sorted.length === 0 && !isLoading}
-          <tr><td colspan="5" class="empty-cell"><TimerIcon size={20} /> No timers found</td></tr>
+        {#if filtered().length === 0 && !isLoading}
+          <tr><td colspan="5" class="empty-cell"><TimerIcon size={20} /> {searchQuery ? 'No matching timers' : 'No timers found'}</td></tr>
         {/if}
       </tbody>
     </table>
@@ -205,6 +225,10 @@
 <SudoModal bind:open={showSudoModal} onSuccess={() => { const a = pendingAction; pendingAction = null; if (a) a(); }} onCancel={() => (pendingAction = null)} />
 
 <style>
+  .ops-bar { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .search-box { display: flex; align-items: center; gap: 6px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 5px 10px; flex: 1; max-width: 380px; color: var(--text-muted); }
+  .search-box input { background: transparent; border: none; outline: none; color: var(--text-primary); font-size: 0.82rem; flex: 1; }
+  .clear-search { background: transparent; border: none; color: var(--text-muted); cursor: pointer; display: flex; }
   .table-wrap { flex: 1; overflow: auto; border-radius: var(--radius-md); padding: 0; }
   table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
   th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border-color); vertical-align: top; }

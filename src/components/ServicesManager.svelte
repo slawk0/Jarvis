@@ -274,13 +274,13 @@ WantedBy=multi-user.target
 
   <!-- Pasek operacji -->
   <div class="ops-bar glass">
-    <input 
-      type="text" 
-      placeholder="Search services…" 
-      class="search-input" 
-      bind:value={searchQuery}
-      oninput={filterServices}
-    />
+    <div class="search-box">
+      <Search size={14} />
+      <input type="text" placeholder="Search services…" bind:value={searchQuery} oninput={filterServices} />
+      {#if searchQuery}
+        <button class="clear-search" onclick={() => { searchQuery = ''; filterServices(); }} aria-label="Clear"><X size={13} /></button>
+      {/if}
+    </div>
     <button class="primary" onclick={() => showCreateModal = true}>
       <Plus size={16} /> New service
     </button>
@@ -486,9 +486,9 @@ WantedBy=multi-user.target
     flex-shrink: 0;
   }
 
-  .search-input {
-    flex: 1;
-  }
+  .search-box { display: flex; align-items: center; gap: 6px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 5px 10px; flex: 1; color: var(--text-muted); }
+  .search-box input { background: transparent; border: none; outline: none; color: var(--text-primary); font-size: 0.82rem; flex: 1; }
+  .clear-search { background: transparent; border: none; color: var(--text-muted); cursor: pointer; display: flex; }
 
   /* Table */
   .table-container {

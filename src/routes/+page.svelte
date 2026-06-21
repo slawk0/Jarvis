@@ -1492,6 +1492,14 @@
           </div>
 
           <div class="shortcuts-group">
+            <h4>Terminal</h4>
+            <div class="shortcut-row">
+              <span class="shortcut-desc">Copy selected text</span>
+              <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>C</kbd></div>
+            </div>
+          </div>
+
+          <div class="shortcuts-group">
             <h4>App Control</h4>
             <div class="shortcut-row">
               <span class="shortcut-desc">Toggle sidebar collapse</span>

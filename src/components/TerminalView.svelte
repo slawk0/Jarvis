@@ -157,6 +157,13 @@
       fitAddon.fit();
 
       term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
+        if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'c') {
+          if (e.type === 'keydown') {
+            const selection = term.getSelection();
+            if (selection) navigator.clipboard.writeText(selection).catch(() => {});
+          }
+          return false;
+        }
         if (e.ctrlKey) {
           const key = e.key.toLowerCase();
           if (
