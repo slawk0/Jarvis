@@ -1039,7 +1039,7 @@ type RootTranslation = {
 		 * L​o​g​ ​a​n​a​l​y​s​i​s
 		 */
 		title: string
-		presets: {
+		servers: {
 			/**
 			 * N​g​i​n​x
 			 */
@@ -1051,7 +1051,11 @@ type RootTranslation = {
 			/**
 			 * h​t​t​p​d
 			 */
-			apacheHttpd: string
+			httpd: string
+			/**
+			 * T​r​a​e​f​i​k
+			 */
+			traefik: string
 		}
 		/**
 		 * L​a​s​t​ ​l​i​n​e​s
@@ -1066,7 +1070,7 @@ type RootTranslation = {
 		 */
 		analyzing: string
 		/**
-		 * C​h​o​o​s​e​ ​a​n​ ​a​c​c​e​s​s​ ​l​o​g​ ​a​n​d​ ​a​n​a​l​y​z​e​ ​t​o​p​ ​I​P​s​,​ ​p​a​t​h​s​,​ ​s​t​a​t​u​s​ ​c​o​d​e​s​ ​a​n​d​ ​t​r​a​f​f​i​c​.
+		 * A​n​a​l​y​z​e​ ​t​o​p​ ​I​P​s​,​ ​p​a​t​h​s​,​ ​s​t​a​t​u​s​ ​c​o​d​e​s​ ​a​n​d​ ​t​r​a​f​f​i​c​ ​f​r​o​m​ ​y​o​u​r​ ​a​c​c​e​s​s​ ​l​o​g​.
 		 */
 		emptyHint: string
 		/**
@@ -1093,6 +1097,83 @@ type RootTranslation = {
 		 * R​e​q​u​e​s​t​s​ ​b​y​ ​h​o​u​r
 		 */
 		byHour: string
+		/**
+		 * L​o​g​ ​A​n​a​l​y​s​i​s​ ​S​e​t​u​p
+		 */
+		setupTitle: string
+		/**
+		 * C​r​e​a​t​e​ ​a​ ​p​r​o​f​i​l​e​:​ ​p​i​c​k​ ​y​o​u​r​ ​w​e​b​ ​s​e​r​v​e​r​ ​a​n​d​ ​w​h​e​t​h​e​r​ ​i​t​ ​r​u​n​s​ ​o​n​ ​t​h​e​ ​h​o​s​t​ ​o​r​ ​i​n​ ​a​ ​D​o​c​k​e​r​ ​c​o​n​t​a​i​n​e​r​.
+		 */
+		setupDesc: string
+		/**
+		 * P​r​o​f​i​l​e​ ​n​a​m​e
+		 */
+		profileName: string
+		/**
+		 * e​.​g​.​ ​W​e​b​ ​s​e​r​v​e​r​,​ ​A​p​p​ ​c​o​n​t​a​i​n​e​r
+		 */
+		profileNamePlaceholder: string
+		/**
+		 * W​e​b​ ​s​e​r​v​e​r
+		 */
+		serverType: string
+		/**
+		 * W​h​e​r​e​ ​i​t​ ​r​u​n​s
+		 */
+		source: string
+		/**
+		 * O​n​ ​t​h​e​ ​h​o​s​t
+		 */
+		sourceHost: string
+		/**
+		 * I​n​ ​a​ ​D​o​c​k​e​r​ ​c​o​n​t​a​i​n​e​r
+		 */
+		sourceDocker: string
+		/**
+		 * C​o​n​t​a​i​n​e​r
+		 */
+		selectContainer: string
+		/**
+		 * A​c​c​e​s​s​ ​l​o​g​ ​p​a​t​h
+		 */
+		logPath: string
+		/**
+		 * R​e​a​d​s​ ​c​o​n​t​a​i​n​e​r​ ​o​u​t​p​u​t​ ​v​i​a​ ​d​o​c​k​e​r​ ​l​o​g​s​.
+		 */
+		dockerLogsNote: string
+		/**
+		 * T​r​a​e​f​i​k​ ​m​u​s​t​ ​h​a​v​e​ ​a​c​c​e​s​s​ ​l​o​g​s​ ​e​n​a​b​l​e​d​ ​i​n​ ​C​o​m​m​o​n​ ​L​o​g​ ​F​o​r​m​a​t​ ​(​C​L​F​)​.
+		 */
+		traefikHint: string
+		/**
+		 * S​a​v​e​ ​p​r​o​f​i​l​e
+		 */
+		saveProfile: string
+		/**
+		 * A​d​d​ ​p​r​o​f​i​l​e
+		 */
+		addProfile: string
+		/**
+		 * E​d​i​t​ ​p​r​o​f​i​l​e
+		 */
+		editProfile: string
+		/**
+		 * M​a​n​a​g​e​ ​p​r​o​f​i​l​e​s
+		 */
+		manageProfiles: string
+		/**
+		 * P​r​o​f​i​l​e​s
+		 */
+		profilesTitle: string
+		/**
+		 * P​r​o​f​i​l​e
+		 */
+		activeProfile: string
+		/**
+		 * D​e​l​e​t​e​ ​p​r​o​f​i​l​e​ ​{​n​a​m​e​}​?
+		 * @param {unknown} name
+		 */
+		deleteProfileConfirm: RequiredParams<'name'>
 	}
 	webserver: {
 		/**
@@ -9270,7 +9351,7 @@ export type TranslationFunctions = {
 		 * Log analysis
 		 */
 		title: () => LocalizedString
-		presets: {
+		servers: {
 			/**
 			 * Nginx
 			 */
@@ -9282,7 +9363,11 @@ export type TranslationFunctions = {
 			/**
 			 * httpd
 			 */
-			apacheHttpd: () => LocalizedString
+			httpd: () => LocalizedString
+			/**
+			 * Traefik
+			 */
+			traefik: () => LocalizedString
 		}
 		/**
 		 * Last lines
@@ -9297,7 +9382,7 @@ export type TranslationFunctions = {
 		 */
 		analyzing: () => LocalizedString
 		/**
-		 * Choose an access log and analyze top IPs, paths, status codes and traffic.
+		 * Analyze top IPs, paths, status codes and traffic from your access log.
 		 */
 		emptyHint: () => LocalizedString
 		/**
@@ -9324,6 +9409,82 @@ export type TranslationFunctions = {
 		 * Requests by hour
 		 */
 		byHour: () => LocalizedString
+		/**
+		 * Log Analysis Setup
+		 */
+		setupTitle: () => LocalizedString
+		/**
+		 * Create a profile: pick your web server and whether it runs on the host or in a Docker container.
+		 */
+		setupDesc: () => LocalizedString
+		/**
+		 * Profile name
+		 */
+		profileName: () => LocalizedString
+		/**
+		 * e.g. Web server, App container
+		 */
+		profileNamePlaceholder: () => LocalizedString
+		/**
+		 * Web server
+		 */
+		serverType: () => LocalizedString
+		/**
+		 * Where it runs
+		 */
+		source: () => LocalizedString
+		/**
+		 * On the host
+		 */
+		sourceHost: () => LocalizedString
+		/**
+		 * In a Docker container
+		 */
+		sourceDocker: () => LocalizedString
+		/**
+		 * Container
+		 */
+		selectContainer: () => LocalizedString
+		/**
+		 * Access log path
+		 */
+		logPath: () => LocalizedString
+		/**
+		 * Reads container output via docker logs.
+		 */
+		dockerLogsNote: () => LocalizedString
+		/**
+		 * Traefik must have access logs enabled in Common Log Format (CLF).
+		 */
+		traefikHint: () => LocalizedString
+		/**
+		 * Save profile
+		 */
+		saveProfile: () => LocalizedString
+		/**
+		 * Add profile
+		 */
+		addProfile: () => LocalizedString
+		/**
+		 * Edit profile
+		 */
+		editProfile: () => LocalizedString
+		/**
+		 * Manage profiles
+		 */
+		manageProfiles: () => LocalizedString
+		/**
+		 * Profiles
+		 */
+		profilesTitle: () => LocalizedString
+		/**
+		 * Profile
+		 */
+		activeProfile: () => LocalizedString
+		/**
+		 * Delete profile {name}?
+		 */
+		deleteProfileConfirm: (arg: { name: unknown }) => LocalizedString
 	}
 	webserver: {
 		/**

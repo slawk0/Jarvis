@@ -1217,7 +1217,7 @@
               {:else if pane.activeTab === 'logs'}
                 <LogViewer />
               {:else if pane.activeTab === 'loganalysis'}
-                <LogAnalysisManager />
+                <LogAnalysisManager profileId={currentProfileId} />
               {:else if pane.activeTab === 'webserver'}
                 <NginxProxyManager profileId={currentProfileId} />
               {:else if pane.activeTab === 'processes'}

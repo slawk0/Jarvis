@@ -433,16 +433,20 @@ async fn exec_custom_command(
 
         if let Some(sudo_pass) = sudo_pass_opt {
             let escaped_pass = crate::du_size::shell_single_quote(&sudo_pass);
-            let formatted_cmd = format!("echo {} | sudo -S -- {}", escaped_pass, cmd);
+            let quoted_cmd = crate::du_size::shell_single_quote(&cmd);
+            let formatted_cmd = format!("echo {} | sudo -S -- bash -c {}", escaped_pass, quoted_cmd);
             let (exit_code, stdout, stderr) = conn.exec(&formatted_cmd).await?;
 
             if exit_code != 0 {
                 if stderr.contains("incorrect password attempt") || stderr.contains("złe hasło") {
                     return Err(AppError::new("SUDO_PASSWORD_INCORRECT"));
                 }
+                // Redact password from any error details that bash may echo back.
+                let safe_stderr = stderr.replace(sudo_pass.as_str(), "[REDACTED]");
+                let safe_stdout = stdout.replace(sudo_pass.as_str(), "[REDACTED]");
                 return Err(AppError::with_details(
                     "REMOTE_COMMAND_FAILED",
-                    format!("exit={}\nstderr={}\nstdout={}", exit_code, stderr, stdout),
+                    format!("exit={}\nstderr={}\nstdout={}", exit_code, safe_stderr, safe_stdout),
                 ));
             }
             return Ok(stdout);
@@ -457,8 +461,9 @@ async fn exec_custom_command(
 
         let is_perm_error = is_permission_denied(&stderr, &stdout) || exit_code != 0;
         if is_perm_error {
-            // Try passwordless sudo
-            let sudo_test_cmd = format!("export LC_ALL=C; sudo -n -S -- {}", cmd);
+            // Try passwordless sudo — wrap in bash -c so shell builtins work.
+            let quoted_cmd = crate::du_size::shell_single_quote(&cmd);
+            let sudo_test_cmd = format!("export LC_ALL=C; sudo -n -- bash -c {}", quoted_cmd);
             let (sudo_exit_code, sudo_stdout, sudo_stderr) = conn.exec(&sudo_test_cmd).await?;
             if sudo_exit_code == 0 {
                 return Ok(sudo_stdout);
@@ -531,7 +536,8 @@ async fn exec_custom_command_stream(
 
         if let Some(sudo_pass) = sudo_pass_opt {
             let escaped_pass = crate::du_size::shell_single_quote(&sudo_pass);
-            let formatted_cmd = format!("echo {} | sudo -S -- {}", escaped_pass, cmd);
+            let quoted_cmd = crate::du_size::shell_single_quote(&cmd);
+            let formatted_cmd = format!("echo {} | sudo -S -- bash -c {}", escaped_pass, quoted_cmd);
             let exit_code = conn.exec_stream(&formatted_cmd, &app_handle, &event_id).await?;
 
             if exit_code != 0 {
@@ -557,9 +563,10 @@ async fn exec_custom_command_stream(
         }
 
         // Test if passwordless sudo works
-        let (sudo_exit, _, sudo_stderr) = conn.exec("sudo -n -S -- true").await?;
+        let (sudo_exit, _, sudo_stderr) = conn.exec("sudo -n -- true").await?;
         if sudo_exit == 0 {
-            let formatted_cmd = format!("sudo -n -S -- {}", cmd);
+            let quoted_cmd = crate::du_size::shell_single_quote(&cmd);
+            let formatted_cmd = format!("sudo -n -- bash -c {}", quoted_cmd);
             let exit_code = conn.exec_stream(&formatted_cmd, &app_handle, &event_id).await?;
             if exit_code != 0 {
                 return Err(AppError::with_details(
