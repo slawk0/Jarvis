@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { Search, Skull, X, Gauge, Cpu, MemoryStick } from 'lucide-svelte';
+  import { Search, Skull, X, Gauge, Cpu, MemoryStick, Loader2 } from 'lucide-svelte';
   import SortableTh from './ui/SortableTh.svelte';
   import SudoModal from './SudoModal.svelte';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
@@ -154,6 +154,7 @@
   <header class="manager-header">
     <h1 class="page-title">Process manager</h1>
     <div class="header-actions">
+      {#if isLoading}<Loader2 size={16} class="spin accent-blue-text" />{/if}
       <button class="secondary btn-compact" class:active={autoRefresh} onclick={toggleAuto}>
         <Gauge size={14} /> {autoRefresh ? "Auto-refresh: on" : "Auto-refresh: off"}
       </button>
@@ -184,22 +185,26 @@
         </tr>
       </thead>
       <tbody>
-        {#each sorted as p (p.pid)}
-          <tr>
-            <td class="mono-val">{p.pid}</td>
-            <td>{p.user}</td>
-            <td><span class="metric" class:hot={p.cpu > 50}><Cpu size={11} /> {p.cpu.toFixed(1)}</span></td>
-            <td><span class="metric" class:hot={p.mem > 50}><MemoryStick size={11} /> {p.mem.toFixed(1)}</span></td>
-            <td class="cmd-cell" title={p.command}>{p.command}</td>
-            <td class="actions-col">
-              <button class="row-btn" onclick={() => renice(p)} title="Change priority (renice)"><Gauge size={13} /></button>
-              <button class="row-btn warn" onclick={() => killProc(p, false)} title="Terminate (SIGTERM)">TERM</button>
-              <button class="row-btn danger" onclick={() => killProc(p, true)} title="Force kill (SIGKILL)"><Skull size={13} /></button>
-            </td>
-          </tr>
-        {/each}
-        {#if sorted.length === 0}
-          <tr><td colspan="6" class="empty-cell">(no data)</td></tr>
+        {#if isLoading && procs.length === 0}
+          <tr><td colspan="6" class="loading-cell"><Loader2 size={18} class="spin" /> Loading processes…</td></tr>
+        {:else}
+          {#each sorted as p (p.pid)}
+            <tr>
+              <td class="mono-val">{p.pid}</td>
+              <td>{p.user}</td>
+              <td><span class="metric" class:hot={p.cpu > 50}><Cpu size={11} /> {p.cpu.toFixed(1)}</span></td>
+              <td><span class="metric" class:hot={p.mem > 50}><MemoryStick size={11} /> {p.mem.toFixed(1)}</span></td>
+              <td class="cmd-cell" title={p.command}>{p.command}</td>
+              <td class="actions-col">
+                <button class="row-btn" onclick={() => renice(p)} title="Change priority (renice)"><Gauge size={13} /></button>
+                <button class="row-btn warn" onclick={() => killProc(p, false)} title="Terminate (SIGTERM)">TERM</button>
+                <button class="row-btn danger" onclick={() => killProc(p, true)} title="Force kill (SIGKILL)"><Skull size={13} /></button>
+              </td>
+            </tr>
+          {/each}
+          {#if sorted.length === 0}
+            <tr><td colspan="6" class="empty-cell">(no data)</td></tr>
+          {/if}
         {/if}
       </tbody>
     </table>
@@ -229,4 +234,5 @@
   .row-btn.warn:hover { color: var(--accent-amber); border-color: rgba(245, 158, 11, 0.3); }
   .row-btn.danger:hover { color: var(--accent-red); border-color: rgba(239, 68, 68, 0.3); }
   .empty-cell { text-align: center; color: var(--text-muted); padding: 24px; }
+  .loading-cell { text-align: center; color: var(--text-muted); padding: 24px; display: flex; align-items: center; justify-content: center; gap: 8px; }
 </style>

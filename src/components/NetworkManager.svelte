@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { Network, Globe, ArrowRightLeft } from 'lucide-svelte';
+  import { Network, Globe, ArrowRightLeft, Loader2 } from 'lucide-svelte';
   import SortableTh from './ui/SortableTh.svelte';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
     import { formatInvokeError } from '$lib/backendErrors';
@@ -102,6 +102,7 @@
 <div class="network manager-shell fade-in">
   <header class="manager-header">
     <h1 class="page-title">Network & ports</h1>
+    {#if isLoading}<Loader2 size={16} class="spin accent-blue-text" />{/if}
   </header>
 
   <div class="sub-tabs">
@@ -124,13 +125,17 @@
           </tr>
         </thead>
         <tbody>
-          {#each sortedListening as row}
-            <tr>
-              <td><span class="badge">{row.proto}</span></td>
-              <td class="mono-val">{row.local}</td>
-              <td class="process-cell">{row.process}</td>
-            </tr>
-          {/each}
+          {#if isLoading}
+            <tr><td colspan="3" class="loading-cell"><Loader2 size={16} class="spin" /> Loading…</td></tr>
+          {:else}
+            {#each sortedListening as row}
+              <tr>
+                <td><span class="badge">{row.proto}</span></td>
+                <td class="mono-val">{row.local}</td>
+                <td class="process-cell">{row.process}</td>
+              </tr>
+            {/each}
+          {/if}
         </tbody>
       </table>
     {:else}
@@ -143,13 +148,17 @@
           </tr>
         </thead>
         <tbody>
-          {#each sortedConnections as row}
-            <tr>
-              <td><span class="badge success">{row.state}</span></td>
-              <td class="mono-val">{row.local}</td>
-              <td class="mono-val">{row.remote}</td>
-            </tr>
-          {/each}
+          {#if isLoading}
+            <tr><td colspan="3" class="loading-cell"><Loader2 size={16} class="spin" /> Loading…</td></tr>
+          {:else}
+            {#each sortedConnections as row}
+              <tr>
+                <td><span class="badge success">{row.state}</span></td>
+                <td class="mono-val">{row.local}</td>
+                <td class="mono-val">{row.remote}</td>
+              </tr>
+            {/each}
+          {/if}
         </tbody>
       </table>
     {/if}
@@ -186,5 +195,6 @@
   th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border-color); }
   th { color: var(--text-muted); font-weight: 500; position: sticky; top: 0; background: var(--bg-secondary); }
   .process-cell { color: var(--text-secondary); max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .loading-cell { text-align: center; color: var(--text-muted); padding: 24px; display: flex; align-items: center; justify-content: center; gap: 8px; }
   .hint { padding: 10px 12px; display: flex; gap: 8px; align-items: center; font-size: 0.78rem; color: var(--text-muted); border-radius: var(--radius-md); flex-shrink: 0; }
 </style>

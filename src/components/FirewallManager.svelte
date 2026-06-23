@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { Shield, ShieldOff, Plus, Trash2, KeyRound, Check, ShieldAlert } from 'lucide-svelte';
+  import { Shield, ShieldOff, Plus, Trash2, KeyRound, Check, ShieldAlert, Loader2 } from 'lucide-svelte';
   import SortableTh from './ui/SortableTh.svelte';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
   import { get } from 'svelte/store';
@@ -428,6 +428,7 @@
   <header class="manager-header">
     <div class="header-title-section">
       <h1 class="page-title">Firewall</h1>
+      {#if isLoading}<Loader2 size={16} class="spin accent-blue-text" />{/if}
       {#if isSudoAuthorized}
         <div class="mode-selector">
           <button class="mode-btn {firewallMode === 'ufw' ? 'active' : ''}" onclick={() => switchMode('ufw')}>UFW</button>

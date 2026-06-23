@@ -29,6 +29,7 @@
     Radar,
     Timer,
     BarChart3,
+    FolderArchive,
   } from 'lucide-svelte';
   import type { ServerProfile } from '$lib/admin/types';
   import { getNavLabel, TAB_IDS } from '$lib/nav';
@@ -57,6 +58,7 @@
       dashboard: LayoutDashboard,
       maintenance: Wrench,
       backups: Database,
+      restic: FolderArchive,
       network: Network,
       runbooks: BookOpen,
       files: FolderClosed,

@@ -53,6 +53,7 @@
   import PangolinManager from '../components/PangolinManager.svelte';
   import MaintenanceManager from '../components/MaintenanceManager.svelte';
   import BackupManager from '../components/BackupManager.svelte';
+  import ResticManager from '../components/ResticManager.svelte';
   import NetworkManager from '../components/NetworkManager.svelte';
   import RunbookManager from '../components/RunbookManager.svelte';
   import DiskManager from '../components/DiskManager.svelte';
@@ -1115,6 +1116,8 @@
             <MaintenanceManager bind:this={pane.componentRefs[tabId]} {visible} onDisconnect={handleDisconnect} />
           {:else if tabId === 'backups'}
             <BackupManager bind:this={pane.componentRefs[tabId]} {visible} profileId={currentProfileId} />
+          {:else if tabId === 'restic'}
+            <ResticManager bind:this={pane.componentRefs[tabId]} {visible} profileId={currentProfileId} />
           {:else if tabId === 'network'}
             <NetworkManager bind:this={pane.componentRefs[tabId]} {visible} />
           {:else if tabId === 'runbooks'}

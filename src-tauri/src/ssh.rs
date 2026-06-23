@@ -210,11 +210,13 @@ impl SshConnection {
     }
 
     pub async fn exec(&self, cmd: &str) -> Result<(i32, String, String), AppError> {
-        let session = self.session.lock().await;
-        let mut channel = session
-            .channel_open_session()
-            .await
-            .map_err(|e| AppError::with_details("SSH_CHANNEL_OPEN_FAILED", e.to_string()))?;
+        let mut channel = {
+            let session = self.session.lock().await;
+            session
+                .channel_open_session()
+                .await
+                .map_err(|e| AppError::with_details("SSH_CHANNEL_OPEN_FAILED", e.to_string()))?
+        };
 
         channel
             .exec(true, cmd)
@@ -257,11 +259,13 @@ impl SshConnection {
         app_handle: &tauri::AppHandle,
         event_id: &str,
     ) -> Result<i32, AppError> {
-        let session = self.session.lock().await;
-        let mut channel = session
-            .channel_open_session()
-            .await
-            .map_err(|e| AppError::with_details("SSH_CHANNEL_OPEN_FAILED", e.to_string()))?;
+        let mut channel = {
+            let session = self.session.lock().await;
+            session
+                .channel_open_session()
+                .await
+                .map_err(|e| AppError::with_details("SSH_CHANNEL_OPEN_FAILED", e.to_string()))?
+        };
 
         channel
             .exec(true, cmd)
@@ -507,15 +511,18 @@ impl SshConnection {
     }
 
     pub async fn get_sftp(&self) -> Result<SftpSession, AppError> {
-        let session = self.session.lock().await;
-        let channel = session
-            .channel_open_session()
-            .await
-            .map_err(|e| AppError::with_details("SFTP_CHANNEL_OPEN_FAILED", e.to_string()))?;
-        channel
-            .request_subsystem(true, "sftp")
-            .await
-            .map_err(|e| AppError::with_details("SFTP_SUBSYSTEM_FAILED", e.to_string()))?;
+        let channel = {
+            let session = self.session.lock().await;
+            let channel = session
+                .channel_open_session()
+                .await
+                .map_err(|e| AppError::with_details("SFTP_CHANNEL_OPEN_FAILED", e.to_string()))?;
+            channel
+                .request_subsystem(true, "sftp")
+                .await
+                .map_err(|e| AppError::with_details("SFTP_SUBSYSTEM_FAILED", e.to_string()))?;
+            channel
+        };
         let sftp = SftpSession::new(channel.into_stream())
             .await
             .map_err(|e| AppError::with_details("SFTP_INIT_FAILED", e.to_string()))?;

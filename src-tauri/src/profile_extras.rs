@@ -41,7 +41,6 @@ pub struct BackupTemplate {
     pub docker_container: Option<String>,
     pub db_name: Option<String>,
     pub db_user: Option<String>,
-    #[serde(skip)]
     pub db_password: Option<String>,
     // Off-site destination: "download" (default) | "s3" | "sftp"
     #[serde(default)]
@@ -61,10 +60,29 @@ pub struct BackupTemplate {
     #[serde(default)]
     pub dest_user: Option<String>,
     // Secrets — never persisted to disk, only to the OS keyring.
-    #[serde(skip)]
     pub dest_access_key: Option<String>,
-    #[serde(skip)]
     pub dest_secret_key: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ResticRepo {
+    pub id: String,
+    pub name: String,
+    pub repo_type: String, // "local" | "s3" | "sftp" | "b2" | "rest" | "rclone"
+    pub path_or_url: String,
+    #[serde(default)]
+    pub s3_endpoint: Option<String>,
+    #[serde(default)]
+    pub s3_region: Option<String>,
+    #[serde(default)]
+    pub s3_bucket: Option<String>,
+    #[serde(default)]
+    pub env_vars: Option<HashMap<String, String>>,
+    #[serde(default)]
+    pub use_sudo: bool,
+    pub password: Option<String>,
+    pub access_key: Option<String>,
+    pub secret_key: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -74,6 +92,8 @@ pub struct ProfileExtras {
     #[serde(default)]
     pub backup_templates: Vec<BackupTemplate>,
     #[serde(default)]
+    pub restic_repos: Vec<ResticRepo>,
+    #[serde(default)]
     pub alert_thresholds: AlertThresholds,
 }
 
@@ -82,6 +102,7 @@ impl Default for ProfileExtras {
         Self {
             runbooks: Vec::new(),
             backup_templates: Vec::new(),
+            restic_repos: Vec::new(),
             alert_thresholds: AlertThresholds::default(),
         }
     }
@@ -114,7 +135,23 @@ fn save_all(
     data: &HashMap<String, ProfileExtras>,
 ) -> Result<(), AppError> {
     let path = extras_path(app_handle)?;
-    let content = serde_json::to_string_pretty(data)
+    
+    // Clear secrets before serializing so they are never persisted to disk
+    let mut data_to_save = data.clone();
+    for extras in data_to_save.values_mut() {
+        for tpl in &mut extras.backup_templates {
+            tpl.db_password = None;
+            tpl.dest_access_key = None;
+            tpl.dest_secret_key = None;
+        }
+        for repo in &mut extras.restic_repos {
+            repo.password = None;
+            repo.access_key = None;
+            repo.secret_key = None;
+        }
+    }
+
+    let content = serde_json::to_string_pretty(&data_to_save)
         .map_err(|e| AppError::with_details("JSON_SERIALIZE_FAILED", e.to_string()))?;
     let tmp_path = path.with_extension("tmp");
     fs::write(&tmp_path, &content)
@@ -146,6 +183,20 @@ pub fn get_profile_extras(
         }
     }
 
+    // Load restic_repos credentials
+    let restic_service = "JarvisResticSecrets";
+    for repo in &mut extras.restic_repos {
+        if let Ok(entry) = keyring::Entry::new(restic_service, &format!("{}-password", repo.id)) {
+            repo.password = entry.get_password().ok();
+        }
+        if let Ok(entry) = keyring::Entry::new(restic_service, &format!("{}-access", repo.id)) {
+            repo.access_key = entry.get_password().ok();
+        }
+        if let Ok(entry) = keyring::Entry::new(restic_service, &format!("{}-secret", repo.id)) {
+            repo.secret_key = entry.get_password().ok();
+        }
+    }
+
     Ok(extras)
 }
 
@@ -173,6 +224,26 @@ pub fn save_profile_extras(
         }
         if let Some(ref sk) = tpl.dest_secret_key {
             if let Ok(entry) = keyring::Entry::new(dest_service, &format!("{}-secret", tpl.id)) {
+                entry.set_password(sk).ok();
+            }
+        }
+    }
+
+    // Save restic secrets to keyring
+    let restic_service = "JarvisResticSecrets";
+    for repo in &extras.restic_repos {
+        if let Some(ref pass) = repo.password {
+            if let Ok(entry) = keyring::Entry::new(restic_service, &format!("{}-password", repo.id)) {
+                entry.set_password(pass).ok();
+            }
+        }
+        if let Some(ref ak) = repo.access_key {
+            if let Ok(entry) = keyring::Entry::new(restic_service, &format!("{}-access", repo.id)) {
+                entry.set_password(ak).ok();
+            }
+        }
+        if let Some(ref sk) = repo.secret_key {
+            if let Ok(entry) = keyring::Entry::new(restic_service, &format!("{}-secret", repo.id)) {
                 entry.set_password(sk).ok();
             }
         }

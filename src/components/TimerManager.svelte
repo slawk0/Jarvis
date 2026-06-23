@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { Play, Square, Power, PowerOff, Eye, Timer as TimerIcon, X, Search } from 'lucide-svelte';
+  import { Play, Square, Power, PowerOff, Eye, Timer as TimerIcon, X, Search, Loader2 } from 'lucide-svelte';
   import SortableTh from './ui/SortableTh.svelte';
   import SudoModal from './SudoModal.svelte';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
@@ -202,7 +202,9 @@
             </td>
           </tr>
         {/each}
-        {#if filtered().length === 0 && !isLoading}
+        {#if isLoading}
+          <tr><td colspan="5" class="loading-cell"><Loader2 size={18} class="spin" /> Loading timers…</td></tr>
+        {:else if filtered().length === 0}
           <tr><td colspan="5" class="empty-cell"><TimerIcon size={20} /> {searchQuery ? 'No matching timers' : 'No timers found'}</td></tr>
         {/if}
       </tbody>
@@ -241,6 +243,7 @@
   .row-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
   .row-btn.warn:hover { color: var(--accent-amber); border-color: rgba(245, 158, 11, 0.3); }
   .empty-cell { text-align: center; color: var(--text-muted); padding: 30px; }
+  .loading-cell { text-align: center; color: var(--text-muted); padding: 30px; display: flex; align-items: center; justify-content: center; gap: 8px; }
   .detail-modal { width: 760px; max-width: 92vw; max-height: 80vh; display: flex; flex-direction: column; }
   .modal-header { display: flex; justify-content: space-between; align-items: center; }
   .detail-output { flex: 1; overflow: auto; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 12px; font-family: var(--font-mono); font-size: 0.74rem; color: var(--text-secondary); white-space: pre-wrap; word-break: break-word; margin-top: 10px; }

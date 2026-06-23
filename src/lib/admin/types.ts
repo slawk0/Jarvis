@@ -38,7 +38,23 @@ export interface BackupTemplate {
 export interface ProfileExtras {
   runbooks: Runbook[];
   backup_templates: BackupTemplate[];
+  restic_repos: ResticRepo[];
   alert_thresholds: AlertThresholds;
+}
+
+export interface ResticRepo {
+  id: string;
+  name: string;
+  repo_type: 'local' | 's3' | 'sftp' | 'b2' | 'rest' | 'rclone';
+  path_or_url: string;
+  s3_endpoint?: string | null;
+  s3_region?: string | null;
+  s3_bucket?: string | null;
+  env_vars?: Record<string, string> | null;
+  use_sudo: boolean;
+  password?: string | null;
+  access_key?: string | null;
+  secret_key?: string | null;
 }
 
 export interface DiskMount {
@@ -87,5 +103,6 @@ export const DEFAULT_ALERT_THRESHOLDS: AlertThresholds = {
 export const DEFAULT_PROFILE_EXTRAS: ProfileExtras = {
   runbooks: [],
   backup_templates: [],
+  restic_repos: [],
   alert_thresholds: { ...DEFAULT_ALERT_THRESHOLDS },
 };
