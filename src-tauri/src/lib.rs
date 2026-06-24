@@ -7,6 +7,7 @@ mod pangolin;
 mod profile_extras;
 mod ssh_tunnel;
 mod db;
+mod backup_schedule;
 
 use app_error::AppError;
 use parking_lot::Mutex;
@@ -1981,6 +1982,10 @@ pub fn run() {
             pangolin::pangolin_api_request,
             profile_extras::get_profile_extras,
             profile_extras::save_profile_extras,
+            backup_schedule::install_backup_schedule,
+            backup_schedule::uninstall_backup_schedule,
+            backup_schedule::get_backup_schedules,
+            backup_schedule::get_root_crontab,
             db::db_connect,
             db::db_disconnect,
             db::db_query,

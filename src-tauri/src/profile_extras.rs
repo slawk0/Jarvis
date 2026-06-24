@@ -62,6 +62,26 @@ pub struct BackupTemplate {
     // Secrets — never persisted to disk, only to the OS keyring.
     pub dest_access_key: Option<String>,
     pub dest_secret_key: Option<String>,
+    // Restic engine: references a ResticRepo.id when destination == "restic".
+    #[serde(default)]
+    pub restic_repo_id: Option<String>,
+    // Periodic scheduling via remote cronjob.
+    #[serde(default)]
+    pub schedule_enabled: bool,
+    #[serde(default)]
+    pub schedule_cron: Option<String>,
+    // Retention for restic destinations (native `forget --keep-*`).
+    #[serde(default)]
+    pub keep_last: Option<u32>,
+    #[serde(default)]
+    pub keep_daily: Option<u32>,
+    #[serde(default)]
+    pub keep_weekly: Option<u32>,
+    #[serde(default)]
+    pub keep_monthly: Option<u32>,
+    // Retention for file/s3/sftp destinations (`rclone delete --min-age Nd`).
+    #[serde(default)]
+    pub retention_days: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

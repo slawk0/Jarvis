@@ -17,6 +17,7 @@
     formatInvokeError,
     isSudoPasswordRequired,
   } from '$lib/backendErrors';
+  import { shellQuote, resticEnvPrefix } from '$lib/restic/env';
 
   let { profileId = '', visible = true } = $props();
 
@@ -113,10 +114,6 @@
     }
   }
 
-  function shellQuote(s: string): string {
-    return "'" + s.replace(/'/g, "'\\''") + "'";
-  }
-
   // Redirect restic's stdin from /dev/null so it never blocks waiting for an
   // interactive password prompt (restic/rclone fall back to stdin when the
   // password env var is missing). Without this the SSH command hangs forever.
@@ -124,38 +121,8 @@
     return `${cmd} < /dev/null`;
   }
 
-  function buildResticEnvPrefix(repo: ResticRepo): string {
-    const envs: string[] = [];
-    envs.push(`RESTIC_PASSWORD=${shellQuote(repo.password || '')}`);
-    
-    if (repo.repo_type === 's3' || repo.repo_type === 'b2') {
-      if (repo.access_key) {
-        if (repo.repo_type === 's3') {
-          envs.push(`AWS_ACCESS_KEY_ID=${shellQuote(repo.access_key)}`);
-        } else {
-          envs.push(`B2_ACCOUNT_ID=${shellQuote(repo.access_key)}`);
-        }
-      }
-      if (repo.secret_key) {
-        if (repo.repo_type === 's3') {
-          envs.push(`AWS_SECRET_ACCESS_KEY=${shellQuote(repo.secret_key)}`);
-        } else {
-          envs.push(`B2_ACCOUNT_KEY=${shellQuote(repo.secret_key)}`);
-        }
-      }
-      if (repo.s3_region && repo.repo_type === 's3') {
-        envs.push(`AWS_DEFAULT_REGION=${shellQuote(repo.s3_region)}`);
-      }
-    }
-
-    if (repo.env_vars) {
-      for (const [key, val] of Object.entries(repo.env_vars)) {
-        envs.push(`${key}=${shellQuote(val)}`);
-      }
-    }
-
-    return envs.join(' ') + ' ';
-  }
+  // Shared restic env-prefix builder (see $lib/restic/env).
+  const buildResticEnvPrefix = resticEnvPrefix;
 
   async function checkResticInstalled() {
     isChecking = true;

@@ -5,8 +5,10 @@
   import SortableTh from './ui/SortableTh.svelte';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
   import { get } from 'svelte/store';
-    import { formatInvokeError } from '$lib/backendErrors';
+    import { formatInvokeError, isSudoPasswordRequired } from '$lib/backendErrors';
   import { notifications } from '$lib/notifications.svelte';
+  import CronExpressionInput from '$lib/CronExpressionInput.svelte';
+  import SudoModal from './SudoModal.svelte';
 
   let { visible = true } = $props();
 
@@ -41,82 +43,78 @@
   // Form variables
   let cronExpr = $state('*/5 * * * *');
   let cronCmd = $state('');
-  
-  // Helper tool to build cron expressions
-  let presetMinutes = $state('*/5');
-  let presetHours = $state('*');
-  let presetDays = $state('*');
-  let presetMonths = $state('*');
-  let presetDayOfWeek = $state('*');
 
-  function updateExprFromPresets() {
-    cronExpr = `${presetMinutes} ${presetHours} ${presetDays} ${presetMonths} ${presetDayOfWeek}`;
+  // Root crontab viewer (read-only). When on, the table shows root's crontab
+  // via sudo — including Jarvis backup schedules — and editing is disabled.
+  let rootView = $state(false);
+  let showSudoModal = $state(false);
+  let pendingAction: (() => Promise<void>) | null = null;
+
+  async function withSudo(action: () => Promise<void>) {
+    try {
+      await action();
+    } catch (err: unknown) {
+      if (isSudoPasswordRequired(err)) {
+        pendingAction = () => withSudo(action);
+        showSudoModal = true;
+      } else {
+        notifications.error(formatInvokeError(err));
+      }
+    }
+  }
+
+  function parseCrontab(result: string) {
+    const parsedJobs = [];
+    const lines = result.split('\n');
+    for (const line of lines) {
+      if (!line.trim()) continue;
+
+      if (line.startsWith('#')) {
+        // Check if it's a commented-out cron job
+        const cleaned = line.replace(/^#\s*/, '').trim();
+        const parts = cleaned.split(/\s+/);
+
+        if (parts.length >= 6 && (
+          parts[0] === '*' || /^\d+/.test(parts[0]) || parts[0].startsWith('*/') || parts[0].startsWith('@')
+        )) {
+          const expr = parts.slice(0, 5).join(' ');
+          const cmd = parts.slice(5).join(' ');
+          parsedJobs.push({ id: crypto.randomUUID(), expression: expr, command: cmd, is_active: false });
+        } else {
+          parsedJobs.push({ id: crypto.randomUUID(), raw: line, is_meta: true });
+        }
+      } else {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length >= 6 && (
+          parts[0] === '*' || /^\d+/.test(parts[0]) || parts[0].startsWith('*/') || parts[0].startsWith('@')
+        )) {
+          const expr = parts.slice(0, 5).join(' ');
+          const cmd = parts.slice(5).join(' ');
+          parsedJobs.push({ id: crypto.randomUUID(), expression: expr, command: cmd, is_active: true });
+        } else {
+          parsedJobs.push({ id: crypto.randomUUID(), raw: line, is_meta: true });
+        }
+      }
+    }
+    return parsedJobs;
   }
 
   async function loadCronJobs() {
     isLoading = true;
     try {
-      // crontab -l returns exit code 1 if no crontab exists, we handle it in Rust or here
+      if (rootView) {
+        await withSudo(async () => {
+          const result: string = await invoke('get_root_crontab');
+          cronJobs = parseCrontab(result);
+        });
+        return;
+      }
+      // crontab -l returns exit code 1 if no crontab exists, we handle it here
       const result: string = await invoke('exec_custom_command', {
         cmd: 'crontab -l',
         useSudo: false
       });
-      
-      const parsedJobs = [];
-      const lines = result.split('\n');
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        
-        if (line.startsWith('#')) {
-          // Check if it's a commented-out cron job
-          const cleaned = line.replace(/^#\s*/, '').trim();
-          const parts = cleaned.split(/\s+/);
-          
-          if (parts.length >= 6 && (
-            parts[0] === '*' || /^\d+/.test(parts[0]) || parts[0].startsWith('*/') || parts[0].startsWith('@')
-          )) {
-            const expr = parts.slice(0, 5).join(' ');
-            const cmd = parts.slice(5).join(' ');
-            parsedJobs.push({
-              id: crypto.randomUUID(),
-              expression: expr,
-              command: cmd,
-              is_active: false
-            });
-          } else {
-            // regular comment
-            parsedJobs.push({
-              id: crypto.randomUUID(),
-              raw: line,
-              is_meta: true
-            });
-          }
-        } else {
-          // Active cron job or env definition
-          const parts = line.trim().split(/\s+/);
-          if (parts.length >= 6 && (
-            parts[0] === '*' || /^\d+/.test(parts[0]) || parts[0].startsWith('*/') || parts[0].startsWith('@')
-          )) {
-            const expr = parts.slice(0, 5).join(' ');
-            const cmd = parts.slice(5).join(' ');
-            parsedJobs.push({
-              id: crypto.randomUUID(),
-              expression: expr,
-              command: cmd,
-              is_active: true
-            });
-          } else {
-            // env definition or something else
-            parsedJobs.push({
-              id: crypto.randomUUID(),
-              raw: line,
-              is_meta: true
-            });
-          }
-        }
-      }
-      
-      cronJobs = parsedJobs;
+      cronJobs = parseCrontab(result);
     } catch (err: any) {
       // We treat the absence of crontab as an empty list, not an error
       const errString = formatInvokeError(err);
@@ -131,9 +129,17 @@
     }
   }
 
+  function toggleRootView() {
+    rootView = !rootView;
+    cronJobs = [];
+    loadCronJobs();
+  }
+
   async function saveCronJobs(jobsList: any[]) {
+    // Root crontab is read-only here; never write root's entries into the user crontab.
+    if (rootView) return;
     isLoading = true;
-    
+
     // Build the crontab file content
     const fileContent = jobsList.map(job => {
       if (job.is_meta) {
@@ -203,16 +209,6 @@
     cronExpr = job.expression;
     cronCmd = job.command;
     showEditModal = true;
-    
-    // Try to match presets to the edited task
-    const parts = job.expression.split(' ');
-    if (parts.length === 5) {
-      presetMinutes = parts[0];
-      presetHours = parts[1];
-      presetDays = parts[2];
-      presetMonths = parts[3];
-      presetDayOfWeek = parts[4];
-    }
   }
 
   async function editCronJob() {
@@ -243,9 +239,15 @@
 
   <!-- Pasek operacyjny -->
   <div class="ops-bar glass">
-    <button class="primary" onclick={() => showCreateModal = true}>
+    <button class="primary" onclick={() => showCreateModal = true} disabled={rootView}>
       <Plus size={16} /> New task
     </button>
+    <button class="secondary" class:active={rootView} onclick={toggleRootView} title="View root's crontab (sudo) — includes Jarvis backup schedules">
+      <ShieldAlert size={16} /> {rootView ? "Viewing root crontab" : "View root crontab"}
+    </button>
+    {#if rootView}
+      <span class="root-note">Read-only — backup schedules are managed in the Backups tab.</span>
+    {/if}
   </div>
 
   <!-- Cron jobs list -->
@@ -269,7 +271,7 @@
           {#each sortedCronJobs as job, index}
             <tr class={job.is_active ? '' : 'disabled-row'}>
               <td>
-                <button class="btn-toggle" onclick={() => toggleCronJob(job)} title={job.is_active ? "Disable" : "Enable"}>
+                <button class="btn-toggle" onclick={() => toggleCronJob(job)} disabled={rootView} title={job.is_active ? "Disable" : "Enable"}>
                   {#if job.is_active}
                     <ToggleRight size={22} class="toggle-icon active" />
                   {:else}
@@ -284,12 +286,14 @@
                 <code class="mono-val">{job.command}</code>
               </td>
               <td class="actions-cell">
-                <button class="btn-table" onclick={() => openEditModal(job, index)} title="Edit">
-                  <Edit size={14} />
-                </button>
-                <button class="btn-table danger-text" onclick={() => deleteCronJob(job.id)} title="Delete">
-                  <Trash2 size={14} />
-                </button>
+                {#if !rootView}
+                  <button class="btn-table" onclick={() => openEditModal(job, index)} title="Edit">
+                    <Edit size={14} />
+                  </button>
+                  <button class="btn-table danger-text" onclick={() => deleteCronJob(job.id)} title="Delete">
+                    <Trash2 size={14} />
+                  </button>
+                {/if}
               </td>
             </tr>
           {/each}
@@ -315,67 +319,7 @@
           <input id="cron-command" type="text" placeholder="/var/www/scripts/backup.sh >> /var/log/backup.log 2>&1" bind:value={cronCmd} />
         </div>
 
-        <div class="form-group">
-          <label for="cron-expression-input">Cron expression (5 fields)</label>
-          <input id="cron-expression-input" type="text" placeholder="* * * * *" bind:value={cronExpr} />
-        </div>
-
-        <!-- Visual Expression Generator -->
-        <div class="cron-generator glass">
-          <h4>Visual schedule builder</h4>
-          <div class="generator-grid">
-            <div class="form-group">
-              <label for="gen-min">Minute</label>
-              <select id="gen-min" bind:value={presetMinutes} onchange={updateExprFromPresets}>
-                <option value="*">Every (*)</option>
-                <option value="*/5">Every 5 minutes (*/5)</option>
-                <option value="*/15">Every 15 minutes (*/15)</option>
-                <option value="0">On the hour (0)</option>
-                <option value="30">At minute 30 (30)</option>
-              </select>
-            </div>
-            
-            <div class="form-group">
-              <label for="gen-hour">Hour</label>
-              <select id="gen-hour" bind:value={presetHours} onchange={updateExprFromPresets}>
-                <option value="*">Every hour (*)</option>
-                <option value="*/2">Every 2 hours (*/2)</option>
-                <option value="0">Midnight (00:00)</option>
-                <option value="12">Noon (12:00)</option>
-                <option value="2">2 AM (02:00)</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label for="gen-day">Day of month</label>
-              <select id="gen-day" bind:value={presetDays} onchange={updateExprFromPresets}>
-                <option value="*">Every day (*)</option>
-                <option value="1">First day (1)</option>
-                <option value="15">Mid-month (15)</option>
-                <option value="*/2">Every other day (*/2)</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label for="gen-month">Month</label>
-              <select id="gen-month" bind:value={presetMonths} onchange={updateExprFromPresets}>
-                <option value="*">Every month (*)</option>
-                <option value="1">January (1)</option>
-                <option value="*/3">Quarterly (*/3)</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label for="gen-dow">Day of week</label>
-              <select id="gen-dow" bind:value={presetDayOfWeek} onchange={updateExprFromPresets}>
-                <option value="*">Every day (*)</option>
-                <option value="1-5">Weekdays (Mon–Fri)</option>
-                <option value="0,6">Weekend (Sat–Sun)</option>
-                <option value="1">Monday (1)</option>
-              </select>
-            </div>
-          </div>
-        </div>
+        <CronExpressionInput bind:value={cronExpr} />
 
         <div class="modal-actions">
           {#if showCreateModal}
@@ -391,7 +335,20 @@
   {/if}
 </div>
 
+<SudoModal
+  bind:open={showSudoModal}
+  onSuccess={() => {
+    if (pendingAction) {
+      const action = pendingAction;
+      pendingAction = null;
+      action();
+    }
+  }}
+/>
+
 <style>
+  .root-note { font-size: 0.75rem; color: var(--text-muted); }
+  .ops-bar .secondary.active { color: var(--accent-amber); }
   .cron-manager {
     /* uses .manager-shell */
   }
@@ -569,32 +526,4 @@
     gap: 10px;
   }
 
-  /* Visual Generator */
-  .cron-generator {
-    padding: 16px;
-    border-radius: var(--radius-md);
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .cron-generator h4 {
-    font-size: 0.85rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--accent-amber);
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 6px;
-  }
-
-  .generator-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-  }
-
-  .generator-grid .form-group:nth-child(4),
-  .generator-grid .form-group:nth-child(5) {
-    grid-column: span 1.5;
-  }
 </style>

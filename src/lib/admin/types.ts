@@ -12,7 +12,7 @@ export interface Runbook {
   use_sudo: boolean;
 }
 
-export type BackupDestination = 'download' | 's3' | 'sftp';
+export type BackupDestination = 'download' | 's3' | 'sftp' | 'restic';
 
 export interface BackupTemplate {
   id: string;
@@ -33,6 +33,18 @@ export interface BackupTemplate {
   dest_user?: string | null;
   dest_access_key?: string | null;
   dest_secret_key?: string | null;
+  // Restic engine: references a ResticRepo.id when destination === 'restic'.
+  restic_repo_id?: string | null;
+  // Periodic scheduling via remote cronjob.
+  schedule_enabled?: boolean;
+  schedule_cron?: string | null;
+  // Retention for restic destinations (native `forget --keep-*`).
+  keep_last?: number | null;
+  keep_daily?: number | null;
+  keep_weekly?: number | null;
+  keep_monthly?: number | null;
+  // Retention for file/s3/sftp destinations (`rclone delete --min-age Nd`).
+  retention_days?: number | null;
 }
 
 export interface ProfileExtras {
