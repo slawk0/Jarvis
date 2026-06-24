@@ -3,10 +3,11 @@
   import { invoke } from '@tauri-apps/api/core';
   import { Database, Table, Play, Plug, PlugZap, Download, Server, ChevronRight, Terminal, Settings2, Save, Plus, Trash2, X, FileCode, RefreshCw, Container, HardDrive, Wand2, Columns3, Pencil, Check, ChevronLeft, Filter as FilterIcon, Eye } from 'lucide-svelte';
     import { get } from 'svelte/store';
-  import { shQuote, listContainers } from '$lib/exec/target';
+  import { listContainers } from '$lib/exec/target';
   import { notifications } from '$lib/notifications.svelte';
   import { formatInvokeError } from '$lib/backendErrors';
   import { defaultPort, engineLabel, FILTER_OPS, type Engine } from '$lib/db/dialect';
+  import { detectDbFromContainer } from '$lib/db/detect';
 
   let { profileId = '', visible = true } = $props();
 
@@ -351,58 +352,21 @@
     if (!profileFormContainer) return;
     detecting = true;
     try {
-      const out = await invoke<string>('exec_custom_command', {
-        cmd: `docker inspect ${shQuote(profileFormContainer)} --format '{{json .Config}}' 2>/dev/null`,
-        useSudo: false,
-      });
-      const cfg = JSON.parse(out);
-      const env: Record<string, string> = {};
-      for (const e of (cfg.Env as string[]) || []) {
-        const i = e.indexOf('=');
-        if (i > 0) env[e.slice(0, i)] = e.slice(i + 1);
-      }
-      const image = String(cfg.Image || '').toLowerCase();
-
-      const isPg =
-        image.includes('postgres') ||
-        env.POSTGRES_USER !== undefined ||
-        env.POSTGRES_PASSWORD !== undefined ||
-        env.POSTGRES_DB !== undefined;
-      const isMy =
-        image.includes('mysql') ||
-        image.includes('mariadb') ||
-        env.MYSQL_ROOT_PASSWORD !== undefined ||
-        env.MARIADB_ROOT_PASSWORD !== undefined ||
-        env.MYSQL_USER !== undefined ||
-        env.MARIADB_USER !== undefined;
-
-      if (!isPg && !isMy) {
+      const detected = await detectDbFromContainer(profileFormContainer);
+      if (!detected) {
         notifications.warning("No database settings found in the container environment.");
         return;
       }
 
-      if (isPg) {
-        profileFormEngine = 'postgres';
-        profileFormPort = '5432';
-        profileFormUser = env.POSTGRES_USER || 'postgres';
-        profileFormPassword = env.POSTGRES_PASSWORD || '';
-      } else {
-        profileFormEngine = 'mysql';
-        profileFormPort = '3306';
-        const rootPw = env.MYSQL_ROOT_PASSWORD || env.MARIADB_ROOT_PASSWORD;
-        if (rootPw !== undefined) {
-          profileFormUser = 'root';
-          profileFormPassword = rootPw;
-        } else {
-          profileFormUser = env.MYSQL_USER || env.MARIADB_USER || 'root';
-          profileFormPassword = env.MYSQL_PASSWORD || env.MARIADB_PASSWORD || '';
-        }
-      }
+      profileFormEngine = detected.engine;
+      profileFormPort = detected.engine === 'postgres' ? '5432' : '3306';
+      profileFormUser = detected.user;
+      profileFormPassword = detected.password;
       profileFormHost = '127.0.0.1';
       if (!profileFormName.trim()) profileFormName = profileFormContainer;
 
       notifications.success(
-        `Detected ${isPg ? 'PostgreSQL' : 'MySQL'} settings from the container.`,
+        `Detected ${detected.engine === 'postgres' ? 'PostgreSQL' : 'MySQL'} settings from the container.`,
       );
     } catch (err) {
       notifications.error(`Could not auto-detect settings: ${formatInvokeError(err)}`);

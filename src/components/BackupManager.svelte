@@ -3,7 +3,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import { listen } from '@tauri-apps/api/event';
   import {
-    Plus, Trash2, Play, Database, FolderArchive, Loader2, Download, Clock, FileText, X,
+    Plus, Trash2, Play, Database, FolderArchive, Loader2, Download, Clock, FileText, RefreshCw, Container,
   } from 'lucide-svelte';
   import SudoModal from './SudoModal.svelte';
   import PathAutocomplete from './ui/PathAutocomplete.svelte';
@@ -11,6 +11,9 @@
   import type { BackupTemplate, ProfileExtras, ResticRepo } from '$lib/admin/types';
   import { DEFAULT_PROFILE_EXTRAS } from '$lib/admin/types';
   import { shellQuote as q, resticEnvExports } from '$lib/restic/env';
+  import { listContainers } from '$lib/exec/target';
+  import { detectDbFromContainer } from '$lib/db/detect';
+  import type { SftpTransferEvent } from '$lib/sftp/types';
   import { get } from 'svelte/store';
     import { notifications } from '$lib/notifications.svelte';
   import {
@@ -55,6 +58,13 @@
   let formKeepWeekly = $state('');
   let formKeepMonthly = $state('');
   let formRetentionDays = $state('');
+
+  // Docker DB source picker
+  let containers = $state<string[]>([]);
+  let loadingContainers = $state(false);
+  let detectingContainer = $state(false);
+  let dbDetected = $state(false);
+  let formDbSource = $state<'docker' | 'host'>('docker');
 
   // Log viewer (schedule logs)
   let showLogModal = $state(false);
@@ -103,6 +113,70 @@
     await invoke('save_profile_extras', { profileId, extras });
   }
 
+  async function loadContainers() {
+    loadingContainers = true;
+    try {
+      let list = await listContainers(false);
+      if (list.length === 0) list = await listContainers(true);
+      containers = list;
+    } finally {
+      loadingContainers = false;
+    }
+  }
+
+  function resetDbFormFields() {
+    formContainer = '';
+    formDbName = '';
+    formDbUser = 'root';
+    formDbPassword = '';
+    dbDetected = false;
+  }
+
+  async function onContainerChange() {
+    if (!formContainer || formDbSource !== 'docker') return;
+    detectingContainer = true;
+    dbDetected = false;
+    try {
+      const detected = await detectDbFromContainer(formContainer);
+      if (!detected) {
+        notifications.warning("No database settings found in the container environment.");
+        return;
+      }
+      formType = detected.engine;
+      formDbUser = detected.user;
+      formDbPassword = detected.password;
+      formDbName = detected.dbName || '';
+      if (!formName.trim()) formName = formContainer;
+      dbDetected = true;
+      notifications.success(
+        `Detected ${detected.engine === 'postgres' ? 'PostgreSQL' : 'MySQL'} settings from the container.`,
+      );
+    } catch (err: unknown) {
+      notifications.error(`Could not auto-detect settings: ${formatInvokeError(err)}`);
+    } finally {
+      detectingContainer = false;
+    }
+  }
+
+  function onTypeChange() {
+    if (formType !== 'mysql' && formType !== 'postgres') return;
+    if (!editId) {
+      formDbSource = 'docker';
+      resetDbFormFields();
+    }
+    loadContainers();
+  }
+
+  function setDbSource(source: 'docker' | 'host') {
+    formDbSource = source;
+    if (source === 'host') {
+      formContainer = '';
+      dbDetected = false;
+    } else if (!editId) {
+      resetDbFormFields();
+    }
+  }
+
   function openAdd() {
     editId = null;
     formName = '';
@@ -130,6 +204,9 @@
     formKeepWeekly = '';
     formKeepMonthly = '';
     formRetentionDays = '';
+    formDbSource = 'docker';
+    dbDetected = false;
+    containers = [];
     showAddModal = true;
   }
 
@@ -160,6 +237,9 @@
     formKeepWeekly = t.keep_weekly != null ? String(t.keep_weekly) : '';
     formKeepMonthly = t.keep_monthly != null ? String(t.keep_monthly) : '';
     formRetentionDays = t.retention_days != null ? String(t.retention_days) : '';
+    formDbSource = t.docker_container ? 'docker' : 'host';
+    dbDetected = !!t.docker_container;
+    loadContainers();
     showAddModal = true;
   }
 
@@ -172,6 +252,18 @@
     if (!formName.trim()) {
       alert("Enter template name");
       return;
+    }
+    if (formType === 'mysql' || formType === 'postgres') {
+      if (formDbSource === 'docker') {
+        if (!formContainer.trim()) {
+          alert("Select a Docker container.");
+          return;
+        }
+        if (!formDbName.trim() || !formDbUser.trim()) {
+          alert("Enter database name and user.");
+          return;
+        }
+      }
     }
     // A cronjob runs while the desktop app is closed, so it cannot download to
     // this computer — scheduled backups need a server-side/offsite destination.
@@ -188,7 +280,7 @@
       name: formName.trim(),
       backup_type: formType,
       source_path: formPath.trim(),
-      docker_container: formContainer.trim() || null,
+      docker_container: formDbSource === 'docker' ? formContainer.trim() || null : null,
       db_name: formDbName.trim() || null,
       db_user: formDbUser.trim() || null,
       db_password: formDbPassword.trim() || null,
@@ -264,25 +356,44 @@
   }
 
   function buildBackupCmd(t: BackupTemplate, remotePath: string): string {
+    const rp = shellQuote(remotePath);
+    const steps: string[] = [];
+
     if (t.backup_type === 'files') {
       const dir = t.source_path.replace(/\/$/, '');
-      return `tar czf ${shellQuote(remotePath)} -C ${shellQuote(dir)} . 2>&1`;
-    }
-    if (t.backup_type === 'mysql') {
+      steps.push(`echo "Creating tar.gz archive of ${dir}…"`);
+      steps.push(`tar czvf ${rp} -C ${shellQuote(dir)} .`);
+      steps.push(`echo "Archive ready: $(du -h ${rp} | cut -f1)"`);
+    } else if (t.backup_type === 'mysql') {
       const db = t.db_name || 'mysql';
       const user = t.db_user || 'root';
       const pass = t.db_password ? `-p${shellQuote(t.db_password)}` : '';
       if (t.docker_container) {
-        return `docker exec ${shellQuote(t.docker_container)} sh -c ${shellQuote(`mysqldump -u ${user} ${pass} ${db}`)} > ${shellQuote(remotePath)} 2>&1`;
+        steps.push(`echo "Dumping MySQL database ${db} from container ${t.docker_container}…"`);
+        steps.push(
+          `docker exec ${shellQuote(t.docker_container)} sh -c ${shellQuote(`mysqldump --verbose -u ${user} ${pass} ${db}`)} > ${rp}`,
+        );
+      } else {
+        steps.push(`echo "Dumping MySQL database ${db}…"`);
+        steps.push(`mysqldump --verbose -u ${shellQuote(user)} ${pass} ${shellQuote(db)} > ${rp}`);
       }
-      return `mysqldump -u ${shellQuote(user)} ${pass} ${shellQuote(db)} > ${shellQuote(remotePath)} 2>&1`;
+      steps.push(`echo "Dump ready: $(du -h ${rp} | cut -f1)"`);
+    } else {
+      const db = t.db_name || 'postgres';
+      const user = t.db_user || 'postgres';
+      if (t.docker_container) {
+        steps.push(`echo "Dumping PostgreSQL database ${db} from container ${t.docker_container}…"`);
+        steps.push(
+          `docker exec ${shellQuote(t.docker_container)} pg_dump --verbose -U ${shellQuote(user)} ${shellQuote(db)} > ${rp}`,
+        );
+      } else {
+        steps.push(`echo "Dumping PostgreSQL database ${db}…"`);
+        steps.push(`pg_dump --verbose -U ${shellQuote(user)} ${shellQuote(db)} > ${rp}`);
+      }
+      steps.push(`echo "Dump ready: $(du -h ${rp} | cut -f1)"`);
     }
-    const db = t.db_name || 'postgres';
-    const user = t.db_user || 'postgres';
-    if (t.docker_container) {
-      return `docker exec ${shellQuote(t.docker_container)} pg_dump -U ${shellQuote(user)} ${shellQuote(db)} > ${shellQuote(remotePath)} 2>&1`;
-    }
-    return `pg_dump -U ${shellQuote(user)} ${shellQuote(db)} > ${shellQuote(remotePath)} 2>&1`;
+
+    return steps.join(' && ');
   }
 
   function buildRclonePush(t: BackupTemplate, remotePath: string, destFile: string): string {
@@ -317,26 +428,28 @@
   }
 
   // Dump command for a script, writing into the shell variable "$TMP".
-  function buildDumpToVar(t: BackupTemplate): string {
+  function buildDumpToVar(t: BackupTemplate, verbose = false): string {
     if (t.backup_type === 'files') {
       const dir = t.source_path.replace(/\/$/, '');
-      return `tar czf "$TMP" -C ${q(dir)} .`;
+      return `tar cz${verbose ? 'v' : ''}f "$TMP" -C ${q(dir)} .`;
     }
     if (t.backup_type === 'mysql') {
       const db = t.db_name || 'mysql';
       const user = t.db_user || 'root';
       const pass = t.db_password ? `-p${q(t.db_password)}` : '';
+      const vf = verbose ? '--verbose ' : '';
       if (t.docker_container) {
-        return `docker exec ${q(t.docker_container)} sh -c ${q(`mysqldump -u ${user} ${pass} ${db}`)} > "$TMP"`;
+        return `docker exec ${q(t.docker_container)} sh -c ${q(`mysqldump ${vf}-u ${user} ${pass} ${db}`)} > "$TMP"`;
       }
-      return `mysqldump -u ${q(user)} ${pass} ${q(db)} > "$TMP"`;
+      return `mysqldump ${vf}-u ${q(user)} ${pass} ${q(db)} > "$TMP"`;
     }
     const db = t.db_name || 'postgres';
     const user = t.db_user || 'postgres';
+    const vf = verbose ? '--verbose ' : '';
     if (t.docker_container) {
-      return `docker exec ${q(t.docker_container)} pg_dump -U ${q(user)} ${q(db)} > "$TMP"`;
+      return `docker exec ${q(t.docker_container)} pg_dump ${vf}-U ${q(user)} ${q(db)} > "$TMP"`;
     }
-    return `pg_dump -U ${q(user)} ${q(db)} > "$TMP"`;
+    return `pg_dump ${vf}-U ${q(user)} ${q(db)} > "$TMP"`;
   }
 
   // Native restic retention policy → `forget --keep-* --prune` (empty if unset).
@@ -379,41 +492,53 @@
   }
 
   // Backup commands assuming the env vars above are already in the environment.
-  function buildScriptCore(t: BackupTemplate, repo?: ResticRepo): string {
+  function buildScriptCore(t: BackupTemplate, repo?: ResticRepo, verbose = false): string {
     const name = safeName(t);
+    const lines: string[] = [];
+    if (verbose) lines.push(`echo "=== Backup: ${t.name} ==="`);
+
     if (t.destination === 'restic') {
       if (!repo) return 'echo "Restic repository not found" >&2; exit 1';
       const r = q(repo.path_or_url);
-      const lines: string[] = [];
       if (t.backup_type === 'files') {
         const dir = t.source_path.replace(/\/$/, '');
+        if (verbose) lines.push(`echo "Backing up ${dir} to Restic…"`);
         lines.push(`restic -r ${r} backup ${q(dir)} --tag jarvis`);
       } else {
+        if (verbose) lines.push('echo "Dumping database…"');
         lines.push(`TMP="/tmp/jarvis-backup-$(date +%s).sql"`);
-        lines.push(buildDumpToVar(t));
+        lines.push(buildDumpToVar(t, verbose));
+        if (verbose) lines.push('echo "Dump size: $(du -h "$TMP" | cut -f1)"');
+        if (verbose) lines.push('echo "Uploading snapshot to Restic…"');
         lines.push(`restic -r ${r} backup "$TMP" --tag jarvis`);
         lines.push(`rm -f "$TMP"`);
       }
       const forget = buildResticForget(t, repo);
-      if (forget) lines.push(forget);
+      if (forget) {
+        if (verbose) lines.push('echo "Applying retention policy…"');
+        lines.push(forget);
+      }
       return lines.join('\n');
     }
     // s3 / sftp via rclone
     const ext = t.backup_type === 'files' ? 'tar.gz' : 'sql';
-    const lines: string[] = [];
+    if (verbose) lines.push('echo "Creating backup archive…"');
     lines.push(`TS="$(date +%Y%m%d-%H%M%S)"`);
     lines.push(`TMP="/tmp/jarvis-backup-$TS.${ext}"`);
-    lines.push(buildDumpToVar(t));
+    lines.push(buildDumpToVar(t, verbose));
+    if (verbose) lines.push('echo "Archive size: $(du -h "$TMP" | cut -f1)"');
     const sub = (t.dest_path || '').replace(/^\/+|\/+$/g, '');
     const destBase = t.destination === 's3'
       ? `:s3:${t.dest_bucket}${sub ? '/' + sub : ''}`
       : `:sftp:${sub}`;
     lines.push(`DEST=${q(destBase)}`);
-    lines.push(`rclone copyto "$TMP" "$DEST/${name}-$TS.${ext}"`);
+    if (verbose) lines.push(`echo "Uploading to ${t.destination.toUpperCase()}…"`);
+    lines.push(`rclone copyto "$TMP" "$DEST/${name}-$TS.${ext}"${verbose ? ' --progress' : ''}`);
     lines.push(`rm -f "$TMP"`);
     // Age-based retention. Skip for SFTP without an explicit sub-path so we
     // never run a delete against the whole login home directory.
     if (t.retention_days && (t.destination === 's3' || sub)) {
+      if (verbose) lines.push(`echo "Deleting backups older than ${t.retention_days} days…"`);
       lines.push(`rclone delete "$DEST" --min-age ${t.retention_days}d`);
     }
     return lines.join('\n');
@@ -429,7 +554,7 @@
     } else {
       lines.push(`. /etc/jarvis-backups/${t.id}.env`);
     }
-    lines.push(buildScriptCore(t, repo));
+    lines.push(buildScriptCore(t, repo, inlineEnv));
     return lines.join('\n') + '\n';
   }
 
@@ -438,7 +563,7 @@
   // withSudo() wrapper can prompt and retry.
   async function runStream(title: string, cmd: string, useSudo: boolean): Promise<boolean> {
     consoleTitle = title;
-    consoleOutput = '';
+    consoleOutput = `$ ${cmd}\n\n`;
     showConsole = true;
     isConsoleRunning = true;
     const eventId = Math.random().toString(36).slice(2);
@@ -476,12 +601,32 @@
           const ok = await runStream(`Backup: ${t.name}`, buildBackupCmd(t, remotePath), isFiles);
           if (!ok) return;
           if (isFiles) await exec(`chmod 644 ${remotePath}`, true).catch(() => {});
-          const count = await invoke<number>('sftp_start_download_batch', {
-            remotePaths: [remotePath],
-            localDir: null,
+
+          let cleanupDone = false;
+          const cleanupRemote = async () => {
+            if (cleanupDone) return;
+            cleanupDone = true;
+            await exec(`rm -f ${remotePath}`, isFiles).catch(() => {});
+          };
+
+          const unlistenTransfer = await listen<SftpTransferEvent>('sftp-transfer-event', (event) => {
+            if (event.payload.job_id === 'batch-complete') {
+              void cleanupRemote();
+              unlistenTransfer();
+            }
           });
-          consoleOutput += `\nStarted downloading ${count} file(s) to Downloads.\n`;
-          await exec(`rm -f ${remotePath}`, isFiles).catch(() => {});
+
+          try {
+            const count = await invoke<number>('sftp_start_download_batch', {
+              remotePaths: [remotePath],
+              localDir: null,
+            });
+            consoleOutput += `\nStarted downloading ${count} file(s) to Downloads.\n`;
+          } catch (err) {
+            unlistenTransfer();
+            await cleanupRemote();
+            throw err;
+          }
         } catch (err: unknown) {
           if (isSudoPasswordRequired(err)) throw err;
           notifications.error(`Backup error: ${formatInvokeError(err)}`);
@@ -606,6 +751,22 @@
     <Download size={16} />
     <p>Backups can download here, push offsite (S3/SFTP), or snapshot to a Restic repo. Enable a schedule to run periodically via a server cronjob with automatic retention.</p>
   </section>
+
+  {#if showConsole}
+    <section class="output-panel glass">
+      <div class="output-header">
+        <h3>{consoleTitle}</h3>
+        <div class="output-actions">
+          {#if isConsoleRunning}
+            <span class="run-status"><Loader2 size={13} class="spin" /> Running…</span>
+          {:else}
+            <button class="secondary btn-compact" onclick={() => (showConsole = false)}>Close</button>
+          {/if}
+        </div>
+      </div>
+      <pre class="output-content mono-val">{consoleOutput || '…'}</pre>
+    </section>
+  {/if}
 </div>
 
 {#if showAddModal}
@@ -614,7 +775,7 @@
       <h3>{editId ? "Edit template" : "New backup template"}</h3>
       <label>Name<input bind:value={formName} placeholder="WWW backup" /></label>
       <label>Type
-        <select bind:value={formType}>
+        <select bind:value={formType} onchange={onTypeChange}>
           <option value="files">Files (tar.gz)</option>
           <option value="mysql">MySQL (mysqldump)</option>
           <option value="postgres">PostgreSQL (pg_dump)</option>
@@ -625,10 +786,61 @@
           <PathAutocomplete bind:value={formPath} placeholder="/var/www" onlyDirs={true} />
         </label>
       {:else}
-        <label>Docker container (empty = host)<input bind:value={formContainer} placeholder="mysql" /></label>
-        <label>Database name<input bind:value={formDbName} /></label>
-        <label>DB user<input bind:value={formDbUser} /></label>
-        <label>DB password (optional)<input type="password" bind:value={formDbPassword} /></label>
+        <div class="source-divider">Source</div>
+        <label class="row-check host-toggle">
+          <input
+            type="checkbox"
+            checked={formDbSource === 'host'}
+            onchange={(e) => setDbSource(e.currentTarget.checked ? 'host' : 'docker')}
+          />
+          Backup from host instead of Docker
+        </label>
+
+        {#if formDbSource === 'docker'}
+          <label>Docker container
+            <div class="select-row">
+              <select
+                bind:value={formContainer}
+                onchange={onContainerChange}
+                disabled={loadingContainers || detectingContainer}
+              >
+                {#if containers.length === 0}
+                  <option value="">{loadingContainers ? "Loading…" : "No containers"}</option>
+                {/if}
+                {#each containers as c}
+                  <option value={c}>{c}</option>
+                {/each}
+              </select>
+              <button
+                type="button"
+                class="secondary btn-compact icon-only"
+                onclick={loadContainers}
+                disabled={loadingContainers}
+                title="Refresh containers"
+                aria-label="Refresh containers"
+              >
+                <RefreshCw size={14} class={loadingContainers ? 'spin' : ''} />
+              </button>
+            </div>
+          </label>
+          <p class="dest-hint">Pick the container running your database. Credentials are read automatically from its environment.</p>
+          {#if detectingContainer}
+            <p class="detect-status"><Loader2 size={13} class="spin" /> Detecting database settings…</p>
+          {/if}
+        {/if}
+
+        {#if editId || formDbSource === 'host' || formContainer}
+          <div class="engine-badge">
+            <Container size={13} />
+            {formType === 'postgres' ? 'PostgreSQL' : 'MySQL'}
+          </div>
+          <label>Database name<input bind:value={formDbName} placeholder="myapp" /></label>
+          <label>DB user<input bind:value={formDbUser} /></label>
+          <label>DB password (optional)<input type="password" bind:value={formDbPassword} /></label>
+          {#if formDbSource === 'docker' && formContainer && !dbDetected && !detectingContainer && !editId}
+            <p class="dest-hint warn">Could not auto-detect settings — fill in the fields manually.</p>
+          {/if}
+        {/if}
       {/if}
 
       <div class="dest-divider">Destination</div>
@@ -709,25 +921,6 @@
   </div>
 {/if}
 
-{#if showConsole}
-  <div class="modal-overlay" role="presentation" onclick={() => { if (!isConsoleRunning) showConsole = false; }}>
-    <div class="modal glass console-modal" role="dialog" onclick={(e) => e.stopPropagation()}>
-      <div class="console-head">
-        <h3>{consoleTitle}</h3>
-        <button class="icon-btn" disabled={isConsoleRunning} onclick={() => (showConsole = false)}><X size={16} /></button>
-      </div>
-      <pre class="log-pre mono-val">{consoleOutput || '…'}</pre>
-      <div class="modal-actions">
-        {#if isConsoleRunning}
-          <span class="run-status"><Loader2 size={13} class="spin" /> Running…</span>
-        {:else}
-          <button class="primary" onclick={() => (showConsole = false)}>Close</button>
-        {/if}
-      </div>
-    </div>
-  </div>
-{/if}
-
 {#if showLogModal}
   <div class="modal-overlay" role="presentation" onclick={() => (showLogModal = false)}>
     <div class="modal glass log-modal" role="dialog" onclick={(e) => e.stopPropagation()}>
@@ -771,7 +964,15 @@
   .hover-red:hover { color: var(--accent-red) !important; }
   .dest-divider { margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--border-color); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
   .dest-hint { font-size: 0.72rem; color: var(--text-muted); margin: 2px 0; }
+  .dest-hint.warn { color: var(--accent-amber); }
   .dest-hint code { font-family: var(--font-mono, monospace); }
+  .source-divider { margin-top: 2px; padding-top: 6px; border-top: 1px solid var(--border-color); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+  .select-row { display: flex; gap: 6px; align-items: center; }
+  .select-row select { flex: 1; min-width: 0; }
+  .icon-only { padding: 6px 8px; display: flex; align-items: center; }
+  .host-toggle { margin-bottom: 2px; }
+  .engine-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; font-size: 0.76rem; font-weight: 600; color: var(--accent-green); background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.25); border-radius: var(--radius-sm); width: fit-content; }
+  .detect-status { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--text-muted); margin: 0; }
   .modal { max-height: 86vh; overflow-y: auto; }
   .row-check { flex-direction: row !important; align-items: center; gap: 8px; }
   .row-check input { width: auto; }
@@ -779,10 +980,12 @@
   .retention-grid label { min-width: 0; }
   .retention-grid input { width: 100%; box-sizing: border-box; min-width: 0; }
   .badge.sched { display: inline-flex; align-items: center; gap: 3px; background: rgba(99,102,241,0.18); color: #c7d2fe; }
-  .log-modal, .console-modal { width: 640px; }
+  .log-modal { width: 640px; }
   .log-pre { max-height: 60vh; overflow: auto; white-space: pre-wrap; word-break: break-word; font-size: 0.75rem; background: rgba(0,0,0,0.35); padding: 10px; border-radius: var(--radius-sm); color: var(--text-secondary); }
-  .console-head { display: flex; align-items: center; justify-content: space-between; }
-  .icon-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px; }
-  .icon-btn:disabled { opacity: 0.4; cursor: default; }
+  .output-panel { padding: 16px; border-radius: var(--radius-md); }
+  .output-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .output-header h3 { font-size: 0.9rem; color: white; margin: 0; }
+  .output-actions { display: flex; align-items: center; gap: 8px; }
+  .output-content { max-height: 300px; overflow: auto; font-size: 0.75rem; white-space: pre-wrap; word-break: break-word; background: rgba(0,0,0,0.35); padding: 12px; border-radius: var(--radius-sm); color: var(--text-secondary); margin: 0; }
   .run-status { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--text-muted); }
 </style>
