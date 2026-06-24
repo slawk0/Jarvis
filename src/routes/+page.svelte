@@ -988,6 +988,12 @@
       onSwitchProfile={handleSwitchProfile}
       onDisconnect={handleDisconnect}
       onTabSelect={(tab: string) => {
+        // Re-clicking the already-active tab lets the component reset its own view
+        // (e.g. Docker returns from a container detail back to the list).
+        const pane = panes.find(p => p.id === activePaneId);
+        if (pane && tab === pane.activeTab) {
+          pane.componentRefs[tab]?.onTabReselect?.();
+        }
         selectTab(tab);
       }}
       onCustomDragStart={(e: PointerEvent, type: 'tab' | 'pane', id: string) => startCustomDrag(e, type, id)}

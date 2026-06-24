@@ -83,6 +83,18 @@
   let containerInspectData = $state('');
   let inspectLoading = $state(false);
 
+  // Container detail view (Portainer-like)
+  let detailContainerId = $state('');
+  let detailContainerName = $state('');
+  let detailLoading = $state(false);
+  let detailData = $state<any>(null);
+  let detailRestartPolicy = $state('unless-stopped');
+  let detailRenaming = $state(false);
+  let detailNewName = $state('');
+  let detailJoinNetwork = $state('');
+  let detailShowRaw = $state(false);
+  let detailRawData = $state('');
+
   // Container logs state
   let showLogsModal = $state(false);
   let logsContainerId = $state('');
@@ -271,19 +283,54 @@
     }
   });
 
-  // Modify Container modal state
-  let showModifyModal = $state(false);
+  // Container edit state (inline Portainer-like editor)
   let modifyContainerId = $state('');
   let modifyName = $state('');
   let modifyImage = $state('');
   let modifyPorts = $state<{ host: string, container: string, proto: 'tcp' | 'udp' }[]>([]);
   let modifyVolumes = $state<{ host: string, container: string, ro: boolean }[]>([]);
   let modifyEnv = $state<{ key: string, value: string }[]>([]);
+  let modifyLabels = $state<{ key: string, value: string }[]>([]);
   let modifyNetworks = $state<string[]>([]);
   let modifyRestartPolicy = $state('unless-stopped');
   let modifyCmd = $state('');
   let modifyEntrypoint = $state('');
   let modifyLoading = $state(false);
+
+  // Command & logging
+  let modifyWorkingDir = $state('');
+  let modifyUser = $state('');
+  let modifyTty = $state(false);
+  let modifyInteractive = $state(false);
+  let modifyLogDriver = $state('');
+  let modifyLogOpts = $state<{ key: string, value: string }[]>([]);
+
+  // Network
+  let modifyHostname = $state('');
+  let modifyDns = $state<string[]>([]);
+
+  // Runtime & resources (memory/shm as human-readable strings, e.g. "512m"; cpus as decimal string)
+  let modifyMemory = $state('');
+  let modifyMemoryReservation = $state('');
+  let modifyCpus = $state('');
+  let modifyShmSize = $state('');
+  let modifyPrivileged = $state(false);
+
+  // Capabilities
+  const CAP_LIST = [
+    'AUDIT_WRITE', 'CHOWN', 'DAC_OVERRIDE', 'FOWNER', 'FSETID', 'KILL', 'MKNOD',
+    'NET_ADMIN', 'NET_BIND_SERVICE', 'NET_RAW', 'SETFCAP', 'SETGID', 'SETPCAP',
+    'SETUID', 'SYS_ADMIN', 'SYS_CHROOT', 'SYS_MODULE', 'SYS_NICE', 'SYS_PTRACE',
+    'SYS_TIME', 'SYS_RESOURCE', 'DAC_READ_SEARCH', 'IPC_LOCK', 'MAC_ADMIN',
+  ];
+  let modifyCapAdd = $state<string[]>([]);
+  let modifyCapDrop = $state<string[]>([]);
+
+  // Inline edit view mode
+  let detailMode = $state<'view' | 'edit'>('view');
+  type EditSection = 'command' | 'volumes' | 'network' | 'env' | 'labels' | 'restart' | 'runtime' | 'caps';
+  let editSection = $state<EditSection>('command');
+  let modifyIsCompose = $state(false);
 
   // Compose Stack network modify state
   let showComposeNetworkModal = $state(false);
@@ -581,6 +628,175 @@
   }
 
   // ----------------------------------------------------------
+  // Container detail view (Portainer-like)
+  // ----------------------------------------------------------
+  function parseInspect(insp: any) {
+    const ports: { host: string; container: string; proto: string }[] = [];
+    const pb = insp.HostConfig?.PortBindings || {};
+    for (const k of Object.keys(pb)) {
+      const [cport, proto = 'tcp'] = k.split('/');
+      for (const b of (pb[k] || [])) {
+        ports.push({ host: b.HostPort || '', container: cport, proto });
+      }
+    }
+    const mounts = (insp.Mounts || []).map((m: any) => ({
+      source: m.Name || m.Source || '',
+      destination: m.Destination || '',
+      type: m.Type || '',
+      rw: m.RW !== false,
+    }));
+    const env = (insp.Config?.Env || []).map((e: string) => {
+      const i = e.indexOf('=');
+      return { key: i >= 0 ? e.slice(0, i) : e, value: i >= 0 ? e.slice(i + 1) : '' };
+    });
+    const labels = Object.entries(insp.Config?.Labels || {}).map(([key, value]) => ({ key, value }));
+    const nets = Object.entries(insp.NetworkSettings?.Networks || {}).map(([name, n]: any) => ({
+      name,
+      ipAddress: n.IPAddress || '',
+      gateway: n.Gateway || '',
+      macAddress: n.MacAddress || '',
+    }));
+    const fmtDate = (d: string) =>
+      d && !d.startsWith('0001') ? d.replace('T', ' ').split('.')[0] : '';
+    return {
+      id: insp.Id || '',
+      name: (insp.Name || '').replace(/^\//, ''),
+      image: insp.Config?.Image || '',
+      imageId: insp.Image || '',
+      state: insp.State?.Status || '',
+      running: !!insp.State?.Running,
+      paused: !!insp.State?.Paused,
+      created: fmtDate(insp.Created || ''),
+      startedAt: fmtDate(insp.State?.StartedAt || ''),
+      cmd: (insp.Config?.Cmd || []).join(' '),
+      entrypoint: (insp.Config?.Entrypoint || []).join(' '),
+      env,
+      labels,
+      ports,
+      mounts,
+      networks: nets,
+      restartPolicy: insp.HostConfig?.RestartPolicy?.Name || 'no',
+    };
+  }
+
+  async function viewContainer(id: string, name: string) {
+    detailContainerId = id;
+    detailContainerName = name;
+    detailLoading = true;
+    detailData = null;
+    detailRenaming = false;
+    detailJoinNetwork = '';
+    detailShowRaw = false;
+    if (networks.length === 0) loadNetworks();
+    try {
+      const out = await execDocker(`docker inspect ${id}`);
+      detailRawData = JSON.stringify(JSON.parse(out), null, 2);
+      const insp = JSON.parse(out)[0];
+      detailData = parseInspect(insp);
+      detailRestartPolicy = detailData.restartPolicy;
+      detailNewName = detailData.name;
+    } catch (err: any) {
+      if (isSudoPasswordRequired(err)) {
+        pendingAction = () => viewContainer(id, name);
+        showSudoModal = true;
+      } else {
+        errorMsg = `Inspect error: ${formatInvokeError(err)}`;
+        detailContainerId = '';
+      }
+    } finally {
+      detailLoading = false;
+    }
+  }
+
+  function closeDetail() {
+    detailContainerId = '';
+    detailData = null;
+    detailMode = 'view';
+  }
+
+  // Called by the workspace when the Docker tab is re-selected while already active.
+  // If a container detail is open, return to the container list.
+  export function onTabReselect() {
+    if (dockerTab === 'containers' && detailContainerId) {
+      closeDetail();
+    }
+  }
+
+  async function detailAction(action: string) {
+    await handleWithSudo(async () => {
+      await execDocker(`docker ${action} ${detailContainerId}`);
+      await loadContainers();
+      await viewContainer(detailContainerId, detailContainerName);
+    });
+  }
+
+  function detailRemove() {
+    confirmMessage = `Remove container "${detailContainerName}"? This cannot be undone.`;
+    confirmAction = async () => {
+      await handleWithSudo(async () => {
+        await execDocker(`docker rm -f ${detailContainerId}`);
+        showConfirmModal = false;
+        closeDetail();
+        await loadContainers();
+        successMsg = 'Container removed';
+        setTimeout(() => (successMsg = ''), 3000);
+      });
+    };
+    showConfirmModal = true;
+  }
+
+  async function renameContainer() {
+    const newName = detailNewName.trim();
+    if (!newName || newName === detailData?.name) {
+      detailRenaming = false;
+      return;
+    }
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(newName)) {
+      errorMsg = 'Invalid container name. Use letters, digits, and _ . - only.';
+      return;
+    }
+    await handleWithSudo(async () => {
+      await execDocker(`docker rename ${detailContainerId} ${newName}`);
+      detailContainerName = newName;
+      detailRenaming = false;
+      await loadContainers();
+      await viewContainer(detailContainerId, newName);
+      successMsg = 'Container renamed';
+      setTimeout(() => (successMsg = ''), 3000);
+    });
+  }
+
+  async function updateDetailRestartPolicy() {
+    await handleWithSudo(async () => {
+      await execDocker(`docker update --restart=${detailRestartPolicy} ${detailContainerId}`);
+      await viewContainer(detailContainerId, detailContainerName);
+      successMsg = 'Restart policy updated';
+      setTimeout(() => (successMsg = ''), 3000);
+    });
+  }
+
+  async function joinDetailNetwork() {
+    const net = detailJoinNetwork;
+    if (!net) return;
+    await handleWithSudo(async () => {
+      await execDocker(`docker network connect ${net} ${detailContainerId}`);
+      detailJoinNetwork = '';
+      await viewContainer(detailContainerId, detailContainerName);
+      successMsg = 'Joined network';
+      setTimeout(() => (successMsg = ''), 3000);
+    });
+  }
+
+  async function leaveDetailNetwork(net: string) {
+    await handleWithSudo(async () => {
+      await execDocker(`docker network disconnect ${net} ${detailContainerId}`);
+      await viewContainer(detailContainerId, detailContainerName);
+      successMsg = 'Left network';
+      setTimeout(() => (successMsg = ''), 3000);
+    });
+  }
+
+  // ----------------------------------------------------------
   // Container Logs
   // ----------------------------------------------------------
   async function openLogs(id: string, name: string) {
@@ -736,7 +952,7 @@
   async function pullImage() {
     if (!pullImageName.trim()) return;
     isPulling = true;
-    pullProgress = 'Pobieranie...';
+    pullProgress = 'Pulling…';
     try {
       const output = await execDocker(`docker pull ${pullImageName.trim()}`);
       pullProgress = output;
@@ -905,7 +1121,7 @@
       try {
         await execDocker(`docker compose -f ${firstFile} ${action}`);
         await loadComposeProjects();
-        successMsg = `Compose ${action} — wykonano`;
+        successMsg = `Compose ${action} — done`;
         setTimeout(() => successMsg = '', 3000);
       } catch (err: any) {
         errorMsg = `Compose error: ${formatInvokeError(err)}`;
@@ -969,7 +1185,7 @@
     const composePath = projectPath + '/docker-compose.yml';
 
     const starterYaml = `# Docker Compose - ${newProjectFolder.trim()}
-# Utworzono przez Jarvis Server Manager
+# Created by Jarvis Server Manager
 
 services:
   # app:
@@ -992,7 +1208,7 @@ networks:
       showDirPicker = false;
       newProjectFolder = '';
       await loadComposeProjects();
-      successMsg = `Projekt "${newProjectFolder.trim() || 'nowy'}" utworzony w ${projectPath}`;
+      successMsg = `Project "${newProjectFolder.trim() || 'new'}" created in ${projectPath}`;
       setTimeout(() => successMsg = '', 4000);
     } catch (err: any) {
       errorMsg = `Compose error: ${formatInvokeError(err)}`;
@@ -1060,7 +1276,7 @@ networks:
     const content = composeEditorInstance.getValue();
     try {
       await invoke('sftp_write', { path: composeEditorPath, content });
-      successMsg = 'Plik zapisany';
+      successMsg = 'File saved';
       setTimeout(() => successMsg = '', 3000);
       closeComposeEditor();
     } catch (err: any) {
@@ -1144,10 +1360,10 @@ networks:
         const percent = parseInt(pctMatch[1], 10);
         const firstWord = cleanLine.split(/\s+/)[0] || 'layer';
         if (!composePullLayers[firstWord]) {
-          composePullLayers[firstWord] = { service: firstWord, status: 'Pobieranie', percent: 0 };
+          composePullLayers[firstWord] = { service: firstWord, status: 'Pulling', percent: 0 };
         }
         composePullLayers[firstWord].percent = percent;
-        composePullLayers[firstWord].status = cleanLine.includes('Extracting') ? 'Rozpakowywanie' : 'Pobieranie';
+        composePullLayers[firstWord].status = cleanLine.includes('Extracting') ? 'Extracting' : 'Pulling';
       } else if (cleanLine.includes('Pull complete') || cleanLine.includes('Already exists')) {
         const firstWord = cleanLine.split(/\s+/)[0] || 'layer';
         if (!composePullLayers[firstWord]) {
@@ -1672,142 +1888,256 @@ networks:
   }
 
   // ----------------------------------------------------------
-  // Container Recreation (Portainer-like modify)
+  // Container Recreation (Portainer-like inline editor)
   // ----------------------------------------------------------
-  async function openModifyContainer(id: string) {
+
+  // Convert a byte count to a compact human string for editing (e.g. 536870912 -> "512m").
+  function bytesToHuman(bytes: number): string {
+    if (!bytes || bytes <= 0) return '';
+    const g = bytes / (1024 * 1024 * 1024);
+    if (Number.isInteger(g)) return `${g}g`;
+    const m = bytes / (1024 * 1024);
+    if (Number.isInteger(m)) return `${m}m`;
+    const k = bytes / 1024;
+    if (Number.isInteger(k)) return `${k}k`;
+    return String(bytes);
+  }
+
+  // Validate a human size like "512m" / "2g" used directly as a docker flag value.
+  function isValidSize(s: string): boolean {
+    return /^\d+(\.\d+)?\s*[bkmg]?$/i.test(s.trim());
+  }
+
+  async function openModifyContainer(id: string, section: EditSection = 'command') {
     modifyContainerId = id;
     modifyLoading = true;
     modifyPorts = [];
     modifyVolumes = [];
     modifyEnv = [];
+    modifyLabels = [];
     modifyNetworks = [];
     modifyCmd = '';
     modifyEntrypoint = '';
-    showModifyModal = true;
+    modifyWorkingDir = '';
+    modifyUser = '';
+    modifyTty = false;
+    modifyInteractive = false;
+    modifyLogDriver = '';
+    modifyLogOpts = [];
+    modifyHostname = '';
+    modifyDns = [];
+    modifyMemory = '';
+    modifyMemoryReservation = '';
+    modifyCpus = '';
+    modifyShmSize = '';
+    modifyPrivileged = false;
+    modifyCapAdd = [];
+    modifyCapDrop = [];
+    modifyIsCompose = false;
+    editSection = section;
 
     try {
       const inspectOut = await execDocker(`docker inspect ${id}`);
       const inspect = JSON.parse(inspectOut)[0];
+      const cfg = inspect.Config || {};
+      const host = inspect.HostConfig || {};
 
       modifyName = (inspect.Name || '').replace(/^\//, '');
-      modifyImage = inspect.Config.Image || '';
-      
-      const portBindings = inspect.HostConfig.PortBindings || {};
+      modifyImage = cfg.Image || '';
+
+      const portBindings = host.PortBindings || {};
       for (const cPortProto of Object.keys(portBindings)) {
         const bindings = portBindings[cPortProto] || [];
         if (bindings.length > 0) {
           const parts = cPortProto.split('/');
           const container = parts[0];
           const proto = (parts[1] || 'tcp') as 'tcp' | 'udp';
-          const host = bindings[0].HostPort || '';
-          modifyPorts.push({ host, container, proto });
+          const hostPort = bindings[0].HostPort || '';
+          modifyPorts.push({ host: hostPort, container, proto });
         }
       }
 
-      const binds = inspect.HostConfig.Binds || [];
+      const binds = host.Binds || [];
       for (const bind of binds) {
         const parts = bind.split(':');
         if (parts.length >= 2) {
-          const host = parts[0];
-          const container = parts[1];
-          const ro = parts[2] === 'ro';
-          modifyVolumes.push({ host, container, ro });
+          modifyVolumes.push({ host: parts[0], container: parts[1], ro: parts[2] === 'ro' });
         }
       }
 
-      const envList = inspect.Config.Env || [];
-      for (const env of envList) {
+      for (const env of (cfg.Env || [])) {
         const idx = env.indexOf('=');
         if (idx !== -1) {
-          const key = env.substring(0, idx);
-          const value = env.substring(idx + 1);
-          modifyEnv.push({ key, value });
+          modifyEnv.push({ key: env.substring(0, idx), value: env.substring(idx + 1) });
         }
       }
 
-      const netSettings = inspect.NetworkSettings.Networks || {};
-      modifyNetworks = Object.keys(netSettings);
+      modifyLabels = Object.entries(cfg.Labels || {}).map(([key, value]) => ({ key, value: String(value) }));
+      modifyIsCompose = !!(cfg.Labels && cfg.Labels['com.docker.compose.project']);
 
-      modifyRestartPolicy = inspect.HostConfig.RestartPolicy.Name || 'unless-stopped';
-      if (modifyRestartPolicy === 'no') modifyRestartPolicy = 'no';
+      modifyNetworks = Object.keys(inspect.NetworkSettings?.Networks || {});
+      if (modifyNetworks.length === 0) modifyNetworks = ['bridge'];
+      if (networks.length === 0) loadNetworks();
+      modifyRestartPolicy = host.RestartPolicy?.Name || 'no';
 
-      modifyCmd = (inspect.Config.Cmd || []).join(' ');
-      modifyEntrypoint = (inspect.Config.Entrypoint || []).join(' ');
+      modifyCmd = (cfg.Cmd || []).join(' ');
+      modifyEntrypoint = (cfg.Entrypoint || []).join(' ');
 
+      // Command & logging
+      modifyWorkingDir = cfg.WorkingDir || '';
+      modifyUser = cfg.User || '';
+      modifyTty = !!cfg.Tty;
+      modifyInteractive = !!cfg.OpenStdin;
+      modifyLogDriver = host.LogConfig?.Type || '';
+      modifyLogOpts = Object.entries(host.LogConfig?.Config || {}).map(([key, value]) => ({ key, value: String(value) }));
+
+      // Network extras
+      modifyHostname = cfg.Hostname || '';
+      modifyDns = [...(host.Dns || [])];
+
+      // Runtime & resources
+      modifyMemory = bytesToHuman(host.Memory || 0);
+      modifyMemoryReservation = bytesToHuman(host.MemoryReservation || 0);
+      modifyCpus = host.NanoCpus ? String(host.NanoCpus / 1e9) : '';
+      modifyShmSize = bytesToHuman(host.ShmSize || 0);
+      modifyPrivileged = !!host.Privileged;
+
+      // Capabilities
+      modifyCapAdd = [...(host.CapAdd || [])];
+      modifyCapDrop = [...(host.CapDrop || [])];
+
+      detailMode = 'edit';
     } catch (err: any) {
-      errorMsg = `Inspect error: ${formatInvokeError(err)}`;
-      showModifyModal = false;
+      if (isSudoPasswordRequired(err)) {
+        pendingAction = () => openModifyContainer(id, section);
+        showSudoModal = true;
+      } else {
+        errorMsg = `Inspect error: ${formatInvokeError(err)}`;
+      }
     } finally {
       modifyLoading = false;
     }
   }
 
+  function cancelEdit() {
+    detailMode = 'view';
+  }
+
   function addModifyPort() {
     modifyPorts = [...modifyPorts, { host: '', container: '', proto: 'tcp' }];
   }
-
   function removeModifyPort(idx: number) {
     modifyPorts = modifyPorts.filter((_, i) => i !== idx);
   }
-
   function addModifyVolume() {
     modifyVolumes = [...modifyVolumes, { host: '', container: '', ro: false }];
   }
-
   function removeModifyVolume(idx: number) {
     modifyVolumes = modifyVolumes.filter((_, i) => i !== idx);
   }
-
   function addModifyEnv() {
     modifyEnv = [...modifyEnv, { key: '', value: '' }];
   }
-
   function removeModifyEnv(idx: number) {
     modifyEnv = modifyEnv.filter((_, i) => i !== idx);
   }
+  function addModifyLabel() {
+    modifyLabels = [...modifyLabels, { key: '', value: '' }];
+  }
+  function removeModifyLabel(idx: number) {
+    modifyLabels = modifyLabels.filter((_, i) => i !== idx);
+  }
+  function addModifyLogOpt() {
+    modifyLogOpts = [...modifyLogOpts, { key: '', value: '' }];
+  }
+  function removeModifyLogOpt(idx: number) {
+    modifyLogOpts = modifyLogOpts.filter((_, i) => i !== idx);
+  }
+  function addModifyDns() {
+    modifyDns = [...modifyDns, ''];
+  }
+  function removeModifyDns(idx: number) {
+    modifyDns = modifyDns.filter((_, i) => i !== idx);
+  }
+  function toggleCap(cap: string, list: 'add' | 'drop') {
+    if (list === 'add') {
+      modifyCapAdd = modifyCapAdd.includes(cap)
+        ? modifyCapAdd.filter(c => c !== cap)
+        : [...modifyCapAdd, cap];
+    } else {
+      modifyCapDrop = modifyCapDrop.includes(cap)
+        ? modifyCapDrop.filter(c => c !== cap)
+        : [...modifyCapDrop, cap];
+    }
+  }
+
+  // Single-quote-escape a value for safe inclusion in a shell command.
+  function sq(v: string): string {
+    return `'${v.replace(/'/g, "'\\''")}'`;
+  }
 
   async function saveModifiedContainer() {
+    if (!modifyName.trim() || !modifyImage.trim()) {
+      errorMsg = 'Name and image are required.';
+      return;
+    }
+    if (modifyMemory && !isValidSize(modifyMemory)) { errorMsg = 'Invalid memory limit (e.g. 512m, 2g).'; return; }
+    if (modifyMemoryReservation && !isValidSize(modifyMemoryReservation)) { errorMsg = 'Invalid memory reservation (e.g. 256m).'; return; }
+    if (modifyShmSize && !isValidSize(modifyShmSize)) { errorMsg = 'Invalid shm size (e.g. 64m).'; return; }
+    if (modifyCpus && !/^\d+(\.\d+)?$/.test(modifyCpus.trim())) { errorMsg = 'Invalid CPU limit (e.g. 0.5, 2).'; return; }
+
     modifyLoading = true;
     errorMsg = '';
-    
-    let runCmd = `docker run -d --name ${modifyName}`;
-    
-    if (modifyRestartPolicy) {
-      runCmd += ` --restart ${modifyRestartPolicy}`;
+
+    let runCmd = `docker run -d --name ${sq(modifyName.trim())}`;
+
+    if (modifyRestartPolicy) runCmd += ` --restart ${modifyRestartPolicy}`;
+    if (modifyHostname.trim()) runCmd += ` --hostname ${sq(modifyHostname.trim())}`;
+    if (modifyWorkingDir.trim()) runCmd += ` -w ${sq(modifyWorkingDir.trim())}`;
+    if (modifyUser.trim()) runCmd += ` -u ${sq(modifyUser.trim())}`;
+    if (modifyTty) runCmd += ` -t`;
+    if (modifyInteractive) runCmd += ` -i`;
+    if (modifyPrivileged) runCmd += ` --privileged`;
+
+    if (modifyLogDriver.trim()) {
+      runCmd += ` --log-driver ${sq(modifyLogDriver.trim())}`;
+      for (const o of modifyLogOpts) {
+        if (o.key.trim()) runCmd += ` --log-opt ${sq(`${o.key.trim()}=${o.value}`)}`;
+      }
     }
-    
+
     for (const p of modifyPorts) {
-      if (p.host && p.container) {
-        runCmd += ` -p ${p.host}:${p.container}/${p.proto}`;
-      }
+      if (p.host && p.container) runCmd += ` -p ${p.host}:${p.container}/${p.proto}`;
     }
-
     for (const v of modifyVolumes) {
-      if (v.host && v.container) {
-        runCmd += ` -v ${v.host}:${v.container}${v.ro ? ':ro' : ''}`;
-      }
+      if (v.host && v.container) runCmd += ` -v ${sq(`${v.host}:${v.container}${v.ro ? ':ro' : ''}`)}`;
+    }
+    for (const e of modifyEnv) {
+      if (e.key.trim()) runCmd += ` -e ${sq(`${e.key.trim()}=${e.value}`)}`;
+    }
+    for (const l of modifyLabels) {
+      if (l.key.trim()) runCmd += ` --label ${sq(`${l.key.trim()}=${l.value}`)}`;
+    }
+    for (const d of modifyDns) {
+      if (d.trim()) runCmd += ` --dns ${sq(d.trim())}`;
     }
 
-    for (const e of modifyEnv) {
-      if (e.key) {
-        const escapedVal = e.value.replace(/'/g, "'\\''");
-        runCmd += ` -e ${e.key}='${escapedVal}'`;
-      }
-    }
+    if (modifyMemory.trim()) runCmd += ` --memory ${modifyMemory.trim()}`;
+    if (modifyMemoryReservation.trim()) runCmd += ` --memory-reservation ${modifyMemoryReservation.trim()}`;
+    if (modifyCpus.trim()) runCmd += ` --cpus ${modifyCpus.trim()}`;
+    if (modifyShmSize.trim()) runCmd += ` --shm-size ${modifyShmSize.trim()}`;
+
+    for (const c of modifyCapAdd) runCmd += ` --cap-add ${c}`;
+    for (const c of modifyCapDrop) runCmd += ` --cap-drop ${c}`;
 
     const primaryNet = modifyNetworks[0] || 'bridge';
-    runCmd += ` --network ${primaryNet}`;
+    runCmd += ` --network ${sq(primaryNet)}`;
 
-    if (modifyEntrypoint.trim()) {
-      const ep = modifyEntrypoint.replace(/'/g, "'\\''");
-      runCmd += ` --entrypoint '${ep}'`;
-    }
+    if (modifyEntrypoint.trim()) runCmd += ` --entrypoint ${sq(modifyEntrypoint.trim())}`;
 
-    runCmd += ` ${modifyImage}`;
+    runCmd += ` ${sq(modifyImage.trim())}`;
 
-    if (modifyCmd.trim()) {
-      runCmd += ` ${modifyCmd}`;
-    }
+    if (modifyCmd.trim()) runCmd += ` ${modifyCmd}`;
 
     await handleWithSudo(async () => {
       try {
@@ -1815,18 +2145,17 @@ networks:
         await execDocker(`docker rm ${modifyContainerId}`);
         const newContainerId = (await execDocker(runCmd)).trim();
 
-        if (modifyNetworks.length > 1) {
-          for (let i = 1; i < modifyNetworks.length; i++) {
-            await execDocker(`docker network connect ${modifyNetworks[i]} ${newContainerId}`);
-          }
+        for (let i = 1; i < modifyNetworks.length; i++) {
+          await execDocker(`docker network connect ${sq(modifyNetworks[i])} ${newContainerId}`);
         }
 
-        successMsg = "Container modified successfully!";
+        successMsg = "Container recreated successfully!";
         setTimeout(() => successMsg = '', 3000);
-        showModifyModal = false;
+        detailMode = 'view';
+        closeDetail();
         await loadContainers();
       } catch (err: any) {
-        errorMsg = `Modify error: ${formatInvokeError(err)}`;
+        errorMsg = `Recreate error: ${formatInvokeError(err)}`;
       }
     });
     modifyLoading = false;
@@ -2022,7 +2351,541 @@ networks:
 
     <!-- Tab content -->
     <div class="tab-content">
-      {#if dockerTab === 'containers'}
+      {#if dockerTab === 'containers' && detailContainerId}
+        <!-- ======== CONTAINER DETAIL VIEW ======== -->
+        <div class="detail-breadcrumb glass">
+          <button class="link-btn" onclick={closeDetail}>
+            <ChevronLeft size={14} /> Containers
+          </button>
+          <ChevronRight size={14} class="dir-chevron" />
+          {#if detailMode === 'edit'}
+            <button class="link-btn" onclick={cancelEdit}>{detailContainerName}</button>
+            <ChevronRight size={14} class="dir-chevron" />
+            <span class="breadcrumb-current">Edit</span>
+          {:else}
+            <span class="breadcrumb-current mono-val">{detailContainerName}</span>
+          {/if}
+        </div>
+
+        {#if detailLoading && !detailData}
+          <div class="loading-state glass">
+            <Loader2 class="spin" size={36} />
+            <p>Loading container details…</p>
+          </div>
+        {:else if detailData && detailMode === 'view'}
+          <div class="detail-scroll">
+            <!-- Actions -->
+            <div class="detail-card glass">
+              <div class="detail-card-header"><Activity size={16} /> Actions</div>
+              <div class="detail-actions">
+                <button class="secondary btn-sm" onclick={() => detailAction('start')} disabled={detailData.running}>
+                  <Play size={14} /> Start
+                </button>
+                <button class="secondary btn-sm" onclick={() => detailAction('stop')} disabled={!detailData.running}>
+                  <Square size={14} /> Stop
+                </button>
+                <button class="secondary btn-sm" onclick={() => detailAction('kill')} disabled={!detailData.running}>
+                  <Square size={14} /> Kill
+                </button>
+                <button class="secondary btn-sm" onclick={() => detailAction('restart')} disabled={!detailData.running}>
+                  <RotateCw size={14} /> Restart
+                </button>
+                <button class="secondary btn-sm" onclick={() => detailAction('pause')} disabled={!detailData.running || detailData.paused}>
+                  <Pause size={14} /> Pause
+                </button>
+                <button class="secondary btn-sm" onclick={() => detailAction('unpause')} disabled={!detailData.paused}>
+                  <Play size={14} /> Resume
+                </button>
+                <button class="danger btn-sm" onclick={detailRemove}>
+                  <Trash2 size={14} /> Remove
+                </button>
+                <button class="secondary btn-sm" onclick={() => openModifyContainer(detailContainerId)}>
+                  <Edit size={14} /> Edit / Recreate
+                </button>
+              </div>
+            </div>
+
+            <!-- Container status -->
+            <div class="detail-card glass">
+              <div class="detail-card-header"><Box size={16} /> Container status</div>
+              <div class="detail-kv">
+                <div class="kv-label">ID</div>
+                <div class="kv-value mono-val">{detailData.id.substring(0, 64)}</div>
+
+                <div class="kv-label">Name</div>
+                <div class="kv-value">
+                  {#if detailRenaming}
+                    <div class="inline-edit">
+                      <input type="text" bind:value={detailNewName} onkeydown={(e) => e.key === 'Enter' && renameContainer()} />
+                      <button class="primary btn-sm" onclick={renameContainer}><Save size={13} /> Save</button>
+                      <button class="secondary btn-sm" onclick={() => { detailRenaming = false; detailNewName = detailData.name; }}>Cancel</button>
+                    </div>
+                  {:else}
+                    <span class="mono-val">{detailData.name}</span>
+                    <button class="btn-action" onclick={() => detailRenaming = true} title="Rename"><Edit size={13} /></button>
+                  {/if}
+                </div>
+
+                <div class="kv-label">Status</div>
+                <div class="kv-value">
+                  <span class="badge {getStatusBadge(detailData.state)}">{detailData.state}{detailData.paused ? ' (paused)' : ''}</span>
+                </div>
+
+                <div class="kv-label">Created</div>
+                <div class="kv-value mono-val">{detailData.created || '—'}</div>
+
+                <div class="kv-label">Start time</div>
+                <div class="kv-value mono-val">{detailData.startedAt || '—'}</div>
+              </div>
+              <div class="detail-quick-links">
+                <button class="link-btn" onclick={() => openLogs(detailContainerId, detailData.name)}><FileText size={14} /> Logs</button>
+                <button class="link-btn" onclick={() => { detailShowRaw = !detailShowRaw; }}><Info size={14} /> Inspect</button>
+                <button class="link-btn" onclick={() => openExec(detailContainerId, detailData.name)}><Terminal size={14} /> Run command</button>
+                {#if detailData.running}
+                  <button class="link-btn" onclick={() => openInteractiveShell(detailContainerId, detailData.name)}><ChevronsUpDown size={14} /> Console</button>
+                {/if}
+              </div>
+              {#if detailShowRaw}
+                <pre class="inspect-json detail-raw">{detailRawData}</pre>
+              {/if}
+            </div>
+
+            <!-- Container details -->
+            <div class="detail-card glass">
+              <div class="detail-card-header">
+                <Container size={16} /> Container details
+                <button class="secondary btn-sm header-edit-btn" onclick={() => openModifyContainer(detailContainerId, 'command')}><Edit size={12} /> Edit</button>
+              </div>
+              <div class="detail-kv">
+                <div class="kv-label">Image</div>
+                <div class="kv-value mono-val wrap">{detailData.image}</div>
+
+                {#if detailData.cmd}
+                  <div class="kv-label">CMD</div>
+                  <div class="kv-value"><code class="code-chip">{detailData.cmd}</code></div>
+                {/if}
+
+                {#if detailData.entrypoint}
+                  <div class="kv-label">ENTRYPOINT</div>
+                  <div class="kv-value"><code class="code-chip">{detailData.entrypoint}</code></div>
+                {/if}
+
+                <div class="kv-label">Restart policy</div>
+                <div class="kv-value">
+                  <div class="inline-edit">
+                    <select bind:value={detailRestartPolicy}>
+                      <option value="no">no</option>
+                      <option value="always">always</option>
+                      <option value="unless-stopped">unless-stopped</option>
+                      <option value="on-failure">on-failure</option>
+                    </select>
+                    <button class="secondary btn-sm" onclick={updateDetailRestartPolicy} disabled={detailRestartPolicy === detailData.restartPolicy}>
+                      Update
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Environment variables -->
+              <div class="detail-subheader">
+                <span>Environment variables ({detailData.env.length})</span>
+                <button class="secondary btn-sm" onclick={() => openModifyContainer(detailContainerId, 'env')}><Edit size={12} /> Edit</button>
+              </div>
+              {#if detailData.env.length > 0}
+                <div class="detail-table-wrap">
+                  <table class="data-table compact">
+                    <thead><tr><th style="width: 35%;">Name</th><th>Value</th></tr></thead>
+                    <tbody>
+                      {#each detailData.env as e}
+                        <tr><td class="mono-val">{e.key}</td><td class="mono-val wrap">{e.value}</td></tr>
+                      {/each}
+                    </tbody>
+                  </table>
+                </div>
+              {:else}
+                <p class="detail-empty">No environment variables</p>
+              {/if}
+
+              <!-- Ports -->
+              {#if detailData.ports.length > 0}
+                <div class="detail-subheader"><span>Published ports ({detailData.ports.length})</span></div>
+                <div class="detail-table-wrap">
+                  <table class="data-table compact">
+                    <thead><tr><th>Host</th><th>Container</th><th>Protocol</th></tr></thead>
+                    <tbody>
+                      {#each detailData.ports as p}
+                        <tr><td class="mono-val">{p.host || '—'}</td><td class="mono-val">{p.container}</td><td>{p.proto}</td></tr>
+                      {/each}
+                    </tbody>
+                  </table>
+                </div>
+              {/if}
+
+              <!-- Labels -->
+              {#if detailData.labels.length > 0}
+                <div class="detail-subheader">
+                  <span>Labels ({detailData.labels.length})</span>
+                  <button class="secondary btn-sm" onclick={() => openModifyContainer(detailContainerId, 'labels')}><Edit size={12} /> Edit</button>
+                </div>
+                <div class="detail-table-wrap">
+                  <table class="data-table compact">
+                    <thead><tr><th style="width: 40%;">Key</th><th>Value</th></tr></thead>
+                    <tbody>
+                      {#each detailData.labels as l}
+                        <tr><td class="mono-val wrap">{l.key}</td><td class="mono-val wrap">{l.value}</td></tr>
+                      {/each}
+                    </tbody>
+                  </table>
+                </div>
+              {/if}
+            </div>
+
+            <!-- Volumes -->
+            <div class="detail-card glass">
+              <div class="detail-card-header">
+                <Database size={16} /> Volumes
+                <button class="secondary btn-sm header-edit-btn" onclick={() => openModifyContainer(detailContainerId, 'volumes')}><Edit size={12} /> Edit</button>
+              </div>
+              {#if detailData.mounts.length > 0}
+                <div class="detail-table-wrap">
+                  <table class="data-table compact">
+                    <thead><tr><th>Host/volume</th><th>Path in container</th><th style="width: 12%;">Mode</th></tr></thead>
+                    <tbody>
+                      {#each detailData.mounts as m}
+                        <tr>
+                          <td class="mono-val wrap">{m.source || '—'}</td>
+                          <td class="mono-val wrap">{m.destination}</td>
+                          <td>{m.rw ? 'rw' : 'ro'}</td>
+                        </tr>
+                      {/each}
+                    </tbody>
+                  </table>
+                </div>
+              {:else}
+                <p class="detail-empty">No volumes mounted</p>
+              {/if}
+            </div>
+
+            <!-- Connected networks -->
+            <div class="detail-card glass">
+              <div class="detail-card-header"><Network size={16} /> Connected networks</div>
+              <div class="detail-join-row">
+                <label for="detail-join-net">Join a network</label>
+                <select id="detail-join-net" bind:value={detailJoinNetwork}>
+                  <option value="">Select a network…</option>
+                  {#each networks.filter(n => !detailData.networks.some((dn: any) => dn.name === n.Name)) as n}
+                    <option value={n.Name}>{n.Name} ({n.Driver})</option>
+                  {/each}
+                </select>
+                <button class="primary btn-sm" onclick={joinDetailNetwork} disabled={!detailJoinNetwork}>Join network</button>
+              </div>
+              {#if detailData.networks.length > 0}
+                <div class="detail-table-wrap">
+                  <table class="data-table compact">
+                    <thead><tr><th>Network</th><th>IP Address</th><th>Gateway</th><th>MAC Address</th><th style="text-align: right;">Actions</th></tr></thead>
+                    <tbody>
+                      {#each detailData.networks as n}
+                        <tr>
+                          <td class="mono-val">{n.name}</td>
+                          <td class="mono-val">{n.ipAddress || '—'}</td>
+                          <td class="mono-val">{n.gateway || '—'}</td>
+                          <td class="mono-val">{n.macAddress || '—'}</td>
+                          <td style="text-align: right;">
+                            <button class="danger btn-sm" onclick={() => leaveDetailNetwork(n.name)}>Leave network</button>
+                          </td>
+                        </tr>
+                      {/each}
+                    </tbody>
+                  </table>
+                </div>
+              {:else}
+                <p class="detail-empty">Not connected to any network</p>
+              {/if}
+            </div>
+          </div>
+        {:else if detailData && detailMode === 'edit'}
+          <!-- ======== CONTAINER EDIT VIEW ======== -->
+          <div class="detail-scroll">
+            <!-- Basics -->
+            <div class="detail-card glass">
+              <div class="detail-card-header"><Edit size={16} /> Edit container — recreate with new settings</div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="edit-name">Name</label>
+                  <input id="edit-name" type="text" bind:value={modifyName} />
+                </div>
+                <div class="form-group">
+                  <label for="edit-image">Image</label>
+                  <input id="edit-image" type="text" bind:value={modifyImage} class="mono-val" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Section tabs -->
+            <div class="tabs-bar glass edit-section-tabs">
+              <button class="tab-btn {editSection === 'command' ? 'active' : ''}" onclick={() => editSection = 'command'}>Command &amp; logging</button>
+              <button class="tab-btn {editSection === 'volumes' ? 'active' : ''}" onclick={() => editSection = 'volumes'}>Volumes</button>
+              <button class="tab-btn {editSection === 'network' ? 'active' : ''}" onclick={() => editSection = 'network'}>Network</button>
+              <button class="tab-btn {editSection === 'env' ? 'active' : ''}" onclick={() => editSection = 'env'}>Env</button>
+              <button class="tab-btn {editSection === 'labels' ? 'active' : ''}" onclick={() => editSection = 'labels'}>Labels</button>
+              <button class="tab-btn {editSection === 'restart' ? 'active' : ''}" onclick={() => editSection = 'restart'}>Restart policy</button>
+              <button class="tab-btn {editSection === 'runtime' ? 'active' : ''}" onclick={() => editSection = 'runtime'}>Runtime &amp; resources</button>
+              <button class="tab-btn {editSection === 'caps' ? 'active' : ''}" onclick={() => editSection = 'caps'}>Capabilities</button>
+            </div>
+
+            <div class="detail-card glass">
+              {#if editSection === 'command'}
+                <div class="form-group">
+                  <label for="edit-cmd">Command (CMD)</label>
+                  <input id="edit-cmd" type="text" bind:value={modifyCmd} class="mono-val" placeholder="e.g. nginx -g 'daemon off;'" />
+                </div>
+                <div class="form-group">
+                  <label for="edit-entry">Entrypoint</label>
+                  <input id="edit-entry" type="text" bind:value={modifyEntrypoint} class="mono-val" />
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="edit-wd">Working directory</label>
+                    <input id="edit-wd" type="text" bind:value={modifyWorkingDir} class="mono-val" placeholder="/app" />
+                  </div>
+                  <div class="form-group">
+                    <label for="edit-user">User</label>
+                    <input id="edit-user" type="text" bind:value={modifyUser} class="mono-val" placeholder="root or 1000:1000" />
+                  </div>
+                </div>
+                <div class="checkbox-row">
+                  <label class="ro-label"><input type="checkbox" bind:checked={modifyInteractive} /> Interactive (-i)</label>
+                  <label class="ro-label"><input type="checkbox" bind:checked={modifyTty} /> TTY (-t)</label>
+                </div>
+                <div class="form-group">
+                  <label for="edit-logdriver">Log driver</label>
+                  <input id="edit-logdriver" type="text" bind:value={modifyLogDriver} class="mono-val" placeholder="json-file, local, journald…" />
+                </div>
+                <div class="modify-section-header">
+                  <span>Log options</span>
+                  <button class="secondary btn-sm" onclick={addModifyLogOpt}><Plus size={12} /> Add</button>
+                </div>
+                {#each modifyLogOpts as opt, i}
+                  <div class="modify-row">
+                    <input type="text" placeholder="Key (e.g. max-size)" bind:value={opt.key} class="mono-val" />
+                    <span>=</span>
+                    <input type="text" placeholder="Value (e.g. 10m)" bind:value={opt.value} class="mono-val" />
+                    <button class="btn-action danger-text" onclick={() => removeModifyLogOpt(i)}><X size={14} /></button>
+                  </div>
+                {/each}
+                {#if modifyLogOpts.length === 0}
+                  <div class="modify-row empty-example">
+                    <input type="text" placeholder="Key (e.g. max-size)" class="mono-val" disabled />
+                    <span>=</span>
+                    <input type="text" placeholder="Value (e.g. 10m)" class="mono-val" disabled />
+                  </div>
+                {/if}
+
+              {:else if editSection === 'volumes'}
+                <div class="modify-section-header">
+                  <span>Volumes / mounts</span>
+                  <button class="secondary btn-sm" onclick={addModifyVolume}><Plus size={12} /> Add</button>
+                </div>
+                {#each modifyVolumes as vol, i}
+                  <div class="modify-row">
+                    <PathAutocomplete placeholder="Host path" bind:value={vol.host} class="mono-val" onlyDirs={true} />
+                    <span>→</span>
+                    <input type="text" placeholder="Container path" bind:value={vol.container} class="mono-val" />
+                    <label class="ro-label"><input type="checkbox" bind:checked={vol.ro} /> RO</label>
+                    <button class="btn-action danger-text" onclick={() => removeModifyVolume(i)}><X size={14} /></button>
+                  </div>
+                {/each}
+                {#if modifyVolumes.length === 0}
+                  <div class="modify-row empty-example">
+                    <input type="text" placeholder="Host path (e.g. /data/myapp)" class="mono-val" disabled />
+                    <span>→</span>
+                    <input type="text" placeholder="Container path (e.g. /app/data)" class="mono-val" disabled />
+                    <label class="ro-label"><input type="checkbox" disabled /> RO</label>
+                  </div>
+                {/if}
+
+              {:else if editSection === 'network'}
+                <div class="form-group">
+                  <label for="edit-net">Primary network</label>
+                  <select id="edit-net" bind:value={modifyNetworks[0]}>
+                    {#if !networks.some(n => n.Name === modifyNetworks[0])}
+                      <option value={modifyNetworks[0]}>{modifyNetworks[0]}</option>
+                    {/if}
+                    {#each networks as n}
+                      <option value={n.Name}>{n.Name} ({n.Driver})</option>
+                    {/each}
+                  </select>
+                </div>
+                {#if modifyNetworks.length > 1}
+                  <div class="form-group">
+                    <span class="form-sublabel">Additional networks (reconnected after recreate)</span>
+                    <div class="network-tags">
+                      {#each modifyNetworks.slice(1) as net}
+                        <span class="badge warning">{net}</span>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+                <div class="form-group">
+                  <label for="edit-hostname">Hostname</label>
+                  <input id="edit-hostname" type="text" bind:value={modifyHostname} class="mono-val" />
+                </div>
+                <div class="modify-section-header" style="margin-top: 16px;">
+                  <span>Port mapping</span>
+                  <button class="secondary btn-sm" onclick={addModifyPort}><Plus size={12} /> Add</button>
+                </div>
+                {#each modifyPorts as port, i}
+                  <div class="modify-row">
+                    <input type="text" placeholder="Host port (e.g. 8080)" bind:value={port.host} class="mono-val" />
+                    <span>→</span>
+                    <input type="text" placeholder="Container port (e.g. 80)" bind:value={port.container} class="mono-val" />
+                    <select bind:value={port.proto}>
+                      <option value="tcp">TCP</option>
+                      <option value="udp">UDP</option>
+                    </select>
+                    <button class="btn-action danger-text" onclick={() => removeModifyPort(i)}><X size={14} /></button>
+                  </div>
+                {/each}
+                {#if modifyPorts.length === 0}
+                  <div class="modify-row empty-example">
+                    <input type="text" placeholder="Host port (e.g. 8080)" class="mono-val" disabled />
+                    <span>→</span>
+                    <input type="text" placeholder="Container port (e.g. 80)" class="mono-val" disabled />
+                    <select disabled><option>TCP</option></select>
+                  </div>
+                {/if}
+                <div class="modify-section-header" style="margin-top: 16px;">
+                  <span>DNS servers</span>
+                  <button class="secondary btn-sm" onclick={addModifyDns}><Plus size={12} /> Add</button>
+                </div>
+                {#each modifyDns as _, i}
+                  <div class="modify-row">
+                    <input type="text" placeholder="e.g. 1.1.1.1" bind:value={modifyDns[i]} class="mono-val" />
+                    <button class="btn-action danger-text" onclick={() => removeModifyDns(i)}><X size={14} /></button>
+                  </div>
+                {/each}
+                {#if modifyDns.length === 0}
+                  <div class="modify-row empty-example">
+                    <input type="text" placeholder="e.g. 1.1.1.1" class="mono-val" disabled />
+                  </div>
+                {/if}
+
+              {:else if editSection === 'env'}
+                <div class="modify-section-header">
+                  <span>Environment variables</span>
+                  <button class="secondary btn-sm" onclick={addModifyEnv}><Plus size={12} /> Add</button>
+                </div>
+                {#each modifyEnv as env, i}
+                  <div class="modify-row">
+                    <input type="text" placeholder="Key" bind:value={env.key} class="mono-val" />
+                    <span>=</span>
+                    <input type="text" placeholder="Value" bind:value={env.value} class="mono-val" />
+                    <button class="btn-action danger-text" onclick={() => removeModifyEnv(i)}><X size={14} /></button>
+                  </div>
+                {/each}
+                {#if modifyEnv.length === 0}
+                  <div class="modify-row empty-example">
+                    <input type="text" placeholder="KEY" class="mono-val" disabled />
+                    <span>=</span>
+                    <input type="text" placeholder="value" class="mono-val" disabled />
+                  </div>
+                {/if}
+
+              {:else if editSection === 'labels'}
+                <div class="modify-section-header">
+                  <span>Labels</span>
+                  <button class="secondary btn-sm" onclick={addModifyLabel}><Plus size={12} /> Add</button>
+                </div>
+                {#each modifyLabels as label, i}
+                  <div class="modify-row">
+                    <input type="text" placeholder="Key" bind:value={label.key} class="mono-val" />
+                    <span>=</span>
+                    <input type="text" placeholder="Value" bind:value={label.value} class="mono-val" />
+                    <button class="btn-action danger-text" onclick={() => removeModifyLabel(i)}><X size={14} /></button>
+                  </div>
+                {/each}
+                {#if modifyLabels.length === 0}
+                  <div class="modify-row empty-example">
+                    <input type="text" placeholder="com.example.key" class="mono-val" disabled />
+                    <span>=</span>
+                    <input type="text" placeholder="value" class="mono-val" disabled />
+                  </div>
+                {/if}
+
+              {:else if editSection === 'restart'}
+                <div class="form-group">
+                  <label for="edit-restart">Restart policy</label>
+                  <select id="edit-restart" bind:value={modifyRestartPolicy}>
+                    <option value="no">no</option>
+                    <option value="always">always</option>
+                    <option value="unless-stopped">unless-stopped</option>
+                    <option value="on-failure">on-failure</option>
+                  </select>
+                </div>
+
+              {:else if editSection === 'runtime'}
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="edit-mem">Memory limit</label>
+                    <input id="edit-mem" type="text" bind:value={modifyMemory} class="mono-val" placeholder="e.g. 512m, 2g (empty = unlimited)" />
+                  </div>
+                  <div class="form-group">
+                    <label for="edit-memres">Memory reservation</label>
+                    <input id="edit-memres" type="text" bind:value={modifyMemoryReservation} class="mono-val" placeholder="e.g. 256m" />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="edit-cpus">CPU limit (cores)</label>
+                    <input id="edit-cpus" type="text" bind:value={modifyCpus} class="mono-val" placeholder="e.g. 0.5, 2" />
+                  </div>
+                  <div class="form-group">
+                    <label for="edit-shm">Shared memory size</label>
+                    <input id="edit-shm" type="text" bind:value={modifyShmSize} class="mono-val" placeholder="e.g. 64m" />
+                  </div>
+                </div>
+                <div class="checkbox-row">
+                  <label class="ro-label"><input type="checkbox" bind:checked={modifyPrivileged} /> Privileged</label>
+                </div>
+
+              {:else if editSection === 'caps'}
+                <p class="detail-empty">Add or drop Linux capabilities. Leave unchecked to use the image defaults.</p>
+                <div class="caps-grid">
+                  <div class="caps-head"><span>Capability</span><span>Add</span><span>Drop</span></div>
+                  {#each CAP_LIST as cap}
+                    <div class="caps-row">
+                      <span class="mono-val">{cap}</span>
+                      <input type="checkbox" checked={modifyCapAdd.includes(cap)} onchange={() => toggleCap(cap, 'add')} />
+                      <input type="checkbox" checked={modifyCapDrop.includes(cap)} onchange={() => toggleCap(cap, 'drop')} />
+                    </div>
+                  {/each}
+                </div>
+              {/if}
+            </div>
+
+            <!-- Footer -->
+            <div class="detail-card glass edit-footer">
+              {#if modifyIsCompose}
+                <div class="edit-warning">
+                  <AlertCircle size={14} />
+                  <span>This container is managed by Docker Compose. Recreating it here turns it into a standalone container that may drift from its compose file.</span>
+                </div>
+              {/if}
+              <div class="edit-footer-actions">
+                <button class="primary" onclick={saveModifiedContainer} disabled={modifyLoading}>
+                  {#if modifyLoading}
+                    <Loader2 size={16} class="spin" /> Recreating…
+                  {:else}
+                    <RefreshCw size={16} /> Save &amp; Recreate
+                  {/if}
+                </button>
+                <button class="secondary" onclick={cancelEdit} disabled={modifyLoading}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        {/if}
+
+      {:else if dockerTab === 'containers'}
         <!-- ======== CONTAINERS TAB ======== -->
         <div class="ops-bar glass">
           <div class="search-bar">
@@ -2066,7 +2929,11 @@ networks:
                 {#each getSortedContainers() as container}
                   <tr>
                     <td><input type="checkbox" checked={selectedContainers.includes(container.ID)} onchange={() => toggleSelectContainer(container.ID)} /></td>
-                    <td class="mono-val"><strong>{container.Names}</strong></td>
+                    <td class="mono-val">
+                      <button class="container-name-link" onclick={() => viewContainer(container.ID, container.Names)} title="View details">
+                        <strong>{container.Names}</strong>
+                      </button>
+                    </td>
                     <td class="image-cell" title={container.Image}>{container.Image}</td>
                     <td>
                       <span class="badge {getStatusBadge(container.State)}">
@@ -2263,7 +3130,7 @@ networks:
                   <SortableTh label="Name" column="name" activeColumn={networkSort.column} direction={networkSort.direction} onsort={(c) => networkSort = nextSort(networkSort, c)} width="25%" />
                   <SortableTh label="Driver" column="driver" activeColumn={networkSort.column} direction={networkSort.direction} onsort={(c) => networkSort = nextSort(networkSort, c)} width="18%" />
                   <SortableTh label="Scope" column="scope" activeColumn={networkSort.column} direction={networkSort.direction} onsort={(c) => networkSort = nextSort(networkSort, c)} width="15%" />
-                  <SortableTh label="ID Sieci" column="id" activeColumn={networkSort.column} direction={networkSort.direction} onsort={(c) => networkSort = nextSort(networkSort, c)} width="22%" />
+                  <SortableTh label="Network ID" column="id" activeColumn={networkSort.column} direction={networkSort.direction} onsort={(c) => networkSort = nextSort(networkSort, c)} width="22%" />
                   <th style="width: 15%; text-align: right;">Operations</th>
                 </tr>
               </thead>
@@ -2293,7 +3160,7 @@ networks:
                       <td colspan="6">
                         <div class="inspect-card">
                           <div class="inspect-header">
-                            <span class="inspect-title">Inspekcja sieci: {network.Name}</span>
+                            <span class="inspect-title">Network inspect: {network.Name}</span>
                             <button class="btn-action" onclick={() => expandedNetwork = ''}>
                               <X size={14} />
                             </button>
@@ -2324,7 +3191,7 @@ networks:
         <div class="ops-bar glass">
           {#if selectedCompose.length > 0}
             <div class="bulk-actions">
-              <span class="bulk-count">Zaznaczono: {selectedCompose.length}</span>
+              <span class="bulk-count">Selected: {selectedCompose.length}</span>
               <button class="secondary btn-sm" onclick={() => runBulkComposeAction('up -d')}><Play size={12} /> Up</button>
               <button class="secondary btn-sm" onclick={() => runBulkComposeAction('down')}><Square size={12} /> Down</button>
               <button class="secondary btn-sm" onclick={() => runBulkComposeAction('restart')}><RotateCw size={12} /> Restart</button>
@@ -2335,7 +3202,7 @@ networks:
             <RefreshCw size={16} class={isLoading ? 'spin' : ''} /> Refresh
           </button>
           <button class="primary" onclick={openDirPicker}>
-            <FolderPlus size={16} /> Nowy Projekt
+            <FolderPlus size={16} /> New project
           </button>
         </div>
 
@@ -2350,9 +3217,9 @@ networks:
               <thead>
                 <tr>
                   <th style="width: 5%;"><input type="checkbox" checked={selectedCompose.length > 0 && selectedCompose.length === composeProjects.length} onchange={toggleSelectAllCompose} /></th>
-                  <SortableTh label="Nazwa Projektu" column="name" activeColumn={composeSort.column} direction={composeSort.direction} onsort={(c) => composeSort = nextSort(composeSort, c)} width="20%" />
+                  <SortableTh label="Project name" column="name" activeColumn={composeSort.column} direction={composeSort.direction} onsort={(c) => composeSort = nextSort(composeSort, c)} width="20%" />
                   <SortableTh label="Status" column="status" activeColumn={composeSort.column} direction={composeSort.direction} onsort={(c) => composeSort = nextSort(composeSort, c)} width="12%" />
-                  <SortableTh label="Plik Konfiguracyjny" column="config" activeColumn={composeSort.column} direction={composeSort.direction} onsort={(c) => composeSort = nextSort(composeSort, c)} width="28%" />
+                  <SortableTh label="Config file" column="config" activeColumn={composeSort.column} direction={composeSort.direction} onsort={(c) => composeSort = nextSort(composeSort, c)} width="28%" />
                   <th style="width: 35%; text-align: right;">Operations</th>
                 </tr>
               </thead>
@@ -2379,7 +3246,7 @@ networks:
                       <button class="secondary btn-sm" onclick={() => composeAction('restart', configFiles)}>
                         <RotateCw size={14} /> Restart
                       </button>
-                      <button class="secondary btn-sm" onclick={() => openComposePull(projectName, configFiles)} title="Pobierz obrazy">
+                      <button class="secondary btn-sm" onclick={() => openComposePull(projectName, configFiles)} title="Pull images">
                         <Download size={14} /> Pull
                       </button>
                       <button class="btn-action" onclick={() => openComposeEditor(configFiles)} title="Edit compose file">
@@ -2457,7 +3324,7 @@ networks:
                       <td colspan="3">
                         <div class="inspect-card">
                           <div class="inspect-header">
-                            <span class="inspect-title">Inspekcja wolumenu: {volume.Name}</span>
+                            <span class="inspect-title">Volume inspect: {volume.Name}</span>
                             <button class="btn-action" onclick={() => expandedVolume = ''}>
                               <X size={14} />
                             </button>
@@ -2643,20 +3510,20 @@ networks:
           <div class="logs-controls">
             <div class="search-bar search-bar-sm">
               <span class="search-icon-wrapper"><Search size={14} /></span>
-              <input type="text" placeholder="Filtruj logi..." bind:value={logSearch} />
+              <input type="text" placeholder="Filter logs…" bind:value={logSearch} />
             </div>
             <button class="secondary btn-sm" onclick={() => logsPaused = !logsPaused}>
               {#if logsPaused}
                 <Play size={14} /> Stream logs
               {:else}
-                <Pause size={14} /> Pauza
+                <Pause size={14} /> Pause
               {/if}
             </button>
             <button class="secondary btn-sm" onclick={() => logLines = []}>
               <Eraser size={14} /> Clear
             </button>
             <button class="secondary btn-sm" onclick={downloadLogs}>
-              <Download size={14} /> Pobierz
+              <Download size={14} /> Download
             </button>
             <button class="secondary btn-sm" onclick={closeLogs}>
               <X size={14} />
@@ -2664,7 +3531,7 @@ networks:
           </div>
         </div>
         <div class="logs-display" use:stickToBottom>
-          <pre class="log-text">{getFilteredLogs().join('\n') || 'Oczekiwanie na logi...'}</pre>
+          <pre class="log-text">{getFilteredLogs().join('\n') || 'Waiting for logs…'}</pre>
         </div>
       </div>
     </div>
@@ -2674,7 +3541,7 @@ networks:
   {#if showShellModal}
     <div class="modal-overlay">
       <div class="modal-content glass exec-modal">
-        <h3>Interaktywny shell: {shellPickContainerName}</h3>
+        <h3>Interactive shell: {shellPickContainerName}</h3>
         <p class="modal-desc">Choose a shell available in the container.</p>
         <div class="form-group">
           <label for="shell-select">Shell</label>
@@ -2703,7 +3570,7 @@ networks:
         <div class="exec-input-row">
           <input
             type="text"
-            placeholder="np. ls -la /app"
+            placeholder="e.g. ls -la /app"
             bind:value={execCommand}
             onkeydown={(e) => e.key === 'Enter' && runExec()}
             class="exec-input"
@@ -2714,7 +3581,7 @@ networks:
             {:else}
               <Play size={16} />
             {/if}
-            Wykonaj
+            Run
           </button>
         </div>
         {#if execOutput}
@@ -2723,7 +3590,7 @@ networks:
           </div>
         {/if}
         <div class="modal-actions">
-          <button class="secondary" onclick={() => showExecModal = false}>Zamknij</button>
+          <button class="secondary" onclick={() => showExecModal = false}>Close</button>
         </div>
       </div>
     </div>
@@ -2733,9 +3600,9 @@ networks:
   {#if showPullModal}
     <div class="modal-overlay">
       <div class="modal-content glass">
-        <h3>Pobierz obraz Docker</h3>
+        <h3>Pull Docker image</h3>
         <div class="form-group">
-          <label for="pull-name">Nazwa obrazu (np. nginx:latest, redis:7-alpine)</label>
+          <label for="pull-name">Image name (e.g. nginx:latest, redis:7-alpine)</label>
           <input
             id="pull-name"
             type="text"
@@ -2752,9 +3619,9 @@ networks:
         <div class="modal-actions">
           <button class="primary" onclick={pullImage} disabled={isPulling || !pullImageName.trim()}>
             {#if isPulling}
-              <Loader2 size={16} class="spin" /> Pobieranie...
+              <Loader2 size={16} class="spin" /> Pulling…
             {:else}
-              <Download size={16} /> Pobierz
+              <Download size={16} /> Pull
             {/if}
           </button>
           <button class="secondary" onclick={() => { showPullModal = false; pullImageName = ''; pullProgress = ''; }}>Cancel</button>
@@ -2769,11 +3636,11 @@ networks:
       <div class="modal-content glass">
         <h3>Create Docker network</h3>
         <div class="form-group">
-          <label for="net-name">Nazwa sieci</label>
+          <label for="net-name">Network name</label>
           <input id="net-name" type="text" placeholder="my-network" bind:value={newNetworkName} />
         </div>
         <div class="form-group">
-          <label for="net-driver">Driver sieci</label>
+          <label for="net-driver">Network driver</label>
           <select id="net-driver" bind:value={newNetworkDriver}>
             <option value="bridge">Bridge (default)</option>
             <option value="overlay">Overlay</option>
@@ -2792,7 +3659,7 @@ networks:
   {#if showDirPicker}
     <div class="modal-overlay fullscreen-overlay">
       <div class="modal-content glass fullscreen-modal dir-picker-modal">
-        <h3>Nowy projekt Compose</h3>
+        <h3>New Compose project</h3>
         <p class="modal-desc">Choose a directory to create the project in and enter a folder name.</p>
 
         <!-- Current path -->
@@ -2803,7 +3670,7 @@ networks:
 
         <!-- Directory listing -->
         <ListSortBar
-          columns={[{ id: 'name', label: 'Nazwa' }]}
+          columns={[{ id: 'name', label: 'Name' }]}
           activeColumn={dirPickerSort.column}
           direction={dirPickerSort.direction}
           onsort={(c) => dirPickerSort = nextSort(dirPickerSort, c)}
@@ -2831,7 +3698,7 @@ networks:
 
         <!-- New folder name -->
         <div class="form-group">
-          <label for="new-folder">Nazwa nowego folderu projektu</label>
+          <label for="new-folder">New project folder name</label>
           <input
             id="new-folder"
             type="text"
@@ -2860,19 +3727,19 @@ networks:
     <div class="modal-overlay fullscreen-overlay">
       <div class="modal-content glass fullscreen-modal compose-editor-modal">
         <div class="compose-editor-header">
-          <h3>Edytor Compose</h3>
+          <h3>Compose editor</h3>
           <span class="mono-val compose-filepath">{composeEditorPath}</span>
         </div>
         <div bind:this={composeEditorElement} class="compose-editor-container"></div>
         <div class="modal-actions">
           <button class="primary" onclick={saveComposeFile} disabled={composeEditorSaving}>
             {#if composeEditorSaving}
-              <Loader2 size={16} class="spin" /> Zapisywanie...
+              <Loader2 size={16} class="spin" /> Saving…
             {:else}
               Save
             {/if}
           </button>
-          <button class="secondary" onclick={closeComposeEditor}>Zamknij</button>
+          <button class="secondary" onclick={closeComposeEditor}>Close</button>
         </div>
       </div>
     </div>
@@ -2885,7 +3752,7 @@ networks:
         <div class="logs-header">
           <h3>{`Pull images: ${composePullProjectName}`}</h3>
           <button class="secondary btn-sm" onclick={closeComposePull}>
-            <X size={14} /> Zamknij
+            <X size={14} /> Close
           </button>
         </div>
 
@@ -2912,7 +3779,7 @@ networks:
         {/if}
 
         <div class="logs-display pull-logs" use:stickToBottom>
-          <pre class="log-text">{composePullLogs.join('') || 'Oczekiwanie na dane pobierania...'}</pre>
+          <pre class="log-text">{composePullLogs.join('') || 'Waiting for pull data…'}</pre>
         </div>
       </div>
     </div>
@@ -2925,32 +3792,32 @@ networks:
         {#if browserEditingFile}
           <div class="volume-editor-header">
             <h3 style="display: flex; align-items: center; gap: 0.5rem;">
-              Edycja: {browserEditingFile.split('/').pop()}
+              Editing: {browserEditingFile.split('/').pop()}
               {#if browserSyntaxError}
                 <span class="save-status-badge error" title={browserSyntaxError} style="font-size: 0.75rem; font-weight: normal; margin-left: 0.5rem; display: inline-flex; align-items: center;">
-                  ● Błąd składni
+                  ● Syntax error
                 </span>
               {/if}
             </h3>
             <div class="volume-editor-actions">
               <button class="primary btn-sm" onclick={saveVolumeFile} disabled={browserEditorSaving}>
                 {#if browserEditorSaving}
-                  <Loader2 size={14} class="spin" /> Zapisywanie...
+                  <Loader2 size={14} class="spin" /> Saving…
                 {:else}
                   <Save size={14} /> Save
                 {/if}
               </button>
               <button class="secondary btn-sm" onclick={closeVolumeEditor}>
-                <X size={14} /> Zamknij edytor
+                <X size={14} /> Close editor
               </button>
             </div>
           </div>
           <div bind:this={browserEditorElement} class="volume-editor-container"></div>
         {:else}
           <div class="logs-header">
-            <h3>Wolumen: {browserVolumeName}</h3>
+            <h3>Volume: {browserVolumeName}</h3>
             <button class="secondary btn-sm" onclick={() => { showVolumeBrowser = false; closeVolumeEditor(); }}>
-              <X size={14} /> Zamknij
+              <X size={14} /> Close
             </button>
           </div>
           <div class="volume-path-bar glass">
@@ -2961,9 +3828,9 @@ networks:
           </div>
           <ListSortBar
             columns={[
-              { id: 'name', label: 'Nazwa' },
-              { id: 'size', label: 'Rozmiar' },
-              { id: 'modified', label: 'Data modyfikacji' },
+              { id: 'name', label: 'Name' },
+              { id: 'size', label: 'Size' },
+              { id: 'modified', label: 'Modified' },
             ]}
             activeColumn={browserSort.column}
             direction={browserSort.direction}
@@ -2999,128 +3866,13 @@ networks:
     </div>
   {/if}
 
-  <!-- Modify Container Modal -->
-  {#if showModifyModal}
-    <div class="modal-overlay fullscreen-overlay">
-      <div class="modal-content glass fullscreen-modal modify-modal">
-        <div class="fullscreen-modal-header">
-          <h3>Modyfikuj kontener</h3>
-          <button class="secondary btn-sm" onclick={() => showModifyModal = false} title="Zamknij">
-            <X size={16} />
-          </button>
-        </div>
-        {#if modifyLoading}
-          <div class="inspect-loading"><Loader2 size={24} class="spin" /> Loading…</div>
-        {:else}
-          <div class="modify-form">
-            <div class="form-row">
-              <div class="form-group">
-                <label for="mod-name">Nazwa</label>
-                <input id="mod-name" type="text" bind:value={modifyName} />
-              </div>
-              <div class="form-group">
-                <label for="mod-image">Image</label>
-                <input id="mod-image" type="text" bind:value={modifyImage} />
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label>Restart Policy</label>
-              <select bind:value={modifyRestartPolicy}>
-                <option value="no">no</option>
-                <option value="always">always</option>
-                <option value="unless-stopped">unless-stopped</option>
-                <option value="on-failure">on-failure</option>
-              </select>
-            </div>
-
-            <div class="modify-section">
-              <div class="modify-section-header">
-                <span>Port mapping</span>
-                <button class="secondary btn-sm" onclick={addModifyPort}><Plus size={12} /> Dodaj</button>
-              </div>
-              {#each modifyPorts as port, i}
-                <div class="modify-row">
-                  <input type="text" placeholder="Host" bind:value={port.host} class="mono-val" />
-                  <span>→</span>
-                  <input type="text" placeholder="Container port" bind:value={port.container} class="mono-val" />
-                  <select bind:value={port.proto}>
-                    <option value="tcp">TCP</option>
-                    <option value="udp">UDP</option>
-                  </select>
-                  <button class="btn-action danger-text" onclick={() => removeModifyPort(i)}><X size={14} /></button>
-                </div>
-              {/each}
-            </div>
-
-            <div class="modify-section">
-              <div class="modify-section-header">
-                <span>Wolumeny / montowania</span>
-                <button class="secondary btn-sm" onclick={addModifyVolume}><Plus size={12} /> Dodaj</button>
-              </div>
-              {#each modifyVolumes as vol, i}
-                <div class="modify-row">
-                  <PathAutocomplete placeholder="Host path" bind:value={vol.host} class="mono-val" onlyDirs={true} />
-                  <span>→</span>
-                  <input type="text" placeholder="Container path" bind:value={vol.container} class="mono-val" />
-                  <label class="ro-label"><input type="checkbox" bind:checked={vol.ro} /> RO</label>
-                  <button class="btn-action danger-text" onclick={() => removeModifyVolume(i)}><X size={14} /></button>
-                </div>
-              {/each}
-            </div>
-
-            <div class="modify-section">
-              <div class="modify-section-header">
-                <span>Environment variables</span>
-                <button class="secondary btn-sm" onclick={addModifyEnv}><Plus size={12} /> Dodaj</button>
-              </div>
-              {#each modifyEnv as env, i}
-                <div class="modify-row">
-                  <input type="text" placeholder="Klucz" bind:value={env.key} class="mono-val" />
-                  <span>=</span>
-                  <input type="text" placeholder="Value" bind:value={env.value} class="mono-val" />
-                  <button class="btn-action danger-text" onclick={() => removeModifyEnv(i)}><X size={14} /></button>
-                </div>
-              {/each}
-            </div>
-
-            <div class="form-group">
-              <label for="mod-cmd">CMD</label>
-              <input id="mod-cmd" type="text" bind:value={modifyCmd} class="mono-val" placeholder="np. nginx -g 'daemon off;'" />
-            </div>
-            <div class="form-group">
-              <label for="mod-entry">Entrypoint</label>
-              <input id="mod-entry" type="text" bind:value={modifyEntrypoint} class="mono-val" />
-            </div>
-
-            <div class="form-group">
-              <label>Sieci (pierwsza = podstawowa)</label>
-              <div class="network-tags">
-                {#each modifyNetworks as net}
-                  <span class="badge warning">{net}</span>
-                {/each}
-              </div>
-            </div>
-          </div>
-
-          <div class="modal-actions">
-            <button class="primary" onclick={saveModifiedContainer} disabled={modifyLoading}>
-              Zastosuj zmiany
-            </button>
-            <button class="secondary" onclick={() => showModifyModal = false}>Cancel</button>
-          </div>
-        {/if}
-      </div>
-    </div>
-  {/if}
-
   <!-- Compose Network Change Modal -->
   {#if showComposeNetworkModal}
     <div class="modal-overlay">
       <div class="modal-content glass">
         <h3>Change project network</h3>
         <p class="modal-desc">
-          Projekt: <strong>{composeNetworkProject?.Name || composeNetworkProject?.name}</strong><br />
+          Project: <strong>{composeNetworkProject?.Name || composeNetworkProject?.name}</strong><br />
           A networks.default section with the selected external network will be added.
         </p>
         <div class="form-group">
@@ -3137,7 +3889,7 @@ networks:
             {#if composeNetworkLoading}
               <Loader2 size={16} class="spin" /> Saving…
             {:else}
-              Zastosuj i uruchom
+              Apply and start
             {/if}
           </button>
           <button class="secondary" onclick={() => showComposeNetworkModal = false}>Cancel</button>
@@ -3153,7 +3905,7 @@ networks:
         <div class="logs-header">
           <h3>{`Compose logs: ${composeLogsProjectName}`}</h3>
           <button class="secondary btn-sm" onclick={() => showComposeLogsModal = false}>
-            <X size={14} /> Zamknij
+            <X size={14} /> Close
           </button>
         </div>
         <div class="logs-display" use:stickToBottom>
@@ -3167,6 +3919,288 @@ networks:
 <style>
   .docker-manager {
     /* uses .manager-shell from global.css */
+  }
+
+  /* ===== Container detail view ===== */
+  .container-name-link {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: var(--accent-amber);
+    font: inherit;
+    text-align: left;
+  }
+  .container-name-link:hover {
+    text-decoration: underline;
+  }
+
+  .detail-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
+    flex-shrink: 0;
+    font-size: 0.85rem;
+  }
+  .breadcrumb-current {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  .detail-scroll {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-right: 4px;
+  }
+
+  .detail-card {
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+  }
+
+  .detail-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .detail-card-header :global(svg) {
+    color: var(--accent-amber);
+  }
+
+  .detail-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .detail-kv {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 8px 16px;
+    align-items: center;
+  }
+  .kv-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .kv-value {
+    font-size: 0.88rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .kv-value.wrap {
+    word-break: break-all;
+  }
+
+  .inline-edit {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .inline-edit input,
+  .inline-edit select {
+    min-width: 180px;
+  }
+
+  .code-chip {
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 2px 8px;
+    font-family: "JetBrains Mono", Consolas, monospace;
+    font-size: 0.82rem;
+    word-break: break-all;
+  }
+
+  .detail-quick-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
+  }
+  .detail-quick-links .link-btn,
+  .detail-breadcrumb .link-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--accent-amber);
+    font-size: 0.85rem;
+    padding: 0;
+  }
+  .detail-quick-links .link-btn:hover,
+  .detail-breadcrumb .link-btn:hover {
+    text-decoration: underline;
+  }
+
+  .detail-subheader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 16px 0 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .detail-table-wrap {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+  .data-table.compact th,
+  .data-table.compact td {
+    padding: 6px 10px;
+    font-size: 0.82rem;
+  }
+  .data-table .wrap {
+    word-break: break-all;
+    white-space: normal;
+  }
+
+  .detail-empty {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    padding: 6px 0;
+  }
+
+  .detail-raw {
+    margin-top: 12px;
+    max-height: 360px;
+    overflow: auto;
+  }
+
+  .detail-join-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .detail-join-row label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+  }
+  .detail-join-row select {
+    min-width: 240px;
+  }
+
+  /* Edit-mode (inline) */
+  .detail-card-header .header-edit-btn {
+    margin-left: auto;
+  }
+
+  .empty-example input,
+  .empty-example select {
+    opacity: 0.35;
+    pointer-events: none;
+  }
+  .empty-example span {
+    opacity: 0.35;
+  }
+
+  .form-sublabel {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+  }
+
+  .edit-section-tabs {
+    flex-wrap: wrap;
+  }
+  .edit-section-tabs .tab-btn {
+    flex: 1 1 auto;
+    white-space: nowrap;
+  }
+
+  .checkbox-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin: 12px 0;
+  }
+
+  .caps-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2px;
+    margin-top: 10px;
+  }
+  .caps-head,
+  .caps-row {
+    display: grid;
+    grid-template-columns: 1fr 60px 60px;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+  }
+  .caps-head {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-color);
+  }
+  .caps-head span:not(:first-child),
+  .caps-row input {
+    justify-self: center;
+  }
+  .caps-row:nth-child(even) {
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .caps-row .mono-val {
+    font-size: 0.82rem;
+  }
+
+  .edit-footer {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .edit-footer-actions {
+    display: flex;
+    gap: 10px;
+  }
+  .edit-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 0.82rem;
+    color: var(--accent-amber);
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+  }
+  .edit-warning :global(svg) {
+    flex-shrink: 0;
+    margin-top: 2px;
   }
 
   .docker-top-bar {
@@ -3621,20 +4655,6 @@ networks:
     overflow: hidden;
   }
 
-  .fullscreen-modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-shrink: 0;
-    gap: 16px;
-    padding-bottom: 4px;
-    border-bottom: 1px solid var(--border-color);
-  }
-
-  .fullscreen-modal-header h3 {
-    font-size: 1.15rem;
-  }
-
   .modal-header-icon {
     display: flex;
     justify-content: center;
@@ -4075,40 +5095,10 @@ networks:
   }
 
   /* Modify container modal */
-  .modify-modal {
-    width: 100%;
-    max-height: none;
-    overflow: hidden;
-  }
-
-  .modify-form {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    padding-right: 8px;
-  }
-
-  .modify-modal .modal-actions {
-    flex-shrink: 0;
-    padding-top: 12px;
-    border-top: 1px solid var(--border-color);
-    margin-top: auto;
-  }
-
   .form-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 12px;
-  }
-
-  .modify-section {
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    padding: 12px;
-    background: rgba(255, 255, 255, 0.02);
   }
 
   .modify-section-header {
