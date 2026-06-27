@@ -1,0 +1,68 @@
+name: Release and Publish Updater
+
+on:
+  push:
+    branches:
+      - main
+
+# Grant write permissions for contents to create releases and push commits
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Get App Version
+        id: app_info
+        shell: bash
+        run: |
+          VERSION=$(node -e "import fs from 'fs'; console.log(JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json')).version)")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Install Frontend Dependencies
+        run: npm ci
+
+      - name: Build Tauri Application
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: v${{ steps.app_info.outputs.version }}
+          releaseName: "Jarvis v${{ steps.app_info.outputs.version }}"
+          releaseBody: "Automated update release for version ${{ steps.app_info.outputs.version }}."
+          releaseDraft: false
+          prerelease: false
+
+      - name: Generate updater.json
+        run: node scripts/generate-updater.mjs
+
+      - name: Commit and Push updater.json
+        shell: bash
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add updater.json
+          git commit -m "chore: update auto-updater metadata for v${{ steps.app_info.outputs.version }} [skip ci]" || echo "No changes to commit"
+          git push origin main
