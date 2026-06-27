@@ -37,6 +37,7 @@ export interface BackupTemplate {
   restic_repo_id?: string | null;
   // Periodic scheduling via remote cronjob.
   schedule_enabled?: boolean;
+  schedule_paused?: boolean;
   schedule_cron?: string | null;
   // Retention for restic destinations (native `forget --keep-*`).
   keep_last?: number | null;

@@ -40,50 +40,50 @@
         <label for="gen-min">Minute</label>
         <select id="gen-min" bind:value={presetMinutes} onchange={updateFromPresets}>
           <option value="*">Every (*)</option>
-          <option value="*/5">Every 5 minutes (*/5)</option>
-          <option value="*/15">Every 15 minutes (*/15)</option>
-          <option value="0">On the hour (0)</option>
-          <option value="30">At minute 30 (30)</option>
+          <option value="*/5">*/5</option>
+          <option value="*/15">*/15</option>
+          <option value="0">0 (on hour)</option>
+          <option value="30">30</option>
         </select>
       </div>
 
       <div class="form-group">
         <label for="gen-hour">Hour</label>
         <select id="gen-hour" bind:value={presetHours} onchange={updateFromPresets}>
-          <option value="*">Every hour (*)</option>
-          <option value="*/2">Every 2 hours (*/2)</option>
-          <option value="0">Midnight (00:00)</option>
-          <option value="12">Noon (12:00)</option>
-          <option value="2">2 AM (02:00)</option>
+          <option value="*">Every (*)</option>
+          <option value="*/2">*/2</option>
+          <option value="0">0 (midnight)</option>
+          <option value="12">12 (noon)</option>
+          <option value="2">2 (2 AM)</option>
         </select>
       </div>
 
       <div class="form-group">
-        <label for="gen-day">Day of month</label>
+        <label for="gen-day">Day</label>
         <select id="gen-day" bind:value={presetDays} onchange={updateFromPresets}>
-          <option value="*">Every day (*)</option>
-          <option value="1">First day (1)</option>
-          <option value="15">Mid-month (15)</option>
-          <option value="*/2">Every other day (*/2)</option>
+          <option value="*">Every (*)</option>
+          <option value="1">1st</option>
+          <option value="15">15th</option>
+          <option value="*/2">*/2</option>
         </select>
       </div>
 
       <div class="form-group">
         <label for="gen-month">Month</label>
         <select id="gen-month" bind:value={presetMonths} onchange={updateFromPresets}>
-          <option value="*">Every month (*)</option>
-          <option value="1">January (1)</option>
-          <option value="*/3">Quarterly (*/3)</option>
+          <option value="*">Every (*)</option>
+          <option value="1">Jan</option>
+          <option value="*/3">*/3</option>
         </select>
       </div>
 
       <div class="form-group">
-        <label for="gen-dow">Day of week</label>
+        <label for="gen-dow">Weekday</label>
         <select id="gen-dow" bind:value={presetDayOfWeek} onchange={updateFromPresets}>
-          <option value="*">Every day (*)</option>
-          <option value="1-5">Weekdays (Mon–Fri)</option>
-          <option value="0,6">Weekend (Sat–Sun)</option>
-          <option value="1">Monday (1)</option>
+          <option value="*">Every (*)</option>
+          <option value="1-5">Mon–Fri</option>
+          <option value="0,6">Sat–Sun</option>
+          <option value="1">Mon</option>
         </select>
       </div>
     </div>
@@ -130,7 +130,7 @@
   }
   .generator-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
   }
 </style>

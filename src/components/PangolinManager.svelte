@@ -3000,6 +3000,16 @@
           <h3>{"Pangolin Integration API configuration"}</h3>
           <p class="text-muted">{"Configure connection to your Pangolin management panel so Jarvis can fetch logs, statistics and manage tunnels and access rules."}</p>
           
+          <div class="info-alert info" style="margin-bottom: 16px;">
+            <Info size={16} />
+            <span>
+              {"To use this tab, you must first configure and run the Pangolin API on your remote server. Follow the self-hosting guide in the "}
+              <a href="#" onclick={(e) => { e.preventDefault(); handleOpenUrl('https://docs.pangolin.net/self-host/advanced/integration-api'); }} style="color: var(--accent-amber, #f59e0b); text-decoration: underline;">
+                {"Pangolin Integration API Documentation"}
+              </a>.
+            </span>
+          </div>
+
           {#if configMsg.text}
             <div class="info-alert {configMsg.type}">
               <Info size={16} />

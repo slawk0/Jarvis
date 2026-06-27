@@ -3,7 +3,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import { listen } from '@tauri-apps/api/event';
   import {
-    Plus, Trash2, Play, Database, FolderArchive, Loader2, Download, Clock, FileText, RefreshCw, Container,
+    Plus, Trash2, Play, Pause, Database, FolderArchive, Loader2, Download, Clock, FileText, RefreshCw, Container,
   } from 'lucide-svelte';
   import SudoModal from './SudoModal.svelte';
   import PathAutocomplete from './ui/PathAutocomplete.svelte';
@@ -309,14 +309,20 @@
     } else {
       extras.backup_templates = [...extras.backup_templates, tpl];
     }
-    await saveExtras();
+    try {
+      await saveExtras();
+    } catch (err: unknown) {
+      notifications.error(`Could not save template: ${formatInvokeError(err)}`);
+      return;
+    }
     showAddModal = false;
-    await syncSchedule(tpl, !!prev?.schedule_enabled);
+    const wasScheduled = !!prev?.schedule_enabled && !prev?.schedule_paused;
+    await syncSchedule(tpl, wasScheduled);
   }
 
   // Install or remove the remote cronjob to match the template's schedule.
   async function syncSchedule(tpl: BackupTemplate, wasScheduled: boolean) {
-    if (tpl.schedule_enabled) {
+    if (tpl.schedule_enabled && !tpl.schedule_paused) {
       const repo = tpl.destination === 'restic'
         ? extras.restic_repos.find((r) => r.id === tpl.restic_repo_id)
         : undefined;
@@ -339,16 +345,51 @@
     }
   }
 
+  async function pauseSchedule(tpl: BackupTemplate) {
+    await withSudo(async () => {
+      await invoke('uninstall_backup_schedule', { templateId: tpl.id });
+      extras.backup_templates = extras.backup_templates.map((t) =>
+        t.id === tpl.id ? { ...t, schedule_paused: true } : t,
+      );
+      await saveExtras();
+      notifications.success("Schedule paused.");
+    });
+  }
+
+  async function resumeSchedule(tpl: BackupTemplate) {
+    const repo = tpl.destination === 'restic'
+      ? extras.restic_repos.find((r) => r.id === tpl.restic_repo_id)
+      : undefined;
+    const scriptBody = buildScriptBody(tpl, repo, false);
+    const envContent = buildEnvContent(tpl, repo);
+    await withSudo(async () => {
+      await invoke('install_backup_schedule', {
+        templateId: tpl.id,
+        cron: tpl.schedule_cron,
+        scriptBody,
+        envContent,
+      });
+      extras.backup_templates = extras.backup_templates.map((t) =>
+        t.id === tpl.id ? { ...t, schedule_paused: false } : t,
+      );
+      await saveExtras();
+      notifications.success(`Schedule resumed (${tpl.schedule_cron}).`);
+    });
+  }
+
   async function deleteTemplate(id: string) {
     if (!confirm("Delete backup template?")) return;
     const tpl = extras.backup_templates.find((t) => t.id === id);
     if (tpl?.schedule_enabled) {
       await withSudo(async () => {
         await invoke('uninstall_backup_schedule', { templateId: id });
+        extras.backup_templates = extras.backup_templates.filter((t) => t.id !== id);
+        await saveExtras();
       });
+    } else {
+      extras.backup_templates = extras.backup_templates.filter((t) => t.id !== id);
+      await saveExtras();
     }
-    extras.backup_templates = extras.backup_templates.filter((t) => t.id !== id);
-    await saveExtras();
   }
 
   function shellQuote(s: string): string {
@@ -532,7 +573,7 @@
       ? `:s3:${t.dest_bucket}${sub ? '/' + sub : ''}`
       : `:sftp:${sub}`;
     lines.push(`DEST=${q(destBase)}`);
-    if (verbose) lines.push(`echo "Uploading to ${t.destination.toUpperCase()}…"`);
+    if (verbose) lines.push(`echo "Uploading to ${(t.destination || '').toUpperCase()}…"`);
     lines.push(`rclone copyto "$TMP" "$DEST/${name}-$TS.${ext}"${verbose ? ' --progress' : ''}`);
     lines.push(`rm -f "$TMP"`);
     // Age-based retention. Skip for SFTP without an explicit sub-path so we
@@ -667,6 +708,7 @@
     logTitle = t.name;
     logContent = 'Loading…';
     showLogModal = true;
+    let fetched = false;
     await withSudo(async () => {
       try {
         const out = await exec(`tail -n 200 /var/log/jarvis-backup-${t.id}.log 2>/dev/null || echo "(no log yet)"`, true);
@@ -675,7 +717,9 @@
         if (isSudoPasswordRequired(err)) throw err;
         logContent = formatInvokeError(err);
       }
+      fetched = true;
     });
+    if (!fetched) showLogModal = false;
   }
 
   onMount(loadExtras);
@@ -717,7 +761,11 @@
               <span class="badge success">{tpl.destination.toUpperCase()}</span>
             {/if}
             {#if tpl.schedule_enabled}
-              <span class="badge sched"><Clock size={11} /> {tpl.schedule_cron}</span>
+              {#if tpl.schedule_paused}
+                <span class="badge sched paused"><Pause size={11} /> Paused</span>
+              {:else}
+                <span class="badge sched"><Clock size={11} /> {tpl.schedule_cron}</span>
+              {/if}
             {/if}
           </div>
           <div class="tpl-meta mono-val">
@@ -734,6 +782,15 @@
             </button>
             <button class="secondary btn-compact" onclick={() => openEdit(tpl)}>Edit</button>
             {#if tpl.schedule_enabled}
+              {#if tpl.schedule_paused}
+                <button class="secondary btn-compact" onclick={() => resumeSchedule(tpl)} title="Resume schedule">
+                  <Play size={14} />
+                </button>
+              {:else}
+                <button class="secondary btn-compact" onclick={() => pauseSchedule(tpl)} title="Pause schedule">
+                  <Pause size={14} />
+                </button>
+              {/if}
               <button class="secondary btn-compact" onclick={() => viewLog(tpl)} title="View schedule log">
                 <FileText size={14} />
               </button>
@@ -774,11 +831,11 @@
     <div class="modal glass" role="dialog" onclick={(e) => e.stopPropagation()}>
       <h3>{editId ? "Edit template" : "New backup template"}</h3>
       <label>Name<input bind:value={formName} placeholder="WWW backup" /></label>
-      <label>Type
+      <label>What to back up
         <select bind:value={formType} onchange={onTypeChange}>
-          <option value="files">Files (tar.gz)</option>
-          <option value="mysql">MySQL (mysqldump)</option>
-          <option value="postgres">PostgreSQL (pg_dump)</option>
+          <option value="files">Files / Directory</option>
+          <option value="mysql">MySQL database</option>
+          <option value="postgres">PostgreSQL database</option>
         </select>
       </label>
       {#if formType === 'files'}
@@ -852,6 +909,19 @@
           <option value="restic">Restic repository</option>
         </select>
       </label>
+      {#if formDestination === 'restic'}
+        {#if formType === 'files'}
+          <p class="dest-hint mech">The directory is snapshotted natively by Restic — no tar.gz is created.</p>
+        {:else}
+          <p class="dest-hint mech">Database is dumped to a temp file, stored as a Restic snapshot, then the temp file is deleted.</p>
+        {/if}
+      {:else if formDestination === 'download' || formDestination === 's3' || formDestination === 'sftp'}
+        {#if formType === 'files'}
+          <p class="dest-hint mech">Directory is archived as a <code>.tar.gz</code> file and sent to the destination.</p>
+        {:else}
+          <p class="dest-hint mech">Database is dumped to a <code>.sql</code> file and sent to the destination.</p>
+        {/if}
+      {/if}
       {#if formDestination === 'restic'}
         {#if extras.restic_repos.length === 0}
           <p class="dest-hint">No Restic repositories configured. Add one in the Restic tab first.</p>
@@ -965,6 +1035,7 @@
   .dest-divider { margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--border-color); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
   .dest-hint { font-size: 0.72rem; color: var(--text-muted); margin: 2px 0; }
   .dest-hint.warn { color: var(--accent-amber); }
+  .dest-hint.mech { color: var(--text-secondary); background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.18); border-radius: var(--radius-sm); padding: 5px 8px; margin-top: 2px; }
   .dest-hint code { font-family: var(--font-mono, monospace); }
   .source-divider { margin-top: 2px; padding-top: 6px; border-top: 1px solid var(--border-color); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
   .select-row { display: flex; gap: 6px; align-items: center; }
@@ -980,6 +1051,7 @@
   .retention-grid label { min-width: 0; }
   .retention-grid input { width: 100%; box-sizing: border-box; min-width: 0; }
   .badge.sched { display: inline-flex; align-items: center; gap: 3px; background: rgba(99,102,241,0.18); color: #c7d2fe; }
+  .badge.sched.paused { background: rgba(120,120,120,0.18); color: var(--text-muted); }
   .log-modal { width: 640px; }
   .log-pre { max-height: 60vh; overflow: auto; white-space: pre-wrap; word-break: break-word; font-size: 0.75rem; background: rgba(0,0,0,0.35); padding: 10px; border-radius: var(--radius-sm); color: var(--text-secondary); }
   .output-panel { padding: 16px; border-radius: var(--radius-md); }
