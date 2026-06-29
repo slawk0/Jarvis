@@ -248,6 +248,21 @@
     return Number.isFinite(n) && n > 0 ? n : null;
   }
 
+  function slugify(text: string): string {
+    const polishMap: Record<string, string> = {
+      'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n', 'ó': 'o', 'ś': 's', 'ź': 'z', 'ż': 'z',
+      'Ą': 'A', 'Ć': 'C', 'Ę': 'E', 'Ł': 'L', 'Ń': 'N', 'Ó': 'O', 'Ś': 'S', 'Ź': 'Z', 'Ż': 'Z'
+    };
+    const mapped = text.split('').map(c => polishMap[c] || c).join('');
+    return mapped
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9_-]/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+|_+$/g, "");
+  }
+
   async function saveTemplate() {
     if (!formName.trim()) {
       alert("Enter template name");
@@ -275,8 +290,13 @@
       alert("Select a Restic repository (configure one in the Restic tab first).");
       return;
     }
+    let templateId = editId;
+    if (!templateId) {
+      const slug = slugify(formName.trim()).slice(0, 80).replace(/^_+|_+$/g, "");
+      templateId = slug ? `${slug}-${Date.now()}` : Date.now().toString();
+    }
     const tpl: BackupTemplate = {
-      id: editId || Date.now().toString(),
+      id: templateId,
       name: formName.trim(),
       backup_type: formType,
       source_path: formPath.trim(),

@@ -230,6 +230,13 @@
       errorMsg = `Failed to save alert thresholds: ${formatInvokeError(err)}`;
     }
   }
+
+  function formatRam(usedMb: number, totalMb: number) {
+    if (totalMb >= 1024) {
+      return `${(usedMb / 1024).toFixed(1)} GB / ${(totalMb / 1024).toFixed(1)} GB`;
+    }
+    return `${usedMb} MB / ${totalMb} MB`;
+  }
 </script>
 
 <div class="dashboard manager-shell scrollable fade-in">
@@ -237,313 +244,324 @@
     <h1 class="page-title">Main dashboard</h1>
   </header>
 
-  <!-- Sekcja informacji systemowych -->
-  <section class="system-info-panel glass">
-    <div class="info-item">
-      <Info class="info-icon animate-pulse" size={20} />
-      <div>
-        <span class="info-label">Operating system</span>
-        <span class="info-val">{stats.os}</span>
-      </div>
-    </div>
-    <div class="info-item">
-      <Activity class="info-icon" size={20} />
-      <div>
-        <span class="info-label">Uptime</span>
-        <span class="info-val mono-val">{stats.uptime}</span>
-      </div>
-    </div>
-    <div class="info-item">
-      <Cpu class="info-icon" size={20} />
-      <div>
-        <span class="info-label">Hostname</span>
-        <span class="info-val">{stats.hostname}</span>
-      </div>
-    </div>
-  </section>
-
-  <!-- Sekcja Ring-Gauges (CPU, RAM, DYSK) -->
-  <section class="metrics-grid">
-    <!-- CPU -->
-    <div class="metric-card glass">
-      <div class="card-header">
-        <h3>Processor (CPU)</h3>
-        <Cpu size={18} class="accent-amber-text" />
-      </div>
-      <div class="gauge-container">
-        <svg class="ring-gauge" viewBox="0 0 100 100">
-          <circle class="gauge-bg" cx="50" cy="50" r="40" />
-          <circle 
-            class="gauge-fill cpu" 
-            cx="50" cy="50" r="40" 
-            style="stroke-dasharray: 251.2; stroke-dashoffset: {251.2 - (251.2 * stats.cpu_usage) / 100}"
-          />
-        </svg>
-        <div class="gauge-value">
-          <span class="val mono-val">{Math.round(stats.cpu_usage)}%</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- RAM -->
-    <div class="metric-card glass">
-      <div class="card-header">
-        <h3>Memory (RAM)</h3>
-        <Activity size={18} class="accent-rust-text" />
-      </div>
-      <div class="gauge-container">
-        <svg class="ring-gauge" viewBox="0 0 100 100">
-          <circle class="gauge-bg" cx="50" cy="50" r="40" />
-          <circle 
-            class="gauge-fill ram" 
-            cx="50" cy="50" r="40" 
-            style="stroke-dasharray: 251.2; stroke-dashoffset: {251.2 - (251.2 * (stats.ram_used / stats.ram_total * 100)) / 100}"
-          />
-        </svg>
-        <div class="gauge-value">
-          <span class="val mono-val">{Math.round((stats.ram_used / stats.ram_total) * 100)}%</span>
-          <span class="desc mono-val">{stats.ram_used} MB / {stats.ram_total} MB</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- DYSK -->
-    <div class="metric-card glass">
-      <div class="card-header">
-        <h3>Disk space</h3>
-        <HardDrive size={18} class="accent-green-text" />
-      </div>
-      <div class="gauge-container">
-        <svg class="ring-gauge" viewBox="0 0 100 100">
-          <circle class="gauge-bg" cx="50" cy="50" r="40" />
-          <circle 
-            class="gauge-fill disk" 
-            cx="50" cy="50" r="40" 
-            style="stroke-dasharray: 251.2; stroke-dashoffset: {251.2 - (251.2 * (stats.disk_used / stats.disk_total * 100)) / 100}"
-          />
-        </svg>
-        <div class="gauge-value">
-          <span class="val mono-val">{Math.round((stats.disk_used / stats.disk_total) * 100)}%</span>
-          <span class="desc mono-val">{(stats.disk_used / 1024).toFixed(1)} GB / {(stats.disk_total / 1024).toFixed(1)} GB</span>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- History charts and network -->
-  <section class="charts-grid">
-    <div class="chart-card glass">
-      <div class="chart-header">
-        <h3>CPU & RAM load history</h3>
-        <div class="legend">
-          <span class="legend-item"><span class="color-dot cpu"></span>Processor (CPU)</span>
-          <span class="legend-item"><span class="color-dot ram"></span>Memory (RAM)</span>
-        </div>
-      </div>
-      <div class="chart-container">
-        <svg viewBox="0 0 500 120" preserveAspectRatio="none" class="chart-svg">
-          <defs>
-            <linearGradient id="cpu-grad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="var(--accent-amber)" stop-opacity="0.2"/>
-              <stop offset="100%" stop-color="var(--accent-amber)" stop-opacity="0.0"/>
-            </linearGradient>
-            <linearGradient id="ram-grad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="var(--accent-rust)" stop-opacity="0.1"/>
-              <stop offset="100%" stop-color="var(--accent-rust)" stop-opacity="0.0"/>
-            </linearGradient>
-          </defs>
-          
-          <!-- Siatka oscyloskopowa -->
-          <line x1="0" y1="20" x2="500" y2="20" stroke="rgba(245, 158, 11, 0.05)" stroke-width="0.5" />
-          <line x1="0" y1="40" x2="500" y2="40" stroke="rgba(245, 158, 11, 0.05)" stroke-width="0.5" />
-          <line x1="0" y1="60" x2="500" y2="60" stroke="rgba(245, 158, 11, 0.05)" stroke-width="0.5" />
-          <line x1="0" y1="80" x2="500" y2="80" stroke="rgba(245, 158, 11, 0.05)" stroke-width="0.5" />
-          <line x1="0" y1="100" x2="500" y2="100" stroke="rgba(245, 158, 11, 0.05)" stroke-width="0.5" />
-          
-          <line x1="100" y1="0" x2="100" y2="120" stroke="rgba(245, 158, 11, 0.05)" stroke-width="0.5" />
-          <line x1="200" y1="0" x2="200" y2="120" stroke="rgba(245, 158, 11, 0.05)" stroke-width="0.5" />
-          <line x1="300" y1="0" x2="300" y2="120" stroke="rgba(245, 158, 11, 0.05)" stroke-width="0.5" />
-          <line x1="400" y1="0" x2="400" y2="120" stroke="rgba(245, 158, 11, 0.05)" stroke-width="0.5" />
-
-          <!-- Obszar CPU -->
-          {#if cpuHistory.length > 1}
-            <path d={getSvgAreaPath(cpuHistory)} fill="url(#cpu-grad)" />
-            <path d={getSvgPath(cpuHistory)} fill="none" stroke="var(--accent-amber)" stroke-width="1.5" stroke-linecap="round" />
-          {/if}
-
-          <!-- Obszar RAM -->
-          {#if ramHistory.length > 1}
-            <path d={getSvgAreaPath(ramHistory)} fill="url(#ram-grad)" />
-            <path d={getSvgPath(ramHistory)} fill="none" stroke="var(--accent-rust)" stroke-width="1.5" stroke-dasharray="3,3" stroke-linecap="round" />
-          {/if}
-        </svg>
-      </div>
-    </div>
-
-    <!-- Network -->
-    <div class="network-card glass">
-      <h3>Network speed (I/O)</h3>
-      <div class="net-stats">
-        <div class="net-dir">
-          <ArrowDown size={28} class="net-icon down" />
-          <div class="net-info">
-            <span class="label">DOWNLOAD</span>
-            <span class="value down-val mono-val">{downSpeed}</span>
+  <div class="dashboard-grid">
+    <!-- Left Column (Main Stats & Tables) -->
+    <div class="main-column">
+      <!-- Sekcja Ring-Gauges (CPU, RAM, DYSK) -->
+      <section class="metrics-grid">
+        <!-- CPU -->
+        <div class="metric-card glass">
+          <div class="card-header">
+            <h3>Processor (CPU)</h3>
+            <Cpu size={18} class="accent-amber-text" />
           </div>
-        </div>
-        <div class="net-dir">
-          <ArrowUp size={28} class="net-icon up" />
-          <div class="net-info">
-            <span class="label">UPLOAD</span>
-            <span class="value up-val mono-val">{upSpeed}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  {#if extended}
-    <section class="extended-grid">
-      <div class="ext-card glass">
-        <div class="ext-header"><Gauge size={16} /> Load average</div>
-        <div class="load-vals mono-val">
-          <span>{extended.load_1.toFixed(2)}</span>
-          <span class="sep">/</span>
-          <span>{extended.load_5.toFixed(2)}</span>
-          <span class="sep">/</span>
-          <span>{extended.load_15.toFixed(2)}</span>
-        </div>
-        <span class="ext-label">1 min / 5 min / 15 min</span>
-      </div>
-      <div class="ext-card glass">
-        <div class="ext-header"><Layers size={16} /> Swap</div>
-        <div class="ext-val mono-val">
-          {extended.swap_used_mb} / {extended.swap_total_mb} MB
-        </div>
-        <span class="ext-label">
-          {`${String(
-              extended.swap_total_mb > 0
-                ? Math.round((extended.swap_used_mb / extended.swap_total_mb) * 100)
-                : 0
-            )}% used`}
-        </span>
-      </div>
-    </section>
-
-    {#if extended.disk_mounts.length > 0}
-      <section class="mounts-panel glass">
-        <h3>Disk partitions</h3>
-        <div class="mounts-table">
-          <div class="mount-row head">
-            <span>Mount</span><span>Usage</span><span>Inode</span>
-          </div>
-          {#each extended.disk_mounts as m}
-            <div class="mount-row">
-              <span class="mono-val">{m.mount}</span>
-              <span class="mono-val {m.use_pct >= 85 ? 'warn' : ''}">{m.use_pct}% ({Math.round(m.used_mb / 1024)}G/{Math.round(m.total_mb / 1024)}G)</span>
-              <span class="mono-val {m.inode_use_pct >= 85 ? 'warn' : ''}">{m.inode_use_pct}%</span>
+          <div class="gauge-container">
+            <svg class="ring-gauge" viewBox="0 0 100 100">
+              <circle class="gauge-bg" cx="50" cy="50" r="40" />
+              <circle 
+                class="gauge-fill cpu" 
+                cx="50" cy="50" r="40" 
+                style="stroke-dasharray: 251.2; stroke-dashoffset: {251.2 - (251.2 * stats.cpu_usage) / 100}"
+              />
+            </svg>
+            <div class="gauge-value">
+              <span class="val mono-val">{Math.round(stats.cpu_usage)}%</span>
             </div>
-          {/each}
+          </div>
+        </div>
+
+        <!-- RAM -->
+        <div class="metric-card glass">
+          <div class="card-header">
+            <h3>Memory (RAM)</h3>
+            <Activity size={18} class="accent-rust-text" />
+          </div>
+          <div class="gauge-container">
+            <svg class="ring-gauge" viewBox="0 0 100 100">
+              <circle class="gauge-bg" cx="50" cy="50" r="40" />
+              <circle 
+                class="gauge-fill ram" 
+                cx="50" cy="50" r="40" 
+                style="stroke-dasharray: 251.2; stroke-dashoffset: {251.2 - (251.2 * (stats.ram_used / stats.ram_total * 100)) / 100}"
+              />
+            </svg>
+            <div class="gauge-value">
+              <span class="val mono-val">{Math.round((stats.ram_used / stats.ram_total) * 100)}%</span>
+              <span class="desc mono-val">{formatRam(stats.ram_used, stats.ram_total)}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- DYSK -->
+        <div class="metric-card glass">
+          <div class="card-header">
+            <h3>Disk space</h3>
+            <HardDrive size={18} class="accent-green-text" />
+          </div>
+          <div class="gauge-container">
+            <svg class="ring-gauge" viewBox="0 0 100 100">
+              <circle class="gauge-bg" cx="50" cy="50" r="40" />
+              <circle 
+                class="gauge-fill disk" 
+                cx="50" cy="50" r="40" 
+                style="stroke-dasharray: 251.2; stroke-dashoffset: {251.2 - (251.2 * (stats.disk_used / stats.disk_total * 100)) / 100}"
+              />
+            </svg>
+            <div class="gauge-value">
+              <span class="val mono-val">{Math.round((stats.disk_used / stats.disk_total) * 100)}%</span>
+              <span class="desc mono-val">{(stats.disk_used / 1024).toFixed(1)} GB / {(stats.disk_total / 1024).toFixed(1)} GB</span>
+            </div>
+          </div>
         </div>
       </section>
-    {/if}
 
-    {#if extended.top_processes.length > 0}
-      <section class="procs-panel glass">
-        <h3>Top processes (RAM)</h3>
-        <div class="procs-table">
-          <div class="proc-row head">
-            <span>PID</span><span>User</span><span>Processor (CPU)</span><span>Memory (RAM)</span><span>Command</span>
-          </div>
-          {#each extended.top_processes as p}
-            <div class="proc-row">
-              <span class="mono-val">{p.pid}</span>
-              <span>{p.user}</span>
-              <span class="mono-val">{p.cpu}%</span>
-              <span class="mono-val">{p.mem}%</span>
-              <span class="cmd" title={p.command}>{p.command}</span>
+      <!-- History charts and network -->
+      <section class="charts-grid">
+        <div class="chart-card glass">
+          <div class="chart-header">
+            <h3>CPU & RAM load history</h3>
+            <div class="legend">
+              <span class="legend-item"><span class="color-dot cpu"></span>Processor (CPU)</span>
+              <span class="legend-item"><span class="color-dot ram"></span>Memory (RAM)</span>
             </div>
-          {/each}
-        </div>
-      </section>
-    {/if}
-  {/if}
+          </div>
+          <div class="chart-container">
+            <svg viewBox="0 0 500 120" preserveAspectRatio="none" class="chart-svg">
+              <defs>
+                <linearGradient id="cpu-grad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="var(--accent-amber)" stop-opacity="0.2"/>
+                  <stop offset="100%" stop-color="var(--accent-amber)" stop-opacity="0.0"/>
+                </linearGradient>
+                <linearGradient id="ram-grad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="var(--accent-rust)" stop-opacity="0.1"/>
+                  <stop offset="100%" stop-color="var(--accent-rust)" stop-opacity="0.0"/>
+                </linearGradient>
+              </defs>
+              
+              <!-- Siatka oscyloskopowa -->
+              <line x1="0" y1="20" x2="500" y2="20" stroke="rgba(245, 158, 11, 0.05)" stroke-width="0.5" />
+              <line x1="0" y1="40" x2="500" y2="40" stroke="rgba(245, 158, 11, 0.05)" stroke-width="0.5" />
+              <line x1="0" y1="60" x2="500" y2="60" stroke="rgba(245, 158, 11, 0.05)" stroke-width="0.5" />
+              <line x1="0" y1="80" x2="500" y2="80" stroke="rgba(245, 158, 11, 0.05)" stroke-width="0.5" />
+              <line x1="0" y1="100" x2="500" y2="100" stroke="rgba(245, 158, 11, 0.05)" stroke-width="0.5" />
+              
+              <line x1="100" y1="0" x2="100" y2="120" stroke="rgba(245, 158, 11, 0.05)" stroke-width="0.5" />
+              <line x1="200" y1="0" x2="200" y2="120" stroke="rgba(245, 158, 11, 0.05)" stroke-width="0.5" />
+              <line x1="300" y1="0" x2="300" y2="120" stroke="rgba(245, 158, 11, 0.05)" stroke-width="0.5" />
+              <line x1="400" y1="0" x2="400" y2="120" stroke="rgba(245, 158, 11, 0.05)" stroke-width="0.5" />
 
-  <section class="alerts-panel glass">
-    <div class="alerts-header">
-      <h3>Desktop alerts</h3>
-      <label class="toggle-row">
-        <input type="checkbox" bind:checked={alertConfig.enabled} onchange={saveAlertConfig} />
-        Enabled
-      </label>
-    </div>
-    {#if alertConfig.enabled}
-      <div class="alert-thresholds">
-        <label>CPU (%)
-          <input type="number" min="50" max="100" bind:value={alertConfig.cpu_pct} onchange={saveAlertConfig} />
-        </label>
-        <label>RAM (%)
-          <input type="number" min="50" max="100" bind:value={alertConfig.ram_pct} onchange={saveAlertConfig} />
-        </label>
-        <label>Disk (%)
-          <input type="number" min="50" max="100" bind:value={alertConfig.disk_pct} onchange={saveAlertConfig} />
-        </label>
-      </div>
-    {/if}
-  </section>
+              <!-- Obszar CPU -->
+              {#if cpuHistory.length > 1}
+                <path d={getSvgAreaPath(cpuHistory)} fill="url(#cpu-grad)" />
+                <path d={getSvgPath(cpuHistory)} fill="none" stroke="var(--accent-amber)" stroke-width="1.5" stroke-linecap="round" />
+              {/if}
 
-  <!-- Pangolin Proxy Stats -->
-  <section class="proxy-section glass">
-    <div class="proxy-header">
-      <h3><Globe size={18} class="accent-amber-text" /> Pangolin Proxy (7 days)</h3>
-      {#if proxyStats.configured}
-        <span class="proxy-badge">Connected</span>
-      {/if}
-    </div>
+              <!-- Obszar RAM -->
+              {#if ramHistory.length > 1}
+                <path d={getSvgAreaPath(ramHistory)} fill="url(#ram-grad)" />
+                <path d={getSvgPath(ramHistory)} fill="none" stroke="var(--accent-rust)" stroke-width="1.5" stroke-dasharray="3,3" stroke-linecap="round" />
+              {/if}
+            </svg>
+          </div>
+        </div>
 
-    {#if proxyStats.loading}
-      <p class="proxy-muted">Loading proxy stats…</p>
-    {:else if !proxyStats.configured}
-      <p class="proxy-muted">
-        Configure Pangolin in the Pangolin Proxy tab to see traffic stats.
-      </p>
-    {:else}
-      <div class="proxy-grid">
-        <div class="proxy-stat">
-          <span class="proxy-label">Requests</span>
-          <span class="proxy-val mono-val">{formatCompact(proxyStats.totalRequests)}</span>
-        </div>
-        <div class="proxy-stat">
-          <span class="proxy-label">Allowed</span>
-          <span class="proxy-val mono-val text-green">{formatCompact(proxyAllowed)}</span>
-        </div>
-        <div class="proxy-stat">
-          <span class="proxy-label">Blocked</span>
-          <span class="proxy-val mono-val text-red">{formatCompact(proxyStats.totalBlocked)}</span>
-        </div>
-        <div class="proxy-stat">
-          <span class="proxy-label">Block rate</span>
-          <span class="proxy-val mono-val">{proxyBlockRate}%</span>
-        </div>
-      </div>
-
-      {#if proxyStats.topCountries.length > 0}
-        <div class="proxy-countries">
-          <span class="proxy-label">Top countries</span>
-          <div class="proxy-country-list">
-            {#each proxyStats.topCountries as country}
-              <div class="proxy-country-item">
-                <Shield size={14} class="accent-amber-text" />
-                <span class="country-code">{country.code}</span>
-                <span class="country-name">{getCountryName(country)}</span>
-                <span class="country-count mono-val">{formatCompact(country.count || 0)}</span>
+        <!-- Network -->
+        <div class="network-card glass">
+          <h3>Network speed (I/O)</h3>
+          <div class="net-stats">
+            <div class="net-dir">
+              <ArrowDown size={28} class="net-icon down" />
+              <div class="net-info">
+                <span class="label">DOWNLOAD</span>
+                <span class="value down-val mono-val">{downSpeed}</span>
               </div>
-            {/each}
+            </div>
+            <div class="net-dir">
+              <ArrowUp size={28} class="net-icon up" />
+              <div class="net-info">
+                <span class="label">UPLOAD</span>
+                <span class="value up-val mono-val">{upSpeed}</span>
+              </div>
+            </div>
           </div>
         </div>
+      </section>
+
+      {#if extended}
+        {#if extended.disk_mounts.length > 0}
+          <section class="mounts-panel glass">
+            <h3>Disk partitions</h3>
+            <div class="mounts-table">
+              <div class="mount-row head">
+                <span>Mount</span><span>Usage</span><span>Inode</span>
+              </div>
+              {#each extended.disk_mounts as m}
+                <div class="mount-row">
+                  <span class="mono-val">{m.mount}</span>
+                  <span class="mono-val {m.use_pct >= 85 ? 'warn' : ''}">{m.use_pct}% ({Math.round(m.used_mb / 1024)}G/{Math.round(m.total_mb / 1024)}G)</span>
+                  <span class="mono-val {m.inode_use_pct >= 85 ? 'warn' : ''}">{m.inode_use_pct}%</span>
+                </div>
+              {/each}
+            </div>
+          </section>
+        {/if}
+
+        {#if extended.top_processes.length > 0}
+          <section class="procs-panel glass">
+            <h3>Top processes (RAM)</h3>
+            <div class="procs-table">
+              <div class="proc-row head">
+                <span>PID</span><span>User</span><span>Processor (CPU)</span><span>Memory (RAM)</span><span>Command</span>
+              </div>
+              {#each extended.top_processes as p}
+                <div class="proc-row">
+                  <span class="mono-val">{p.pid}</span>
+                  <span>{p.user}</span>
+                  <span class="mono-val">{p.cpu}%</span>
+                  <span class="mono-val">{p.mem}%</span>
+                  <span class="cmd" title={p.command}>{p.command}</span>
+                </div>
+              {/each}
+            </div>
+          </section>
+        {/if}
       {/if}
-    {/if}
-  </section>
+    </div>
+
+    <!-- Right Column (Sidebar/Info & Config) -->
+    <div class="sidebar-column">
+      <!-- Sekcja informacji systemowych -->
+      <section class="system-info-panel glass">
+        <div class="info-item">
+          <Info class="info-icon animate-pulse" size={20} />
+          <div>
+            <span class="info-label">Operating system</span>
+            <span class="info-val">{stats.os}</span>
+          </div>
+        </div>
+        <div class="info-item">
+          <Activity class="info-icon" size={20} />
+          <div>
+            <span class="info-label">Uptime</span>
+            <span class="info-val mono-val">{stats.uptime}</span>
+          </div>
+        </div>
+        <div class="info-item">
+          <Cpu class="info-icon" size={20} />
+          <div>
+            <span class="info-label">Hostname</span>
+            <span class="info-val">{stats.hostname}</span>
+          </div>
+        </div>
+      </section>
+
+      {#if extended}
+        <section class="extended-grid">
+          <div class="ext-card glass">
+            <div class="ext-header"><Gauge size={16} /> Load average</div>
+            <div class="load-vals mono-val">
+              <span>{extended.load_1.toFixed(2)}</span>
+              <span class="sep">/</span>
+              <span>{extended.load_5.toFixed(2)}</span>
+              <span class="sep">/</span>
+              <span>{extended.load_15.toFixed(2)}</span>
+            </div>
+            <span class="ext-label">1 min / 5 min / 15 min</span>
+          </div>
+          <div class="ext-card glass">
+            <div class="ext-header"><Layers size={16} /> Swap</div>
+            <div class="ext-val mono-val">
+              {extended.swap_used_mb} / {extended.swap_total_mb} MB
+            </div>
+            <span class="ext-label">
+              {`${String(
+                  extended.swap_total_mb > 0
+                    ? Math.round((extended.swap_used_mb / extended.swap_total_mb) * 100)
+                    : 0
+                )}% used`}
+            </span>
+          </div>
+        </section>
+      {/if}
+
+      <!-- Pangolin Proxy Stats -->
+      <section class="proxy-section glass">
+        <div class="proxy-header">
+          <h3><Globe size={18} class="accent-amber-text" /> Pangolin Proxy (7 days)</h3>
+          {#if proxyStats.configured}
+            <span class="proxy-badge">Connected</span>
+          {/if}
+        </div>
+
+        {#if proxyStats.loading}
+          <p class="proxy-muted">Loading proxy stats…</p>
+        {:else if !proxyStats.configured}
+          <p class="proxy-muted">
+            Configure Pangolin in the Pangolin Proxy tab to see traffic stats.
+          </p>
+        {:else}
+          <div class="proxy-grid">
+            <div class="proxy-stat">
+              <span class="proxy-label">Requests</span>
+              <span class="proxy-val mono-val">{formatCompact(proxyStats.totalRequests)}</span>
+            </div>
+            <div class="proxy-stat">
+              <span class="proxy-label">Allowed</span>
+              <span class="proxy-val mono-val text-green">{formatCompact(proxyAllowed)}</span>
+            </div>
+            <div class="proxy-stat">
+              <span class="proxy-label">Blocked</span>
+              <span class="proxy-val mono-val text-red">{formatCompact(proxyStats.totalBlocked)}</span>
+            </div>
+            <div class="proxy-stat">
+              <span class="proxy-label">Block rate</span>
+              <span class="proxy-val mono-val">{proxyBlockRate}%</span>
+            </div>
+          </div>
+
+          {#if proxyStats.topCountries.length > 0}
+            <div class="proxy-countries">
+              <span class="proxy-label">Top countries</span>
+              <div class="proxy-country-list">
+                {#each proxyStats.topCountries as country}
+                  <div class="proxy-country-item">
+                    <Shield size={14} class="accent-amber-text" />
+                    <span class="country-code">{country.code}</span>
+                    <span class="country-name">{getCountryName(country)}</span>
+                    <span class="country-count mono-val">{formatCompact(country.count || 0)}</span>
+                  </div>
+                {/each}
+              </div>
+            </div>
+          {/if}
+        {/if}
+      </section>
+
+      <!-- Desktop Alerts -->
+      <section class="alerts-panel glass">
+        <div class="alerts-header">
+          <h3>Desktop alerts</h3>
+          <label class="toggle-row">
+            <input type="checkbox" bind:checked={alertConfig.enabled} onchange={saveAlertConfig} />
+            Enabled
+          </label>
+        </div>
+        {#if alertConfig.enabled}
+          <div class="alert-thresholds">
+            <label>CPU (%)
+              <input type="number" min="50" max="100" bind:value={alertConfig.cpu_pct} onchange={saveAlertConfig} />
+            </label>
+            <label>RAM (%)
+              <input type="number" min="50" max="100" bind:value={alertConfig.ram_pct} onchange={saveAlertConfig} />
+            </label>
+            <label>Disk (%)
+              <input type="number" min="50" max="100" bind:value={alertConfig.disk_pct} onchange={saveAlertConfig} />
+            </label>
+          </div>
+        {/if}
+      </section>
+    </div>
+  </div>
 </div>
 
 <style>
@@ -551,19 +569,46 @@
     /* uses .manager-shell */
   }
 
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: 2fr 1.1fr;
+    gap: 20px;
+    align-items: start;
+    margin-top: 10px;
+  }
+
+  .main-column, .sidebar-column {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  @media (max-width: 1200px) {
+    .dashboard-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
   /* Info panel */
   .system-info-panel {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 20px;
     border-radius: var(--radius-sm);
   }
 
   .info-item {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    padding-bottom: 12px;
+  }
+
+  .info-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
   }
 
   .info-icon {
@@ -677,13 +722,12 @@
   }
 
   .gauge-value .desc {
-    font-size: 0.65rem;
+    font-size: 0.62rem;
     font-family: var(--font-mono);
     color: var(--text-secondary);
     margin-top: 4px;
-    max-width: 100px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    max-width: 120px;
+    overflow: visible;
     white-space: nowrap;
   }
 
@@ -858,14 +902,8 @@
 
   .proxy-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 12px;
-  }
-
-  @media (max-width: 900px) {
-    .proxy-grid {
-      grid-template-columns: repeat(2, 1fr);
-    }
   }
 
   .proxy-stat {

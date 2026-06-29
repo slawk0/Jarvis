@@ -314,7 +314,14 @@ impl SshConnection {
     pub async fn get_stats(&self) -> Result<ServerStats, AppError> {
         let script = r#"
         echo "===HOST==="
-        hostname; uname -sr; uptime -p
+        hostname
+        if [ -f /etc/os-release ]; then
+            . /etc/os-release
+            echo "${PRETTY_NAME:-$(uname -sr)}"
+        else
+            uname -sr
+        fi
+        uptime -p
         echo "===CPU==="
         read -r _ user nice system idle iowait irq softirq steal guest guest_nice < /proc/stat
         prev_idle=$((idle + iowait))

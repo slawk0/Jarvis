@@ -30,9 +30,23 @@
     Timer,
     BarChart3,
     FolderArchive,
+    Search,
+    X,
   } from 'lucide-svelte';
   import type { ServerProfile } from '$lib/admin/types';
-  import { getNavLabel, TAB_IDS } from '$lib/nav';
+  import { getNavLabel, TAB_IDS, NAV_CATEGORIES } from '$lib/nav';
+  import { getVersion } from '@tauri-apps/api/app';
+  import { onMount } from 'svelte';
+
+  let appVersion = $state('...');
+
+  onMount(async () => {
+    try {
+      appVersion = await getVersion();
+    } catch (e) {
+      appVersion = 'dev';
+    }
+  });
 
   let {
     activeTab = '',
@@ -51,6 +65,21 @@
   } = $props();
 
   let showProfileMenu = $state(false);
+  let searchQuery = $state('');
+
+  const filteredCategories = $derived.by(() => {
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) {
+      return NAV_CATEGORIES;
+    }
+    return NAV_CATEGORIES.map(cat => {
+      const matchedItems = cat.items.filter(id => {
+        const label = getNavLabel(id).toLowerCase();
+        return label.includes(query) || id.toLowerCase().includes(query);
+      });
+      return { ...cat, items: matchedItems };
+    }).filter(cat => cat.items.length > 0);
+  });
 
   const menuItems = TAB_IDS.map((id) => ({
     id,
@@ -113,73 +142,96 @@
   <div class="brand">
     <button class="logo-circle" onclick={toggleCollapse} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>J</button>
     {#if !collapsed}
-      <div class="brand-info">
-        <span class="brand-name">JARVIS</span>
-        <button
-          class="server-switcher"
-          class:clickable={profiles.length > 1}
-          onclick={(e) => { e.stopPropagation(); toggleProfileMenu(); }}
-          title={profiles.length > 1 ? 'Switch server' : displayHostname}
-        >
-          {#if isSwitching}
-            <Loader2 size={12} class="spin" />
-          {:else}
-            <span class="status-dot" class:offline={!isOnline}></span>
-          {/if}
-          <span class="switcher-label">
-            {currentProfile?.label || displayHostname}
-          </span>
-          {#if profiles.length > 1}
-            <ChevronDown size={12} class="chev" />
-          {/if}
-        </button>
+      <div class="search-container">
+        <div class="search-icon">
+          <Search size={14} />
+        </div>
+        <input 
+          type="text" 
+          placeholder="Search..." 
+          bind:value={searchQuery}
+          class="sidebar-search"
+          aria-label="Search navigation"
+        />
+        {#if searchQuery}
+          <button class="clear-search" onclick={() => searchQuery = ''} aria-label="Clear search">
+            <X size={14} />
+          </button>
+        {/if}
       </div>
     {/if}
   </div>
 
-  {#if showProfileMenu && profiles.length > 1 && !collapsed}
-    <div class="profile-dropdown" onclick={(e) => e.stopPropagation()}>
-      {#each profiles as p}
-        <button
-          class="profile-option {p.id === currentProfileId ? 'active' : ''}"
-          onclick={() => selectProfile(p.id)}
-        >
-          <Server size={14} />
-          <div class="opt-info">
-            <span class="opt-label">{p.label}</span>
-            <span class="opt-host">{p.username}@{p.host}</span>
-          </div>
-        </button>
-      {/each}
-    </div>
-  {/if}
-
   <nav class="nav-menu">
-    {#each menuItems as item}
-      {@const label = getNavLabel(item.id)}
-      <div 
-        class="nav-item {activeTab === item.id ? 'active' : ''}" 
-        onclick={() => onTabSelect(item.id)}
-        onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTabSelect(item.id); } }}
-        onpointerdown={(e: PointerEvent) => handlePointerDown(e, item.id)}
-        role="button"
-        tabindex="0"
-        title={collapsed ? label : ''}
-      >
-        <item.icon size={18} class="nav-icon" />
+    {#if filteredCategories.length === 0}
+      <div class="no-results">No matches found</div>
+    {:else}
+      {#each filteredCategories as cat, catIndex}
         {#if !collapsed}
-          <span class="nav-label">{label}</span>
+          <div class="category-header">{cat.label}</div>
+        {:else if catIndex > 0}
+          <div class="category-divider"></div>
         {/if}
-      </div>
-    {/each}
+        {#each cat.items as itemId}
+          {@const item = menuItems.find(i => i.id === itemId)}
+          {#if item}
+            {@const label = getNavLabel(item.id)}
+            <div 
+              class="nav-item {activeTab === item.id ? 'active' : ''}" 
+              onclick={() => onTabSelect(item.id)}
+              onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTabSelect(item.id); } }}
+              onpointerdown={(e: PointerEvent) => handlePointerDown(e, item.id)}
+              role="button"
+              tabindex="0"
+              title={collapsed ? label : ''}
+            >
+              <item.icon size={18} class="nav-icon" />
+              {#if !collapsed}
+                <span class="nav-label">{label}</span>
+              {/if}
+            </div>
+          {/if}
+        {/each}
+      {/each}
+    {/if}
   </nav>
 
   <div class="sidebar-footer">
+    {#if showProfileMenu && profiles.length > 1 && !collapsed}
+      <div class="profile-dropdown" onclick={(e) => e.stopPropagation()}>
+        {#each profiles as p}
+          <button
+            class="profile-option {p.id === currentProfileId ? 'active' : ''}"
+            onclick={() => selectProfile(p.id)}
+          >
+            <Server size={14} />
+            <div class="opt-info">
+              <span class="opt-label">{p.label}</span>
+              <span class="opt-host">{p.username}@{p.host}</span>
+            </div>
+          </button>
+        {/each}
+      </div>
+    {/if}
+
     {#if !collapsed}
       <div class="telemetry-hud">
-        <div class="hud-row">
+        <div 
+          class="hud-row"
+          class:clickable={profiles.length > 1}
+          onclick={(e) => { if (profiles.length > 1) { e.stopPropagation(); toggleProfileMenu(); } }}
+          onkeydown={(e) => { if (profiles.length > 1 && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); e.stopPropagation(); toggleProfileMenu(); } }}
+          role={profiles.length > 1 ? "button" : undefined}
+          tabindex={profiles.length > 1 ? 0 : -1}
+          title={profiles.length > 1 ? 'Switch server profile' : undefined}
+        >
           <span class="hud-label">Host</span>
-          <span class="hud-val" title={displayHostname}>{displayHostname.length > 14 ? displayHostname.slice(0, 14) + '...' : displayHostname}</span>
+          <span class="hud-val" class:has-dropdown={profiles.length > 1} title={displayHostname}>
+            {currentProfile?.label || displayHostname}
+            {#if profiles.length > 1}
+              <ChevronDown size={10} class="hud-chev" />
+            {/if}
+          </span>
         </div>
         <div class="hud-row">
           <span class="hud-label">Status</span>
@@ -225,6 +277,10 @@
         <span class="nav-label">Disconnect</span>
       {/if}
     </button>
+
+    <div class="version-display" title="Running version v{appVersion}">
+      <span>v{appVersion}</span>
+    </div>
   </div>
 </aside>
 
@@ -289,82 +345,96 @@
     transform: scale(0.96);
   }
 
-  .brand-info {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
+  .search-container {
+    position: relative;
     flex: 1;
-    opacity: 1;
-    transition: opacity 0.15s ease;
-  }
-
-  .brand-name {
-    font-family: var(--font-display);
-    font-size: 1rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    color: white;
-    white-space: nowrap;
-  }
-
-  .server-switcher {
-    background: transparent;
-    border: none;
-    padding: 0;
-    margin-top: 2px;
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 0.7rem;
-    color: var(--text-secondary);
-    cursor: default;
-    text-align: left;
+  }
+
+  .search-icon {
+    position: absolute;
+    left: 10px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    color: var(--text-muted);
+    pointer-events: none;
+  }
+
+  .sidebar-search {
     width: 100%;
-    white-space: nowrap;
+    height: 32px;
+    padding: 6px 28px 6px 30px !important;
+    font-size: 0.8rem;
+    background: var(--bg-element) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
   }
 
-  .server-switcher.clickable {
+  .sidebar-search:focus {
+    border-color: var(--accent-primary) !important;
+    box-shadow: 0 0 0 2px var(--accent-muted) !important;
+  }
+
+  .clear-search {
+    position: absolute;
+    right: 6px;
+    background: transparent;
+    border: none;
+    padding: 2px;
+    color: var(--text-muted);
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.15s ease, transform 0.1s ease;
   }
 
-  .server-switcher.clickable:hover {
-    color: var(--accent-amber);
+  .clear-search:hover {
+    color: var(--text-primary);
   }
 
-  .switcher-label {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    flex: 1;
+  .clear-search:active {
+    transform: scale(0.96);
   }
 
-  .status-dot {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background-color: var(--accent-green);
-    box-shadow: 0 0 6px var(--accent-green);
-    flex-shrink: 0;
+  .category-header {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    padding: 14px 14px 4px;
+    user-select: none;
   }
 
-  .status-dot.offline {
-    background-color: var(--accent-red);
-    box-shadow: 0 0 6px var(--accent-red);
+  .category-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.06);
+    margin: 8px 12px;
   }
 
-  .chev { flex-shrink: 0; opacity: 0.6; }
+  .no-results {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    padding: 20px 14px;
+    text-align: center;
+    font-style: italic;
+  }
 
   .profile-dropdown {
     position: absolute;
-    top: 72px;
+    bottom: calc(100% + 4px);
     left: 10px;
     right: 10px;
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
     z-index: 50;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-    max-height: 240px;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.5);
+    max-height: 200px;
     overflow-y: auto;
   }
 
@@ -466,6 +536,7 @@
     padding: 16px 12px;
     border-top: 1px solid var(--border-color);
     background: rgba(0, 0, 0, 0.15);
+    position: relative;
   }
 
   .sidebar.collapsed .sidebar-footer {
@@ -560,4 +631,43 @@
     cursor: not-allowed;
   }
 
+  .hud-row.clickable {
+    cursor: pointer;
+    padding: 2px 4px;
+    margin: -2px -4px;
+    border-radius: var(--radius-sm);
+    transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  }
+
+  .hud-row.clickable:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+  }
+
+  .hud-row.clickable:active {
+    transform: scale(0.98);
+  }
+
+  .hud-val.has-dropdown {
+    color: var(--accent-primary) !important;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .hud-chev {
+    opacity: 0.8;
+  }
+
+  .version-display {
+    padding: 6px 12px;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-align: center;
+    font-family: var(--font-mono);
+    border-top: 1px solid var(--border-color);
+    margin-top: 8px;
+    user-select: none;
+    opacity: 0.6;
+  }
 </style>
