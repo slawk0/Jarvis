@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { Play, Square, RotateCw, Plus, RefreshCw, Eye, KeyRound, Search, X } from 'lucide-svelte';
+  import { Play, Square, RotateCw, Plus, RefreshCw, Eye, KeyRound, Search, X, FileText } from 'lucide-svelte';
   import SortableTh from './ui/SortableTh.svelte';
   import { applySort, nextSort, type SortState } from '$lib/sort/sortUtils';
   import { stickToBottom } from '$lib/stickToBottom';
@@ -323,7 +323,7 @@ WantedBy=multi-user.target
               <td class="desc-cell" title={service.desc}>{service.desc || "(no description)"}</td>
               <td class="actions-cell">
                 <button class="btn-action" onclick={() => openServiceStatus(service.name)} title="Status & logs">
-                  <Eye size={14} />
+                  <FileText size={14} />
                 </button>
                 {#if service.active === 'active'}
                   <button class="btn-action danger-text" onclick={() => executeServiceAction('stop', service.name)} title="Stop">

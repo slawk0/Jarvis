@@ -32,10 +32,17 @@ jobs:
         with:
           workspaces: './src-tauri -> target'
 
-      - name: Get App Version
+      - name: Bump and Sync Version
         id: app_info
         shell: bash
         run: |
+          # Bump version in package.json
+          npm version patch --no-git-tag-version
+          
+          # Sync version to tauri.conf.json
+          node scripts/sync-version.mjs
+          
+          # Read new version for subsequent steps
           VERSION=$(node -e "import fs from 'fs'; console.log(JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json')).version)")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
@@ -58,11 +65,12 @@ jobs:
       - name: Generate updater.json
         run: node scripts/generate-updater.mjs
 
-      - name: Commit and Push updater.json
+      - name: Commit and Push Release Changes
         shell: bash
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add updater.json
-          git commit -m "chore: update auto-updater metadata for v${{ steps.app_info.outputs.version }} [skip ci]" || echo "No changes to commit"
+          git add package.json package-lock.json src-tauri/tauri.conf.json updater.json
+          git commit -m "chore: release v${{ steps.app_info.outputs.version }} [skip ci]" || echo "No changes to commit"
           git push origin main
+

@@ -19,7 +19,8 @@
     Save,
     X,
     Eye,
-    Search
+    Search,
+    MousePointer
   } from 'lucide-svelte';
   import '@xterm/xterm/css/xterm.css';
   import { registerBackHandler } from '$lib/backNavigation.svelte';
@@ -853,7 +854,7 @@
       <Clipboard size={14} /> Paste
     </button>
     <button class="menu-item" onclick={handleSelectAll}>
-      <Eye size={14} /> Select All
+      <MousePointer size={14} /> Select All
     </button>
     <hr class="menu-separator" />
     <button class="menu-item danger" onclick={handleClearTerminal}>

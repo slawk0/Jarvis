@@ -9,6 +9,7 @@
     onDelete: () => void;
     onMove: () => void;
     onCancelMove?: () => void;
+    onMoveHere?: () => void;
     onClearSelection: () => void;
   }
 
@@ -20,6 +21,7 @@
     onDelete,
     onMove,
     onCancelMove,
+    onMoveHere,
     onClearSelection,
   }: Props = $props();
 
@@ -31,9 +33,12 @@
     {#if moveMode}
       <span class="move-hint">
         <FolderInput size={14} />
-        <span class="move-hint-text">Click target folder</span>
+        <span class="move-hint-text">Click target folder or:</span>
         <span class="bulk-count tabular-nums">{selectedCount}</span>
       </span>
+      <button class="primary btn-compact bulk-btn" type="button" onclick={onMoveHere} style="background: var(--accent-amber-glow); color: var(--accent-amber); border-color: var(--accent-amber);">
+        Move here
+      </button>
       <button class="secondary btn-compact bulk-btn" type="button" onclick={onCancelMove}>
         <X size={14} /> Cancel
       </button>
@@ -82,10 +87,13 @@
     {#if moveMode}
       <span class="bulk-hint">
         <FolderInput size={16} />
-        Click target folder
+        Click target folder or:
         <span class="bulk-count tabular-nums">{selectedCount}</span>
         {selectedCount === 1 ? "item" : "items"}
       </span>
+      <button class="primary btn-compact bulk-btn" type="button" onclick={onMoveHere} style="background: var(--accent-amber-glow); color: var(--accent-amber); border-color: var(--accent-amber);">
+        Move here
+      </button>
       <button class="secondary btn-compact bulk-btn" type="button" onclick={onCancelMove}>
         <X size={14} /> Cancel
       </button>

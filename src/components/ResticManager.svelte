@@ -1068,7 +1068,7 @@ fi
                         <td class="actions-col">
                           <div class="row-actions">
                             <button class="action-btn" title="Browse files" onclick={() => browseFiles(snap.id)}>
-                              <Eye size={12} />
+                              <FolderOpen size={12} />
                             </button>
                             <button class="action-btn" title="Restore snapshot" onclick={() => openRestore(snap.id)}>
                               <Download size={12} />

@@ -2440,9 +2440,8 @@ networks:
               <div class="detail-quick-links">
                 <button class="link-btn" onclick={() => openLogs(detailContainerId, detailData.name)}><FileText size={14} /> Logs</button>
                 <button class="link-btn" onclick={() => { detailShowRaw = !detailShowRaw; }}><Info size={14} /> Inspect</button>
-                <button class="link-btn" onclick={() => openExec(detailContainerId, detailData.name)}><Terminal size={14} /> Run command</button>
                 {#if detailData.running}
-                  <button class="link-btn" onclick={() => openInteractiveShell(detailContainerId, detailData.name)}><ChevronsUpDown size={14} /> Console</button>
+                  <button class="link-btn" onclick={() => openInteractiveShell(detailContainerId, detailData.name)}><Terminal size={14} /> Console</button>
                 {/if}
               </div>
               {#if detailShowRaw}
@@ -2964,12 +2963,9 @@ networks:
                       <button class="btn-action" onclick={() => openLogs(container.ID, container.Names)} title="Logs">
                         <FileText size={14} />
                       </button>
-                      <button class="btn-action" onclick={() => openExec(container.ID, container.Names)} title="Run command">
-                        <Terminal size={14} />
-                      </button>
                       {#if container.State === 'running'}
                         <button class="btn-action amber-text" onclick={() => openInteractiveShell(container.ID, container.Names)} title="Interactive shell">
-                          <ChevronsUpDown size={14} />
+                          <Terminal size={14} />
                         </button>
                       {/if}
                       <button class="btn-action danger-text" onclick={() => removeContainer(container.ID, container.Names)} title="Remove">
@@ -3250,10 +3246,10 @@ networks:
                         <Download size={14} /> Pull
                       </button>
                       <button class="btn-action" onclick={() => openComposeEditor(configFiles)} title="Edit compose file">
-                        <FileText size={14} />
+                        <Edit size={14} />
                       </button>
                       <button class="btn-action" onclick={() => openComposeLogs(projectName, configFiles)} title="Show project logs">
-                        <Eye size={14} />
+                        <FileText size={14} />
                       </button>
                       <button class="btn-action" onclick={() => openChangeComposeNetwork(project)} title="Change network">
                         <Unplug size={14} />
@@ -3561,40 +3557,6 @@ networks:
     </div>
   {/if}
 
-  <!-- Container Exec Modal -->
-  {#if showExecModal}
-    <div class="modal-overlay">
-      <div class="modal-content glass exec-modal">
-        <h3>{`Run command: ${execContainerName}`}</h3>
-        <p class="modal-desc">Run a command inside the container.</p>
-        <div class="exec-input-row">
-          <input
-            type="text"
-            placeholder="e.g. ls -la /app"
-            bind:value={execCommand}
-            onkeydown={(e) => e.key === 'Enter' && runExec()}
-            class="exec-input"
-          />
-          <button class="primary" onclick={runExec} disabled={execRunning || !execCommand.trim()}>
-            {#if execRunning}
-              <Loader2 size={16} class="spin" />
-            {:else}
-              <Play size={16} />
-            {/if}
-            Run
-          </button>
-        </div>
-        {#if execOutput}
-          <div class="exec-output-container" use:stickToBottom>
-            <pre class="exec-output">{execOutput}</pre>
-          </div>
-        {/if}
-        <div class="modal-actions">
-          <button class="secondary" onclick={() => showExecModal = false}>Close</button>
-        </div>
-      </div>
-    </div>
-  {/if}
 
   <!-- Pull Image Modal -->
   {#if showPullModal}
@@ -3727,20 +3689,24 @@ networks:
     <div class="modal-overlay fullscreen-overlay">
       <div class="modal-content glass fullscreen-modal compose-editor-modal">
         <div class="compose-editor-header">
-          <h3>Compose editor</h3>
-          <span class="mono-val compose-filepath">{composeEditorPath}</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <h3>Compose editor</h3>
+            <span class="mono-val compose-filepath">{composeEditorPath}</span>
+          </div>
+          <div class="compose-editor-actions" style="display: flex; gap: 8px; align-items: center;">
+            <button class="primary btn-sm" onclick={saveComposeFile} disabled={composeEditorSaving}>
+              {#if composeEditorSaving}
+                <Loader2 size={14} class="spin" /> Saving…
+              {:else}
+                <Save size={14} /> Save
+              {/if}
+            </button>
+            <button class="secondary btn-sm" onclick={closeComposeEditor}>
+              <X size={14} /> Close
+            </button>
+          </div>
         </div>
         <div bind:this={composeEditorElement} class="compose-editor-container"></div>
-        <div class="modal-actions">
-          <button class="primary" onclick={saveComposeFile} disabled={composeEditorSaving}>
-            {#if composeEditorSaving}
-              <Loader2 size={16} class="spin" /> Saving…
-            {:else}
-              Save
-            {/if}
-          </button>
-          <button class="secondary" onclick={closeComposeEditor}>Close</button>
-        </div>
       </div>
     </div>
   {/if}

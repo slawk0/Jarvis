@@ -19,6 +19,7 @@
     Loader2,
     Star,
     ChevronDown,
+    FolderInput,
   } from 'lucide-svelte';
   import SftpBulkActionsBar from './SftpBulkActionsBar.svelte';
   import SudoModal from '../SudoModal.svelte';
@@ -564,6 +565,12 @@
     moveMode = true;
   }
 
+  function startMoveSingle(file: FileInfo) {
+    const path = fileRemotePath(file, lastLoadedPath);
+    selectedPaths = new Set([path]);
+    moveMode = true;
+  }
+
   async function executeBulkMove(destDir: string) {
     const moves = Array.from(selectedPaths).map((src) => {
       const name = src.split('/').pop() || src;
@@ -587,6 +594,10 @@
       onError(`Move error: ${formatInvokeError(err)}`);
       moveMode = false;
     }
+  }
+
+  async function handleMoveHere() {
+    await executeBulkMove(lastLoadedPath);
   }
 
   // Internal drag-and-drop (move on server)
@@ -928,6 +939,7 @@
       onDownload={handleBulkDownload}
       onDelete={handleBulkDelete}
       onMove={startMoveMode}
+      onMoveHere={handleMoveHere}
       onCancelMove={() => (moveMode = false)}
       onClearSelection={clearSelection}
     />
@@ -1125,10 +1137,13 @@
                   <button class="btn-table" onclick={() => onEdit(remotePath, file)} title="Edit">
                     <Edit size={14} />
                   </button>
-                  <button class="btn-table" onclick={() => downloadSingle(file)} title="Download">
-                    <Download size={14} />
-                  </button>
                 {/if}
+                <button class="btn-table" onclick={() => downloadSingle(file)} title="Download">
+                  <Download size={14} />
+                </button>
+                <button class="btn-table" onclick={() => startMoveSingle(file)} title="Move">
+                  <FolderInput size={14} />
+                </button>
                 <button class="btn-table" onclick={() => onChmod(file)} title="Permissions (chmod)">
                   <KeyRound size={14} />
                 </button>
@@ -1178,16 +1193,25 @@
       >
         <Edit size={14} /> <span>Edit file</span>
       </button>
-      <button
-        class="menu-item"
-        onclick={() => {
-          downloadSingle(contextMenuFile!);
-          closeContextMenu();
-        }}
-      >
-        <Download size={14} /> <span>Download</span>
-      </button>
     {/if}
+    <button
+      class="menu-item"
+      onclick={() => {
+        downloadSingle(contextMenuFile!);
+        closeContextMenu();
+      }}
+    >
+      <Download size={14} /> <span>Download</span>
+    </button>
+    <button
+      class="menu-item"
+      onclick={() => {
+        startMoveSingle(contextMenuFile!);
+        closeContextMenu();
+      }}
+    >
+      <FolderInput size={14} /> <span>Move</span>
+    </button>
     <button
       class="menu-item"
       onclick={() => {
