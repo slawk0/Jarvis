@@ -84,7 +84,7 @@
         ? `/etc/environment`
         : persistTarget;
       const useSudo = persistTarget === '/etc/environment';
-      const cmd = `echo ${shQuote(line)} >> ${shQuote(target)}`;
+      const cmd = `echo ${shQuote(line)} >> ${target}`;
       await invoke('exec_custom_command', { cmd, useSudo });
       notifications.success(`Variable added to ${persistTarget}`);
       showAddForm = false;
