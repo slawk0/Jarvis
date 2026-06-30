@@ -1,10 +1,10 @@
 {
   "version": "0.1.1",
   "notes": "Automated release for version 0.1.1",
-  "pub_date": "2026-06-29T19:34:36.680Z",
+  "pub_date": "2026-06-30T17:18:36.598Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSekFQeWphWE9WSFJEbHB1L0RjbGUvVWE1Y3VGcTE4TGpWcXo2djFKL1VUTlJlMzhCTmVBT0JGWjRtWVJqZU9QK0U3dkxaMXVvdkZkVXVJdS92TVBpc2ZqQzdvc2dBQUE4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgyNzYxNjY3CWZpbGU6SmFydmlzXzAuMS4xX3g2NC1zZXR1cC5leGUKWWUzTGg0OTdrdUdPMTVrNHQyYzRaSmVHQmJUNSszRTgrRzdyd2FUaXNwNXo1bnljOXBiQVJZQ0xGQVNkdjRhcUhBRkh6cWUrUnExYVMwMWIwWGlaQmc9PQo=",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSekFQeWphWE9WSFNieTBtTEl6UzEvL1BYRGZPd1o1bVRuUUd6MS92Qm5OdmFGUzQ4bFRrei8rVEIyYlNLbFd5aFphTUY3ZGg5NTVLd0ZaQW1VQUZ1WURiTE5zb1czcWdNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgyODM5OTEwCWZpbGU6SmFydmlzXzAuMS4xX3g2NC1zZXR1cC5leGUKb0loRnJSWXd5TlBWNnBoUEFJdlhpckV4QUowZWxOd0xiUmhjZDFyQTV1RGlVYmtML1NSNVQxemJKVDJuSU51dC9ma0dEc1hiVjFxUU5zbzZuRU9lQmc9PQo=",
       "url": "https://github.com/slawk0/Jarvis/releases/download/v0.1.1/Jarvis_0.1.1_x64-setup.exe"
     }
   }
