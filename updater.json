@@ -1,11 +1,11 @@
 {
-  "version": "0.1.0",
-  "notes": "Automated release for version 0.1.0",
-  "pub_date": "2026-06-29T19:07:00.739Z",
+  "version": "0.1.1",
+  "notes": "Automated release for version 0.1.1",
+  "pub_date": "2026-06-29T19:34:36.680Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSekFQeWphWE9WSFpDaUpjL0I0MU9DeUdhc0k1VjVXekF1TU5YQ1FJZXlSWUlJSFdSckVBVWFzVXhlQWF5eExOV21RQ3F1bkIrTkYxVjUxaUVrRUxkR2tGT1Bhb0RqL1EwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgyNzYwMDA5CWZpbGU6SmFydmlzXzAuMS4wX3g2NC1zZXR1cC5leGUKUkVnTU9jenBzUnFyWmVyc3RxUjNhRkE3RTE2Y00rWDhrcHpXWFVCR0g0OUx3aDhkbkJMVEp5bEcvUGJJcjlVemVXcXBOamcvNko5Vm9hT1VoUlFCQkE9PQo=",
-      "url": "https://github.com/slawk0/Jarvis/releases/download/v0.1.0/Jarvis_0.1.0_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSekFQeWphWE9WSFJEbHB1L0RjbGUvVWE1Y3VGcTE4TGpWcXo2djFKL1VUTlJlMzhCTmVBT0JGWjRtWVJqZU9QK0U3dkxaMXVvdkZkVXVJdS92TVBpc2ZqQzdvc2dBQUE4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgyNzYxNjY3CWZpbGU6SmFydmlzXzAuMS4xX3g2NC1zZXR1cC5leGUKWWUzTGg0OTdrdUdPMTVrNHQyYzRaSmVHQmJUNSszRTgrRzdyd2FUaXNwNXo1bnljOXBiQVJZQ0xGQVNkdjRhcUhBRkh6cWUrUnExYVMwMWIwWGlaQmc9PQo=",
+      "url": "https://github.com/slawk0/Jarvis/releases/download/v0.1.1/Jarvis_0.1.1_x64-setup.exe"
     }
   }
 }
